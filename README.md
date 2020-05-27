@@ -35,4 +35,4 @@ TODO
 
 ## License
 
-See [LICENSE.txt](./LICENSE.txt)
+See [LICENSE](LICENSE)

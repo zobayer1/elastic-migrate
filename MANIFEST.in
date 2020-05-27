@@ -1,9 +1,12 @@
 exclude .env
 exclude .travis.yml
 include *.py
-include tests/*.py
+include .coveragerc
 include tox.ini
-include LICENSE.txt
+include LICENSE
 include requirements.txt
 include *.md
 include *.toml
+recursive-include esmigrate *
+recursive-include tests *
+recursive-include docs *

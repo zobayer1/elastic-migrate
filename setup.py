@@ -4,8 +4,12 @@ Elasticsearch migration tool.
 from os import path
 from setuptools import find_packages, setup
 
-setup_dependencies = ['setuptools_scm']
-install_dependencies = ['click', 'requests']
+setup_dependencies = ['setuptools-scm']
+install_dependencies = [
+    'click',
+    'requests',
+    'setuptools-scm'
+]
 
 try:
     docs_file = path.join(path.abspath(path.dirname(__file__)), 'README.md')
@@ -23,7 +27,7 @@ setup(
     description='Elasticsearch migration tool.',
     keywords='python elastic elasticsearch migrate migration',
     long_description=long_description,
-    use_scm_version = True,
+    use_scm_version=True,
     setup_requires=setup_dependencies,
     packages=find_packages(exclude=['docs', 'tests*']),
     include_package_data=True,

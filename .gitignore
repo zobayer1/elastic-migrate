@@ -141,4 +141,6 @@ cython_debug/
 .editorconfig
 .idea/
 .vscode/
-*.log
+
+# Local version file
+esmigrate/version.py
