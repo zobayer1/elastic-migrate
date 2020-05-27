@@ -8,7 +8,8 @@ setup_dependencies = ['setuptools_scm']
 install_dependencies = ['click', 'requests']
 
 try:
-    with open(path.join(path.abspath(path.dirname(__file__)), 'README.md'), encoding='utf-8') as f:
+    docs_file = path.join(path.abspath(path.dirname(__file__)), 'README.md')
+    with open(docs_file, encoding='utf-8') as f:
         long_description = '\n' + f.read()
 except FileNotFoundError:
     long_description = __doc__

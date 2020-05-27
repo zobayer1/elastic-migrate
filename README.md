@@ -1,40 +1,38 @@
-# Elastic Migrate
+# ElasticMigrate
 
 Elasticsearch migration tool.
 
 
-# Requirements
+## Environment
 
 TODO
 
 
-# Development
+## Development
 
 TODO
 
 
-# Configuration
+## Configuration
 
 TODO
 
 
-# Installation
+## Installation
 
 TODO
 
 
-# Usage
+## Usage
 
-To use it:
-
-    $ esmigrate --help
+TODO
 
 
-# Changelog
+## Changelog
 
-v0.1.0 - Initial Implementation
+TODO
 
 
-# License
+## License
 
-[MIT License](./LICENSE.txt)
+See [LICENSE.txt](./LICENSE.txt)
