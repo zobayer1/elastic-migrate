@@ -1,4 +1,5 @@
 language: python
+# target python versions
 python:
   - "3.6"
   - "3.7"
@@ -9,3 +10,7 @@ install:
 # command to run tests
 script:
   - pytest
+# only build for pushes to master branch
+branches:
+  only:
+    - master
