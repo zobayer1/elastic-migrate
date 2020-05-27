@@ -1,6 +1,7 @@
 import pytest
 from click.testing import CliRunner
 from esmigrate import cli
+from setuptools_scm import get_version
 
 
 @pytest.fixture
@@ -12,18 +13,5 @@ def test_cli(runner):
     result = runner.invoke(cli.main)
     assert result.exit_code == 0
     assert not result.exception
-    assert result.output.strip() == 'Hello, world.'
-
-
-def test_cli_with_option(runner):
-    result = runner.invoke(cli.main, ['--as-cowboy'])
-    assert not result.exception
-    assert result.exit_code == 0
-    assert result.output.strip() == 'Howdy, world.'
-
-
-def test_cli_with_arg(runner):
-    result = runner.invoke(cli.main, ['Zobayer'])
-    assert result.exit_code == 0
-    assert not result.exception
-    assert result.output.strip() == 'Hello, Zobayer.'
+    print(result.output.strip())
+    assert result.output.strip() == get_version(root='..', relative_to=__file__)
