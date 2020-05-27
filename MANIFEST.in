@@ -1,0 +1,9 @@
+exclude .env
+exclude .travis.yml
+include *.py
+include tests/*.py
+include tox.ini
+include LICENSE.txt
+include requirements.txt
+include *.md
+include *.toml
