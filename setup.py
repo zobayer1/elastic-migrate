@@ -19,7 +19,7 @@ except FileNotFoundError:
     long_description = __doc__
 
 setup(
-    name='esmigrate',
+    name='elastic-migrate',
     url='https://github.com/zobayer1/elastic-migrate',
     license='MIT',
     author='Zobayer Hasan',
