@@ -6,9 +6,10 @@ from setuptools import find_packages, setup
 
 setup_dependencies = ['setuptools-scm']
 install_dependencies = [
+    'setuptools-scm',
     'click',
+    'click-log',
     'requests',
-    'setuptools-scm'
 ]
 
 try:
