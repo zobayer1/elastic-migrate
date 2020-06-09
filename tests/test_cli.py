@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import pytest
 from click.testing import CliRunner
 from esmigrate import cli

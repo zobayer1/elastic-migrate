@@ -10,6 +10,7 @@ install_dependencies = [
     'click',
     'click-log',
     'requests',
+    'sqlalchemy',
 ]
 
 try:
