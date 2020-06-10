@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-import os
-import pwd
+import getpass
 from datetime import datetime
 
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, LargeBinary
@@ -24,5 +23,5 @@ class SchemaVersion(Base):
     success = Column(Boolean)
 
     def __init__(self):
-        self.installed_by = pwd.getpwuid(os.getuid()).pw_name
+        self.installed_by = getpass.getuser()
         self.installed_on = datetime.now()
