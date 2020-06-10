@@ -1,5 +1,7 @@
 exclude .env
 exclude .travis.yml
+exclude esmigrate.db
+exclude config.json
 include *.py
 include .coveragerc
 include tox.ini
