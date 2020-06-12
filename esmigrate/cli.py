@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 import click
-from setuptools_scm import get_version
 
-from esmigrate.header import title
-from esmigrate.config import Config
+from esmigrate.apis import *
+from esmigrate.utils import title
+from esmigrate.contexts.context_config import ContextConfig
 
 
 @click.group(invoke_without_command=True)
@@ -13,43 +13,14 @@ from esmigrate.config import Config
 @click.pass_context
 def main(ctx, profile='dev'):
     if ctx.invoked_subcommand is None:
-        version = get_version(root='..', relative_to=__file__).split('+')[0]
-        click.echo(click.style(title.format(version), fg='green'))
+        click.echo(click.style(title, fg='green'))
 
-    ctx.obj = Config().load_for(profile)
-
-
-@main.command(help='Initialize schema versions lookup')
-@click.pass_obj
-def init(cfg):
-    pass
+    ctx.obj = ContextConfig().load_for(profile)
 
 
-@main.command(help='Upgrade to latest/specified schema version')
-@click.pass_obj
-def upgrade(cfg):
-    pass
-
-
-@main.command(help='Downgrade to specified schema version')
-@click.pass_obj
-def downgrade(cfg):
-    pass
-
-
-@main.command(help='Reset schema versions lookup')
-@click.pass_obj
-def reset(cfg):
-    pass
-
-
-@main.command(help='Revert to last successful schema version')
-@click.pass_obj
-def rollback(cfg):
-    pass
-
-
-@main.command(help='Show configuration')
-@click.pass_obj
-def config(cfg):
-    pass
+main.add_command(init_cmd)
+main.add_command(config_cmd)
+main.add_command(upgrade_cmd)
+main.add_command(downgrade_cmd)
+main.add_command(rollback_cmd)
+main.add_command(reset_cmd)
