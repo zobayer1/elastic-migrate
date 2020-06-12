@@ -12,3 +12,5 @@ title = f"""
   ╚══════╝╚══════╝    ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ╚══════╝  {version_short}
   Elasticsearch migrations made easy!
 """
+
+__all__ = ['title', 'version', 'version_short']

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from esmigrate.utils import *
+from esmigrate.utils import title, version, version_short
 
 
 def test_version():

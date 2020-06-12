@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import click
 
-from esmigrate.apis import *
+from esmigrate.apis import init_cmd, config_cmd, upgrade_cmd, downgrade_cmd, rollback_cmd, reset_cmd
 from esmigrate.utils import title
 from esmigrate.contexts.context_config import ContextConfig
 
