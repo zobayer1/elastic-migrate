@@ -20,7 +20,7 @@ jobs:
 # install dependencies
 install:
   - pip install --upgrade pip
-  - pip install -r requirements.txt
+  - pip install -e -r requirements.txt
 # run tests
 script:
   - pytest
