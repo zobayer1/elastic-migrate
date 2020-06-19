@@ -1,7 +1,12 @@
 # -*- coding: utf-8 -*-
+import os
+
 import pytest
 from click.testing import CliRunner
 from esmigrate import cli
+
+localtest = pytest.mark.skipif(os.getenv('ENV') == 'travis',
+                               reason='test can only be run from development environment')
 
 
 @pytest.fixture
@@ -30,6 +35,7 @@ def test_cli_with_help(runner):
     assert result.output.strip()
 
 
+@localtest
 def test_cli_with_version(runner):
     result = runner.invoke(cli.main, ['--version'])
     assert result.exit_code == 0

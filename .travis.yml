@@ -1,4 +1,7 @@
 language: python
+# environment variables
+env:
+  - ENV=travis
 # target python versions
 python:
   - "3.6"
