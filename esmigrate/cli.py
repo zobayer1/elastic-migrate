@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import click
 
-from esmigrate.apis import init_cmd, config_cmd, upgrade_cmd, downgrade_cmd, rollback_cmd, reset_cmd
 from esmigrate.utils import title
 from esmigrate.contexts.context_config import ContextConfig
 
@@ -18,9 +17,43 @@ def main(ctx, profile='dev'):
     ctx.obj = ContextConfig().load_for(profile)
 
 
-main.add_command(init_cmd)
-main.add_command(config_cmd)
-main.add_command(upgrade_cmd)
-main.add_command(downgrade_cmd)
-main.add_command(rollback_cmd)
-main.add_command(reset_cmd)
+@main.command(help='Initialize schema versions lookup')
+@click.pass_obj
+def init(cfg):
+    click.echo(f'Active profile: {cfg.profile}')
+    return True
+
+
+@main.command(help='Show configuration')
+@click.pass_obj
+def config(cfg):
+    click.echo(f'Active profile: {cfg.profile}')
+    return True
+
+
+@main.command(help='Upgrade to latest/specified schema version')
+@click.pass_obj
+def upgrade(cfg):
+    click.echo(f'Active profile: {cfg.profile}')
+    return True
+
+
+@main.command(help='Downgrade to specified schema version')
+@click.pass_obj
+def downgrade(cfg):
+    click.echo(f'Active profile: {cfg.profile}')
+    return True
+
+
+@main.command(help='Revert to last successful schema version')
+@click.pass_obj
+def rollback(cfg):
+    click.echo(f'Active profile: {cfg.profile}')
+    return True
+
+
+@main.command(help='Reset schema versions lookup')
+@click.pass_obj
+def reset(cfg):
+    click.echo(f'Active profile: {cfg.profile}')
+    return True
