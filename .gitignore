@@ -142,5 +142,7 @@ cython_debug/
 .idea/
 .vscode/
 
-# Local version file
+# Project file needed to be excluded
 esmigrate/version.py
+esmigrate.db
+config.json

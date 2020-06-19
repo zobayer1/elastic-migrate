@@ -4,14 +4,24 @@ python:
   - "3.6"
   - "3.7"
   - "3.8"
-# command to install dependencies
+# operating systems
+os:
+  - linux
+  - osx
+  - windows
+# configure jobs
+jobs:
+  allow_failures:
+    - os: windows
+    - os: osx
+# install dependencies
 install:
   - pip install --upgrade pip
   - pip install -r requirements.txt
-# command to run tests
+# run tests
 script:
   - pytest
-# only build for pushes to master branch
+# target branches for builds
 branches:
   only:
     - master
