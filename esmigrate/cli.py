@@ -2,12 +2,12 @@
 import click
 
 from esmigrate.contexts import ContextConfig
-from esmigrate.internals import title
+from esmigrate.commons import title
 
 
 @click.group(invoke_without_command=True)
 @click.help_option(help='Show help index and exit')
-@click.version_option(message='%(prog)s v%(version)s', help='Show the version and exit')
+@click.version_option(message='v%(version)s', help='Show the version and exit')
 @click.option('-p', '--profile', default='dev', help='Set configuration profile')
 @click.pass_context
 def main(ctx, profile: str = 'dev'):
