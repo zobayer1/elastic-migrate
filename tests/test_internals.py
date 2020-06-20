@@ -2,7 +2,8 @@
 import pytest
 
 from esmigrate.contexts import ContextConfig
-from esmigrate.exceptions import InvalidCommandScript, ContextNotSet, InvalidCommandVerb, InvalidCommandPath
+from esmigrate.exceptions import InvalidCommandScript, ContextNotSet, InvalidCommandVerb, InvalidCommandPath, \
+    InvalidCommandBody
 from esmigrate.internals import ScriptParser
 
 
@@ -35,12 +36,14 @@ def test_script_parser_raises_context_not_set():
 
 def test_script_parser_raises_invalid_command_script(parser):
     test_strings = [
-        # no command here
-        'no command',
-        # has a command, but prefixed with bla bla
-        'no command\nGET path'
-        # just a command verb
-        'GET'
+        # No command here
+        """no command""",
+        # Has a command, but prefixed with bla bla
+        """no command\nGET path""",
+        # Just a command verb
+        """GET""",
+        # Properly cased prefix, but not a verb
+        """GETTING this""",
     ]
     for test_str in test_strings:
         with pytest.raises(InvalidCommandScript):
@@ -50,10 +53,8 @@ def test_script_parser_raises_invalid_command_script(parser):
 
 def test_script_parser_raises_invalid_command_verb(parser):
     test_strings = [
-        # not properly cased
-        'GeT this'
-        # properly cased prefix, but not a verb
-        'GETTING this'
+        # Not properly cased
+        """GeT this""",
     ]
     for test_str in test_strings:
         with pytest.raises(InvalidCommandVerb):
@@ -63,8 +64,8 @@ def test_script_parser_raises_invalid_command_verb(parser):
 
 def test_script_parser_raises_invalid_command_path(parser):
     test_strings = [
-        # Should not contain a base URL
-        'GET http://localhost:9200/twitter?size=100&text=this is me&page=1'
+        # Path contains base URL
+        """GET http://localhost:9200/twitter?size=100&text=this is me&page=1""",
     ]
     for test_str in test_strings:
         with pytest.raises(InvalidCommandPath):
@@ -72,16 +73,35 @@ def test_script_parser_raises_invalid_command_path(parser):
                 pass
 
 
+def test_script_parser_raises_invalid_command_body(parser):
+    test_strings = [
+        # Contains invalid JSON body
+        """GET /twitter/_search?size=100\n{'not valid'}""",
+        # Contains invalid NDJSON body
+        """GET /twitter/_search?size=100\n{'not valid 1'}\n{'not valid 2'}\n""",
+    ]
+    for test_str in test_strings:
+        with pytest.raises(InvalidCommandBody):
+            for _ in parser.get_commands(test_str):
+                pass
+
+
 def test_script_parser_with_single_command(parser):
     test_strings = [
         # A very tiny command string
-        'GET path',
+        """GET path""",
         # A bit longer command string
-        'DELETE path?len=0'
+        """DELETE path?len=0""",
         # A string with a lot of spaces around
-        '          \t POST  \tpath/to/happiness  \t   ',
+        """          \t POST  \tpath/to/happiness  \t   """,
         # A string with a lot of newlines around
-        '\n  \n\n\t  PUT  /path/surrounded/by/slash/?and=more&plus="a few more"  \n \t\t\n\r'
+        """\n  \n\n\t  PUT  /path/surrounded/by/slash/?and=more&plus="a few more"  \n \t\t\n\r""",
+        # A valid command with an empty JSON body
+        """GET twitter/_search\n{}""",
+        # A valid command with a bigger JSON body
+        """GET twitter/_search\n{"query": {}}""",
+        # A valid command with an  NDJSON body
+        """GET twitter/_search\n{"query1": {}}\n{"query2": {}}\n{"query3": {}}""",
     ]
     for test_str in test_strings:
         commands = [command for command in parser.get_commands(test_str)]

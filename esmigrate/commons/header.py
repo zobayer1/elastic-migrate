@@ -8,3 +8,6 @@ class Header(object):
 
     def dict(self):
         return self._dict
+
+    def __str__(self):
+        return str(self._dict)
