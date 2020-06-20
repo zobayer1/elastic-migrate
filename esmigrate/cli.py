@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 import click
 
-from esmigrate.utils import title
-from esmigrate.contexts.context_config import ContextConfig
+from esmigrate.contexts import ContextConfig
+from esmigrate.internals import title
 
 
 @click.group(invoke_without_command=True)
@@ -10,7 +10,7 @@ from esmigrate.contexts.context_config import ContextConfig
 @click.version_option(message='%(prog)s v%(version)s', help='Show the version and exit')
 @click.option('-p', '--profile', default='dev', help='Set configuration profile')
 @click.pass_context
-def main(ctx, profile='dev'):
+def main(ctx, profile: str = 'dev'):
     if ctx.invoked_subcommand is None:
         click.echo(click.style(title, fg='green'))
 

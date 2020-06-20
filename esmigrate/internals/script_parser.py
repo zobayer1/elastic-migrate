@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 import re
 
-from esmigrate.contexts.context_config import ContextConfig
-from esmigrate.exceptions import InvalidCommandScript, InvalidCommandVerb
-from esmigrate.utils.command import Command
+from esmigrate.commons import Command
+from esmigrate.contexts import ContextConfig
+from esmigrate.exceptions import InvalidCommandScript, InvalidCommandVerb, ContextNotSet
 
 
 class ScriptParser(object):
@@ -21,6 +21,8 @@ class ScriptParser(object):
         return self._ctx.profile if self._ctx else None
 
     def get_commands(self, script_text: str):
+        if self._ctx is None:
+            raise ContextNotSet('Context not set')
         stripped_lines = [line.strip() for line in script_text.split('\n') if len(line.strip()) > 0]
         occurs = [idx for idx, line in enumerate(stripped_lines) if self._pattern.match(line)]
         if len(occurs) == 0 or occurs[0] != 0:
