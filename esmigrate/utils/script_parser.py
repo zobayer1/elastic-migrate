@@ -2,6 +2,7 @@
 import re
 
 from esmigrate.exceptions import InvalidCommandScript, InvalidCommandVerb
+from esmigrate.utils.command import Command
 
 
 class ScriptParser(object):
@@ -21,4 +22,4 @@ class ScriptParser(object):
             verb, path = m.group(1), m.group(2)
             if verb not in self.verbs:
                 raise InvalidCommandVerb(f'Expected "{self._sverbs} {{path}}", found: "{m.group(1)}"')
-            yield verb, path
+            yield Command(verb, path)
