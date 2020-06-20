@@ -3,7 +3,7 @@ import pytest
 
 from esmigrate.contexts import ContextConfig
 from esmigrate.exceptions import InvalidCommandScript, ContextNotSet, InvalidCommandVerb
-from esmigrate.internals import title, version, version_short, ScriptParser
+from esmigrate.internals import ScriptParser
 
 
 @pytest.fixture(scope='module')
@@ -75,16 +75,3 @@ def test_script_parser_with_single_command(parser):
     for test_str in test_strings:
         commands = [command for command in parser.get_commands(test_str)]
         assert len(commands) == 1
-
-
-def test_version():
-    assert version and len(version) > 0
-
-
-def test_version_short():
-    assert version_short and len(version_short) > 0
-    assert version_short in version
-
-
-def test_title():
-    assert title and len(title) > 0
