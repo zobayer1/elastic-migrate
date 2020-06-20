@@ -1,16 +1,24 @@
 # -*- coding: utf-8 -*-
 import re
 
+from esmigrate.contexts.context_config import ContextConfig
 from esmigrate.exceptions import InvalidCommandScript, InvalidCommandVerb
 from esmigrate.utils.command import Command
 
 
 class ScriptParser(object):
 
-    def __init__(self):
+    def __init__(self, ctx: ContextConfig = None):
         self.verbs = ['GET', 'PUT', 'POST', 'DELETE']
         self._sverbs = '|'.join(self.verbs)
         self._pattern = re.compile(r'^(GET|PUT|POST|DELETE)\s+(.*)$', re.M | re.I)
+        self._ctx = ctx
+
+    def init_ctx(self, ctx: ContextConfig):
+        self._ctx = ctx
+
+    def get_ctx_profile(self):
+        return self._ctx.profile if self._ctx else None
 
     def get_commands(self, script_text: str):
         stripped_lines = [line.strip() for line in script_text.split('\n') if len(line.strip()) > 0]

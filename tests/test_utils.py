@@ -1,12 +1,22 @@
 # -*- coding: utf-8 -*-
 import pytest
 
+from esmigrate.contexts.context_config import ContextConfig
 from esmigrate.utils import title, version, version_short, ScriptParser
 
 
 @pytest.fixture(scope='module')
-def parser():
-    return ScriptParser()
+def context():
+    return ContextConfig().load_for('test')
+
+
+@pytest.fixture(scope='module')
+def parser(context):
+    return ScriptParser(context)
+
+
+def test_script_parser_initialized(parser):
+    assert parser.get_ctx_profile() == 'test'
 
 
 def test_script_parser_verbs(parser):
