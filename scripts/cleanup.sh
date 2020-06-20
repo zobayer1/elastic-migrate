@@ -6,11 +6,11 @@
 # uninstall elastic-migrate
 pip uninstall -y elastic-migrate 1> /dev/null 2> /dev/null
 
-# remove eggs
+# remove local build cache
 rm -rf ./.eggs
-
-# remove .egg-info
 rm -rf ./*.egg-info
+rm -rf ./dist
+rm -rf ./build
 
 # remove test coverage cache
 rm -rf ./.pytest_cache

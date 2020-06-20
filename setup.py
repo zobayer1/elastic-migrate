@@ -10,7 +10,7 @@
 from os import path
 from setuptools import find_packages, setup
 
-setup_dependencies = ['setuptools-scm']
+setup_dependencies = ['wheel', 'setuptools-scm', ]
 install_dependencies = [
     'setuptools-scm',
     'click',

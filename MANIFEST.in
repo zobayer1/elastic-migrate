@@ -12,3 +12,4 @@ include *.toml
 recursive-include esmigrate *
 recursive-include tests *
 recursive-include docs *
+recursive-include scripts *
