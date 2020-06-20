@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 import re
 
-from esmigrate.commons import Command
+from esmigrate.commons import Command, is_valid_path
 from esmigrate.contexts import ContextConfig
-from esmigrate.exceptions import InvalidCommandScript, InvalidCommandVerb, ContextNotSet
+from esmigrate.exceptions import InvalidCommandScript, InvalidCommandVerb, ContextNotSet, InvalidCommandPath
 
 
 class ScriptParser(object):
@@ -29,7 +29,9 @@ class ScriptParser(object):
             raise InvalidCommandScript(f'Expected "{self._sverbs} {{path}}", found: "{stripped_lines[0].split()[0]}"')
         for line in occurs:
             m = self._pattern.match(stripped_lines[line])
-            verb, path = m.group(1), m.group(2)
+            verb, path = m.group(1).strip(), m.group(2).strip()
             if verb not in self.verbs:
-                raise InvalidCommandVerb(f'Expected "{self._sverbs} {{path}}", found: "{m.group(1)}"')
+                raise InvalidCommandVerb(f'Expected "{self._sverbs} {{path}}", found: "{verb}"')
+            if not is_valid_path(self._ctx.es_host, path):
+                raise InvalidCommandPath(f'Illegal path "{path}"')
             yield Command(verb, path)

@@ -2,7 +2,7 @@
 import pytest
 
 from esmigrate.contexts import ContextConfig
-from esmigrate.exceptions import InvalidCommandScript, ContextNotSet, InvalidCommandVerb
+from esmigrate.exceptions import InvalidCommandScript, ContextNotSet, InvalidCommandVerb, InvalidCommandPath
 from esmigrate.internals import ScriptParser
 
 
@@ -57,6 +57,17 @@ def test_script_parser_raises_invalid_command_verb(parser):
     ]
     for test_str in test_strings:
         with pytest.raises(InvalidCommandVerb):
+            for _ in parser.get_commands(test_str):
+                pass
+
+
+def test_script_parser_raises_invalid_command_path(parser):
+    test_strings = [
+        # Should not contain a base URL
+        'GET http://localhost:9200/twitter?size=100&text=this is me&page=1'
+    ]
+    for test_str in test_strings:
+        with pytest.raises(InvalidCommandPath):
             for _ in parser.get_commands(test_str):
                 pass
 

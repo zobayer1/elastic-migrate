@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 import json
+from urllib.parse import urlparse
 
-from validator_collection import validators
+from validator_collection import validators, checkers
 from validator_collection.errors import InvalidURLError, EmptyValueError
 
 
@@ -25,6 +26,7 @@ def is_valid_path(base: str, *paths: str) -> bool:
     path_url = '/'.join(p.strip('/') for p in path_components)
     try:
         validators.url(path_url, allow_special_ips=True)
-        return True
+        url_parsed = urlparse(path_url)
+        return not checkers.is_url(url_parsed.path.strip('/'), allow_special_ips=True)
     except (EmptyValueError, InvalidURLError):
         return False
