@@ -4,10 +4,11 @@ import json
 
 class Command(object):
 
-    def __init__(self, verb: str, path: str, body: str = None):
+    def __init__(self, verb: str, path: str, body: str = None, head: str = None):
         self.verb = verb
         self.path = path
         self.body = body
+        self.head = head
 
     @property
     def verb(self):
@@ -33,5 +34,13 @@ class Command(object):
     def body(self, value: str):
         self._body = value
 
+    @property
+    def head(self):
+        return self._head
+
+    @head.setter
+    def head(self, value: str):
+        self._head = value
+
     def __repr__(self):
-        return f'{self._verb} {self._path}\n{json.dumps(self._body, indent=2)}'
+        return f'{self._verb} {self._path}\n{json.dumps(self._body, indent=2)}\nheader={json.dumps(self._head)}'
