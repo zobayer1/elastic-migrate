@@ -21,6 +21,7 @@ class SchemaVersion(Base):
     installed_on = Column(DateTime)
     execution_time = Column(Integer)
     success = Column(Boolean)
+    query_results = Column(String)
 
     def __init__(self):
         self.installed_by = getpass.getuser()

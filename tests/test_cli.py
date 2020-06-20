@@ -5,12 +5,12 @@ from click.testing import CliRunner
 from esmigrate import cli
 
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def runner():
     return CliRunner()
 
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def defaults():
     return {
         'profile': 'dev'
