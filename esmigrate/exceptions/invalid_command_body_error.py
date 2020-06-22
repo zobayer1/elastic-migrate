@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
 
-class InvalidCommandBody(RuntimeError):
+class InvalidCommandBodyError(RuntimeError):
     """Raised when command body is not a valid JSON object"""
     pass

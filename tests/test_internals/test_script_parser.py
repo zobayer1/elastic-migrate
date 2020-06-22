@@ -2,8 +2,8 @@
 import pytest
 
 from esmigrate.contexts import ContextConfig
-from esmigrate.exceptions import InvalidCommandScript, ContextNotSet, InvalidCommandVerb, InvalidCommandPath, \
-    InvalidCommandBody
+from esmigrate.exceptions import InvalidCommandScriptError, ContextObjectNotSetError, InvalidCommandVerbError, \
+    InvalidCommandPathError, InvalidCommandBodyError
 from esmigrate.internals import ScriptParser
 
 
@@ -29,9 +29,9 @@ def test_script_parser_verbs(parser):
 
 
 def test_script_parser_raises_context_not_set():
-    parser = ScriptParser()
-    with pytest.raises(ContextNotSet):
-        for _ in parser.get_commands(''):
+    _parser = ScriptParser()
+    with pytest.raises(ContextObjectNotSetError):
+        for _ in _parser.get_commands(''):
             pass
 
 
@@ -47,7 +47,7 @@ def test_script_parser_raises_invalid_command_script(parser):
         """GETTING this""",
     ]
     for test_str in test_strings:
-        with pytest.raises(InvalidCommandScript):
+        with pytest.raises(InvalidCommandScriptError):
             for _ in parser.get_commands(test_str):
                 pass
 
@@ -58,7 +58,7 @@ def test_script_parser_raises_invalid_command_verb(parser):
         """GeT this""",
     ]
     for test_str in test_strings:
-        with pytest.raises(InvalidCommandVerb):
+        with pytest.raises(InvalidCommandVerbError):
             for _ in parser.get_commands(test_str):
                 pass
 
@@ -69,7 +69,7 @@ def test_script_parser_raises_invalid_command_path(parser):
         """GET http://localhost:9200/twitter?size=100&text=this is me&page=1""",
     ]
     for test_str in test_strings:
-        with pytest.raises(InvalidCommandPath):
+        with pytest.raises(InvalidCommandPathError):
             for _ in parser.get_commands(test_str):
                 pass
 
@@ -82,7 +82,7 @@ def test_script_parser_raises_invalid_command_body(parser):
         """GET /twitter/_search?size=100\n{'not valid 1'}\n{'not valid 2'}\n""",
     ]
     for test_str in test_strings:
-        with pytest.raises(InvalidCommandBody):
+        with pytest.raises(InvalidCommandBodyError):
             for _ in parser.get_commands(test_str):
                 pass
 
