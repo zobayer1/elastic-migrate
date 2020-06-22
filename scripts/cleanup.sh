@@ -11,6 +11,7 @@ rm -rf ./.eggs
 rm -rf ./*.egg-info
 rm -rf ./dist
 rm -rf ./build
+rm -rf ./logs
 
 # remove test coverage cache
 rm -rf ./.pytest_cache
