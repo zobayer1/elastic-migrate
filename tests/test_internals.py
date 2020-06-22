@@ -20,7 +20,8 @@ def parser(context):
 
 
 def test_script_parser_initialized(parser):
-    assert parser.get_ctx_profile() == 'test'
+    assert parser.get_ctx()
+    assert parser.get_ctx().profile == 'test'
 
 
 def test_script_parser_verbs(parser):

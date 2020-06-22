@@ -18,8 +18,8 @@ class ScriptParser(object):
     def init_ctx(self, ctx: ContextConfig):
         self._ctx = ctx
 
-    def get_ctx_profile(self):
-        return self._ctx.profile if self._ctx else None
+    def get_ctx(self):
+        return self._ctx
 
     def get_commands(self, script_text: str):
         if self._ctx is None:
