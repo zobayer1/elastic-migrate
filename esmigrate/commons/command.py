@@ -8,7 +8,7 @@ class Command(object):
         self.verb = verb
         self.path = path
         self.body = body
-        self.head = head
+        self.head = head if head else {}
 
     @property
     def verb(self):

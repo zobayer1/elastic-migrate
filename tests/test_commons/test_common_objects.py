@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
-import json
-
 import pytest
 
-from esmigrate.commons import Command, JSON_HEADER, NDJSON_HEADER, version, version_short, title
+from esmigrate.commons import Command, JSON_HEADER, NDJSON_HEADER, version, version_short, title, Header
 
 
 @pytest.fixture(scope='module')
@@ -46,9 +44,9 @@ def test_body(command, body):
 
 def test_head(command):
     command.head = JSON_HEADER.dict()
-    assert 'json' in json.dumps(command.head)
+    assert Header(command.head).is_json_header()
     command.head = NDJSON_HEADER.dict()
-    assert 'x-ndjson' in json.dumps(command.head)
+    assert Header(command.head).is_ndjson_header()
 
 
 def test_repr(command, verb, path):

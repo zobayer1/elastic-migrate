@@ -2,6 +2,7 @@
 import re
 
 from esmigrate.commons import Command, is_valid_path, is_valid_json, JSON_HEADER, is_valid_ndjson, NDJSON_HEADER
+from esmigrate.commons.helpers import construct_path
 from esmigrate.contexts import ContextConfig
 from esmigrate.exceptions import InvalidCommandScriptError, InvalidCommandVerbError, ContextObjectNotSetError, \
     InvalidCommandPathError, InvalidCommandBodyError
@@ -38,6 +39,7 @@ class ScriptParser(object):
                 raise InvalidCommandVerbError(f'Expected "{self._sverbs} {{path}}", found: "{verb}"')
             if not is_valid_path(self._ctx.es_host, path):
                 raise InvalidCommandPathError(f'Illegal path "{path}"')
+            path = construct_path(self._ctx.es_host, path)
             cmdnext = occurs[idx + 1]
             if cmdline + 1 >= cmdnext:
                 body, head = None, None

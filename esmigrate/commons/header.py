@@ -9,5 +9,11 @@ class Header(object):
     def dict(self):
         return self._dict
 
+    def is_json_header(self):
+        return self._dict.get('Content-Type') == 'application/json'
+
+    def is_ndjson_header(self):
+        return self._dict.get('Content-Type') == 'application/x-ndjson'
+
     def __str__(self):
         return str(self._dict)

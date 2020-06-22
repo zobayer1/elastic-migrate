@@ -107,3 +107,5 @@ def test_script_parser_with_single_command(parser):
     for test_str in test_strings:
         commands = [command for command in parser.get_commands(test_str)]
         assert len(commands) == 1
+        prefix = parser.get_ctx().es_host
+        assert prefix in commands[0].path
