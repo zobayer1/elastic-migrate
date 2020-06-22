@@ -6,6 +6,7 @@ class ContextConfig(object):
         self.es_host = 'http://localhost:9200'
         self.schema_versions_db = 'sqlite:///esmigrate.db'
         self.profile = 'dev'
+        self.headers = {}
 
     def load_for(self, profile):
         self.profile = profile

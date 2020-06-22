@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 import pytest
+import requests_mock
+from requests import HTTPError
 
 from esmigrate.commons import Command
 from esmigrate.contexts import ContextConfig
@@ -26,32 +28,87 @@ def test_http_handler_initialized(http_handler):
 
 def test_http_handler_raises_context_not_set():
     _handler = HTTPHandler()
-    _command = Command('PUT', 'twitter')
+    _command = Command('PUT', 'http://example.com')
     with pytest.raises(ContextObjectNotSetError):
         _handler.make_requests(_command)
 
 
-def test_http_handler_succeeds_get(http_handler):
-    _command = Command('GET', 'twitter')
-    assert http_handler.make_requests(_command) == 'GET'
+@requests_mock.Mocker(kw='mock')
+def test_http_handler_succeeds_get(http_handler, **kwargs):
+    somehost = 'http://example.com'
+    kwargs['mock'].get(somehost, json={'somekey': 'somevalue'})
+
+    _command = Command('GET', somehost)
+    response = http_handler.make_requests(_command)
+
+    assert _command.verb == 'GET'
+    assert response.ok
+    assert response.json()['somekey'] == 'somevalue'
 
 
-def test_http_handler_succeeds_put(http_handler):
-    _command = Command('PUT', 'twitter')
-    assert http_handler.make_requests(_command) == 'PUT'
+@requests_mock.Mocker(kw='mock')
+def test_http_handler_succeeds_put(http_handler, **kwargs):
+    somehost = 'http://example.com'
+    kwargs['mock'].put(somehost, json={'somekey': 'somevalue'})
+
+    _command = Command('PUT', somehost)
+    response = http_handler.make_requests(_command)
+
+    assert _command.verb == 'PUT'
+    assert response.ok
+    assert response.json()['somekey'] == 'somevalue'
 
 
-def test_http_handler_succeeds_post(http_handler):
-    _command = Command('POST', 'twitter')
-    assert http_handler.make_requests(_command) == 'POST'
+@requests_mock.Mocker(kw='mock')
+def test_http_handler_succeeds_post(http_handler, **kwargs):
+    somehost = 'http://example.com'
+    kwargs['mock'].post(somehost, json={'somekey': 'somevalue'})
+
+    _command = Command('POST', somehost)
+    response = http_handler.make_requests(_command)
+
+    assert _command.verb == 'POST'
+    assert response.ok
+    assert response.json()['somekey'] == 'somevalue'
 
 
-def test_http_handler_succeeds_delete(http_handler):
-    _command = Command('DELETE', 'twitter')
-    assert http_handler.make_requests(_command) == 'DELETE'
+@requests_mock.Mocker(kw='mock')
+def test_http_handler_succeeds_delete(http_handler, **kwargs):
+    somehost = 'http://example.com'
+    kwargs['mock'].delete(somehost, json={'somekey': 'somevalue'})
+
+    _command = Command('DELETE', somehost)
+    response = http_handler.make_requests(_command)
+
+    assert _command.verb == 'DELETE'
+    assert response.ok
+    assert response.json()['somekey'] == 'somevalue'
 
 
 def test_http_handler_raises_invalid_command_verb_error(http_handler):
-    _command = Command('INVALID', 'twitter')
+    _command = Command('INVALID', 'http://example.com')
     with pytest.raises(InvalidCommandVerbError):
+        http_handler.make_requests(_command)
+
+
+def test_http_handler_sets_context_headers():
+    somehost = 'http://example.com'
+    with requests_mock.Mocker() as mock:
+        mock.get(somehost, text='ok')
+        ctx = ContextConfig()
+        ctx.headers = {'somekey': 'somevalue'}
+        http_handler = HTTPHandler(ctx)
+        _command = Command('GET', somehost)
+        response = http_handler.make_requests(_command)
+        assert _command.head['somekey'] == 'somevalue'
+        assert response.ok
+        assert response.text == 'ok'
+
+
+@requests_mock.Mocker(kw='mock')
+def test_http_handler_raises_http_error(http_handler, **kwargs):
+    somehost = 'http://example.com'
+    kwargs['mock'].get(somehost, text='not found', status_code=404)
+    _command = Command('GET', somehost)
+    with pytest.raises(HTTPError):
         http_handler.make_requests(_command)

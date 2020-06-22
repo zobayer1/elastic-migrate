@@ -21,14 +21,17 @@ class HTTPHandler(object):
     def make_requests(self, command: Command):
         if self._ctx is None:
             raise ContextObjectNotSetError('Context not set')
+        for k, v in self._ctx.headers.items():
+            command.head[k] = v
         if command.verb == 'GET':
-            print('Received a GET request')
+            response = self._session.get(url=command.path, data=command.body, headers=command.head)
         elif command.verb == 'PUT':
-            print('Received a PUT request')
+            response = self._session.put(url=command.path, data=command.body, headers=command.head)
         elif command.verb == 'POST':
-            print('Received a POST request')
+            response = self._session.post(url=command.path, data=command.body, headers=command.head)
         elif command.verb == 'DELETE':
-            print('Received a DELETE request')
+            response = self._session.delete(url=command.path, data=command.body, headers=command.head)
         else:
             raise InvalidCommandVerbError(f'Unexpected verb found: "{command.verb}"')
-        return command.verb
+        response.raise_for_status()
+        return response

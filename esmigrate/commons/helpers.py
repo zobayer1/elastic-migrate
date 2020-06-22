@@ -21,9 +21,13 @@ def is_valid_ndjson(content: str) -> bool:
     return True
 
 
-def is_valid_path(base: str, *paths: str) -> bool:
+def construct_path(base: str, *paths: str) -> str:
     path_components = [base] + list(paths)
-    path_url = '/'.join(p.strip('/') for p in path_components)
+    return '/'.join(p.strip('/') for p in path_components)
+
+
+def is_valid_path(base: str, *paths: str) -> bool:
+    path_url = construct_path(base, *paths)
     try:
         validators.url(path_url, allow_special_ips=True)
         url_parsed = urlparse(path_url)
