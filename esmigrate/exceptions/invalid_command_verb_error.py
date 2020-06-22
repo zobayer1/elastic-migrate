@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
 
-class InvalidCommandVerb(RuntimeError):
+class InvalidCommandVerbError(RuntimeError):
     """Raised when command verb is not one of GET, PUT, POST, DELETE"""
     pass

@@ -51,6 +51,7 @@ coverage.xml
 .pytest_cache/
 cover/
 tox_logs/
+logs/
 
 # Translations
 *.mo

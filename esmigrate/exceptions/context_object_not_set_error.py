@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
 
-class ContextNotSet(RuntimeError):
+class ContextObjectNotSetError(RuntimeError):
     """Raised when a context dependency is not met"""
     pass

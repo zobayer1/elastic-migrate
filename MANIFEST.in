@@ -2,7 +2,7 @@ exclude .env
 exclude .travis.yml
 exclude esmigrate.db
 exclude config.json
-recursive-exclude tox_logs *
+recursive-exclude logs *
 include *.py
 include .coveragerc
 include tox.ini
