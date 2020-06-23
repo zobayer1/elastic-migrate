@@ -1,0 +1,10 @@
+PUT twitter
+PUT twitter/_mapping/doc
+{
+  "dynamic": "strict",
+  "properties": {
+    "username": {
+      "type": "text"
+    }
+  }
+}

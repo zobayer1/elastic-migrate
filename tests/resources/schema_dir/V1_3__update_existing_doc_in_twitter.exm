@@ -1,0 +1,8 @@
+PUT twitter/doc/1
+{
+  "username": "Zobayer11"
+}
+PUT twitter/doc/2
+{
+  "username": "Zobayer22"
+}
