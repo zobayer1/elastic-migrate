@@ -6,7 +6,7 @@ from requests import HTTPError
 from esmigrate.commons import Command
 from esmigrate.contexts import ContextConfig
 from esmigrate.exceptions import ContextObjectNotSetError, InvalidCommandVerbError
-from esmigrate.internals.http_handler import HTTPHandler
+from esmigrate.internals import HTTPHandler
 
 
 @pytest.fixture(scope='module')
