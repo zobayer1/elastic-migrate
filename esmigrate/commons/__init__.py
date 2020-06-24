@@ -3,7 +3,7 @@ from setuptools_scm import get_version
 
 from esmigrate.commons.command import Command
 from esmigrate.commons.header import Header
-from esmigrate.commons.helpers import is_valid_json, is_valid_ndjson, is_valid_path
+from esmigrate.commons.helpers import is_valid_json, is_valid_ndjson, is_valid_path, parse_file_path
 
 JSON_HEADER = Header({'Content-Type': 'application/json'})
 NDJSON_HEADER = Header({'Content-Type': 'application/x-ndjson'})
@@ -22,4 +22,4 @@ title = f"""
 
 __all__ = ['Command', 'Header', 'JSON_HEADER', 'NDJSON_HEADER',
            'is_valid_json', 'is_valid_ndjson', 'is_valid_path',
-           'version', 'version_short', 'title', ]
+           'parse_file_path', 'version', 'version_short', 'title', ]

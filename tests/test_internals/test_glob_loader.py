@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import re
 
 import pytest
 
@@ -48,3 +49,26 @@ def test_scan_dir_raises_not_a_directory_error(loader):
     loader.get_ctx().schema_dir = 'wtf'
     with pytest.raises(NotADirectoryError):
         loader.scan_dir()
+
+
+@pytest.fixture(scope='function')
+def params(request):
+    return request.param
+
+
+@pytest.mark.parametrize('params', [
+    'V1_1__create_index_mapping_for_twitter.exm',
+    'V1_2__create_new_doc_in_twitter.exm',
+    'V1_3__update_existing_doc_in_twitter.exm',
+    'V1_3__update_existing_doc_in_twitter.exm',
+    'V1_4__delete_all_doc_in_twitter.exm',
+    'V1_5__delete_index_twitter.exm',
+], indirect=True)
+def test_envvar_regex(monkeypatch, context, params):
+    monkeypatch.setenv('SCHEMA_PATTERN',
+                       'V(?P<version>[\\d]+)_(?P<sequence>[\\d]+)__(?P<name>[\\w]+)\\.(?P<extension>[\\w]+)')
+    pattern = rf"^{os.getenv('SCHEMA_PATTERN')}$"
+    assert context.schema_pattern == pattern
+
+    rex = re.compile(pattern)
+    assert rex.match(params)

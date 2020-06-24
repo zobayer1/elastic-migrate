@@ -5,3 +5,4 @@ from esmigrate.contexts import ContextConfig
 def test_context_loads():
     context = ContextConfig()
     assert context.profile == 'dev'
+    assert len(str(context)) > 0

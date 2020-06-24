@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import json
+import os
 from urllib.parse import urlparse
 
 from validator_collection import validators, checkers
@@ -34,3 +35,11 @@ def is_valid_path(base: str, *paths: str) -> bool:
         return not checkers.is_url(url_parsed.path.strip('/'), allow_special_ips=True)
     except (EmptyValueError, InvalidURLError):
         return False
+
+
+def parse_file_path(path: str) -> tuple:
+    base = os.path.basename(path)
+    prefix = path[:-len(base) or None]
+    extension = os.path.splitext(base)[1]
+    filename = base[:-len(extension) or None]
+    return prefix, filename, extension
