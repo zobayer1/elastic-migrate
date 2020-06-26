@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-from esmigrate.commons import is_valid_json, is_valid_ndjson, is_valid_path
+import os
+
+from esmigrate.commons import is_valid_json, is_valid_ndjson, is_valid_path, parse_file_path
 
 
 def test_is_valid_json_succeeds():
@@ -45,3 +47,9 @@ def test_is_valid_path_succeeds():
 
 def test_is_valid_path_fails():
     assert not is_valid_path('just_a_string', 'which won\'t pass')
+
+
+def test_parse_file_path_succeeds():
+    file_path = os.path.join(os.getcwd(), 'README.md')
+    prefix, filename, extension = parse_file_path(file_path)
+    assert file_path == os.path.join(prefix, filename + extension)

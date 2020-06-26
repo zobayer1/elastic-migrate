@@ -20,10 +20,14 @@ jobs:
 # install dependencies
 install:
   - pip install --upgrade pip
-  - pip install -r requirements.txt --editable .
+  - pip install -r requirements.txt
+  - pip install -e .
 # run tests
 script:
-  - pytest
+  - py.test --cov esmigrate --cov-report term-missing
+# upload coverage reports
+after_success:
+  - codecov
 # target branches for builds
 branches:
   only:

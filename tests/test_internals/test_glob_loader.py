@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 import os
+import re
 
 import pytest
 
 from esmigrate.contexts import ContextConfig
-from esmigrate.exceptions import ContextObjectNotSetError
+from esmigrate.exceptions import ContextObjectNotSetError, InvalidSchemaPatternError
 from esmigrate.internals import GlobLoader
 
 
@@ -47,4 +48,40 @@ def test_scan_dir_loads_current_working_dir(loader):
 def test_scan_dir_raises_not_a_directory_error(loader):
     loader.get_ctx().schema_dir = 'wtf'
     with pytest.raises(NotADirectoryError):
+        loader.scan_dir()
+
+
+@pytest.fixture(scope='function')
+def params(request):
+    return request.param
+
+
+@pytest.mark.parametrize('params', [
+    'V1_1__create_index_mapping_for_twitter.exm',
+    'V1_2__create_new_doc_in_twitter.exm',
+    'V1_3__update_existing_doc_in_twitter.exm',
+    'V1_3__update_existing_doc_in_twitter.exm',
+    'V1_4__delete_all_doc_in_twitter.exm',
+    'V1_5__delete_index_twitter.exm',
+], indirect=True)
+def test_envvar_regex(monkeypatch, context, params):
+    monkeypatch.setenv('SCHEMA_PATTERN',
+                       'V(?P<version>[\\d]+)_(?P<sequence>[\\d]+)__(?P<name>[\\w]+)\\.(?P<extension>[\\w]+)')
+    pattern = rf"^{os.getenv('SCHEMA_PATTERN')}$"
+    # test that envvar can be read
+    assert context.schema_pattern == pattern
+    # test that envvar overwrites default assignment
+    context2 = ContextConfig()
+    assert context2.schema_pattern == pattern
+
+    rex = re.compile(pattern)
+    assert rex.match(params)
+
+
+def test_scan_dir_raises_invalid_schema_pattern_error(loader):
+    loader.get_ctx().schema_dir = 'tests/resources/schema_dir'
+    # test by overriding with a pattern that will not match file names
+    loader.get_ctx().schema_pattern =\
+        r'^(?P<version>[\d]+)_(?P<sequence>[\d]+)_(?P<name>[\w]+)\.(?P<extension>[\w]+)$'
+    with pytest.raises(InvalidSchemaPatternError):
         loader.scan_dir()

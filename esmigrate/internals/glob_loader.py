@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 import glob
 import os
+import re
 
+from esmigrate.commons import parse_file_path
 from esmigrate.contexts import ContextConfig
-from esmigrate.exceptions import ContextObjectNotSetError
+from esmigrate.exceptions import ContextObjectNotSetError, InvalidSchemaPatternError
 
 
 class GlobLoader(object):
@@ -34,6 +36,16 @@ class GlobLoader(object):
 
         _schema_ext = self._ctx.schema_ext if self._ctx.schema_ext.startswith('.') else f'.{self._ctx.schema_ext}'
 
-        files = [name for name in glob.glob(os.path.join(_schema_dir, f'*{_schema_ext}'))]
+        rex = re.compile(self._ctx.schema_pattern)
 
-        return files
+        file_items = []
+        for _item in glob.glob(os.path.join(_schema_dir, f'*{_schema_ext}')):
+            prefix, filename, extension = parse_file_path(_item)
+            _match = rex.match(filename + extension)
+            if _match:
+                _ver, _seq, _name, _ext = _match.groups()
+            else:
+                raise InvalidSchemaPatternError(f'Illegal file name: {_item}, does not match configured pattern')
+            file_items.append(_item)
+
+        return file_items
