@@ -4,6 +4,8 @@ import os
 
 
 class ContextConfig(object):
+    _default_pattern = r'^V(?P<version>[\d]+)_(?P<sequence>[\d]+)__(?P<name>[\w]+)\.(?P<extension>[\w]+)$'
+
     def __init__(self):
         self.es_host = 'http://localhost:9200'
         self.schema_db = 'sqlite:///esmigrate.db'
@@ -11,8 +13,7 @@ class ContextConfig(object):
         self.headers = {}
         self.schema_dir = None
         self.schema_ext = '.exm'
-        self._default_pattern = r'^V(?P<version>[\d]+)_(?P<sequence>[\d]+)__(?P<name>[\w]+)\.(?P<extension>[\w]+)$'
-        self.schema_pattern = os.getenv('SCHEMA_PATTERN', self._default_pattern)
+        self.schema_pattern = os.getenv('SCHEMA_PATTERN', ContextConfig._default_pattern)
 
     def load_for(self, profile):
         self.profile = profile
