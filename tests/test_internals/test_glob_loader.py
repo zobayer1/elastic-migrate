@@ -68,7 +68,11 @@ def test_envvar_regex(monkeypatch, context, params):
     monkeypatch.setenv('SCHEMA_PATTERN',
                        'V(?P<version>[\\d]+)_(?P<sequence>[\\d]+)__(?P<name>[\\w]+)\\.(?P<extension>[\\w]+)')
     pattern = rf"^{os.getenv('SCHEMA_PATTERN')}$"
+    # test that envvar can be read
     assert context.schema_pattern == pattern
+    # test that envvar overwrites default assignment
+    context2 = ContextConfig()
+    assert context2.schema_pattern == pattern
 
     rex = re.compile(pattern)
     assert rex.match(params)
