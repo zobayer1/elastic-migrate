@@ -5,7 +5,7 @@ import re
 import pytest
 
 from esmigrate.contexts import ContextConfig
-from esmigrate.exceptions import ContextObjectNotSetError
+from esmigrate.exceptions import ContextObjectNotSetError, InvalidSchemaPatternError
 from esmigrate.internals import GlobLoader
 
 
@@ -76,3 +76,12 @@ def test_envvar_regex(monkeypatch, context, params):
 
     rex = re.compile(pattern)
     assert rex.match(params)
+
+
+def test_scan_dir_raises_invalid_schema_pattern_error(loader):
+    loader.get_ctx().schema_dir = 'tests/resources/schema_dir'
+    # test by overriding with a pattern that will not match file names
+    loader.get_ctx().schema_pattern =\
+        r'^(?P<version>[\d]+)_(?P<sequence>[\d]+)_(?P<name>[\w]+)\.(?P<extension>[\w]+)$'
+    with pytest.raises(InvalidSchemaPatternError):
+        loader.scan_dir()
