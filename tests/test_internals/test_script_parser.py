@@ -19,20 +19,9 @@ def parser(context):
     return _parser
 
 
-def test_script_parser_initialized(parser):
+def test_script_parser_initialized_with_test_context(parser):
     assert parser.get_ctx()
     assert parser.get_ctx().profile == 'test'
-
-
-def test_script_parser_verbs(parser):
-    assert {'DELETE', 'GET', 'POST', 'PUT'}.issubset(set(parser.verbs))
-
-
-def test_script_parser_raises_context_not_set():
-    _parser = ScriptParser()
-    with pytest.raises(ContextObjectNotSetError):
-        for _ in _parser.get_commands(''):
-            pass
 
 
 def test_script_parser_raises_invalid_command_script(parser):
@@ -109,3 +98,10 @@ def test_script_parser_with_single_command(parser):
         assert len(commands) == 1
         prefix = parser.get_ctx().es_host
         assert prefix in commands[0].path
+
+
+def test_script_parser_raises_context_object_not_set_error():
+    _parser = ScriptParser()
+    with pytest.raises(ContextObjectNotSetError):
+        for _ in _parser.get_commands(''):
+            pass

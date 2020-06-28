@@ -5,40 +5,35 @@ from esmigrate.commons import is_valid_json, is_valid_ndjson, is_valid_path, par
 
 
 def test_is_valid_json_succeeds():
-    test_string = """
+    assert is_valid_json("""
         {
             "query": {"match_all": {}}
         }
-        """
-    assert is_valid_json(test_string)
+        """)
 
 
 def test_is_valid_json_fails():
-    test_string = """
+    assert not is_valid_json("""
         {
             'query': {'match_all': {}}
         }
-        """
-    assert not is_valid_json(test_string)
+        """)
 
 
-def test_is_valid_ndjson_succeeds_single():
-    test_string = """{"key": "value"}"""
-    assert is_valid_ndjson(test_string)
+def test_is_valid_ndjson_succeeds_for_single_line():
+    assert is_valid_ndjson("""{"key": "value"}""")
 
 
-def test_is_valid_ndjson_succeeds_multiple():
-    test_string = """{"key1": "value1"}\n{"key2": "value2"}\n"""
-    assert is_valid_ndjson(test_string)
+def test_is_valid_ndjson_succeeds_for_multiple_lines():
+    assert is_valid_ndjson("""{"key1": "value1"}\n{"key2": "value2"}\n""")
 
 
 def test_is_valid_ndjson_fails():
-    test_string = """
+    assert not is_valid_ndjson("""
         {
             "query": {"match_all": {}}
         }
-        """
-    assert not is_valid_ndjson(test_string)
+        """)
 
 
 def test_is_valid_path_succeeds():
