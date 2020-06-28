@@ -19,31 +19,23 @@ class GlobLoader(object):
     def get_ctx(self):
         return self._ctx
 
-    def scan_dir(self):
+    def scan_dir(self, schema_dir: str):
         if self._ctx is None:
             raise ContextObjectNotSetError('Context not set')
 
-        if self._ctx.schema_dir:
-            if os.path.isabs(self._ctx.schema_dir):
-                _schema_dir = self._ctx.schema_dir
-            else:
-                _schema_dir = os.path.join(os.getcwd(), self._ctx.schema_dir)
-        else:
-            _schema_dir = os.getcwd()
+        if not os.path.isdir(schema_dir):
+            raise NotADirectoryError(f'Not a valid directory: {schema_dir}')
 
-        if not os.path.isdir(_schema_dir):
-            raise NotADirectoryError(f'Not a valid directory: {_schema_dir}')
-
-        _schema_ext = self._ctx.schema_ext if self._ctx.schema_ext.startswith('.') else f'.{self._ctx.schema_ext}'
+        schema_ext = self._ctx.schema_ext if self._ctx.schema_ext.startswith('.') else f'.{self._ctx.schema_ext}'
 
         rex = re.compile(self._ctx.schema_pattern)
 
         file_items = []
-        for _item in glob.glob(os.path.join(_schema_dir, f'*{_schema_ext}')):
+        for _item in glob.glob(os.path.join(schema_dir, f'*{schema_ext}')):
             prefix, filename, extension = parse_file_path(_item)
-            _match = rex.match(filename + extension)
-            if _match:
-                _ver, _seq, _name, _ext = _match.groups()
+            m = rex.match(filename + extension)
+            if m:
+                _ver, _seq, _name, _ = m.groups()
             else:
                 raise InvalidSchemaPatternError(f'Illegal file name: {_item}, does not match configured pattern')
             file_items.append(_item)

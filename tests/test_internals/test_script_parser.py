@@ -8,104 +8,78 @@ from esmigrate.internals import ScriptParser
 
 
 @pytest.fixture(scope='module')
-def context():
-    return ContextConfig().load_for('test')
-
-
-@pytest.fixture(scope='module')
-def parser(context):
+def script_parser():
     _parser = ScriptParser()
-    _parser.init_ctx(context)
+    _parser.init_ctx(ContextConfig().load_for('test'))
     return _parser
 
 
-def test_script_parser_initialized(parser):
-    assert parser.get_ctx()
-    assert parser.get_ctx().profile == 'test'
+@pytest.fixture(scope='function')
+def parameter(request):
+    return request.param
 
 
-def test_script_parser_verbs(parser):
-    assert {'DELETE', 'GET', 'POST', 'PUT'}.issubset(set(parser.verbs))
+def test_script_parser_initialized_with_test_context(script_parser):
+    assert script_parser.get_ctx().profile == 'test'
 
 
-def test_script_parser_raises_context_not_set():
-    _parser = ScriptParser()
-    with pytest.raises(ContextObjectNotSetError):
-        for _ in _parser.get_commands(''):
+@pytest.mark.parametrize('parameter', [
+    """no command""",
+    """no command\nGET path""",
+    """GET""",
+    """GETTING this""",
+], indirect=['parameter'])
+def test_script_parser_raises_invalid_command_script(script_parser, parameter):
+    with pytest.raises(InvalidCommandScriptError):
+        for _ in script_parser.get_commands(parameter):
             pass
 
 
-def test_script_parser_raises_invalid_command_script(parser):
-    test_strings = [
-        # No command here
-        """no command""",
-        # Has a command, but prefixed with bla bla
-        """no command\nGET path""",
-        # Just a command verb
-        """GET""",
-        # Properly cased prefix, but not a verb
-        """GETTING this""",
-    ]
-    for test_str in test_strings:
-        with pytest.raises(InvalidCommandScriptError):
-            for _ in parser.get_commands(test_str):
-                pass
+@pytest.mark.parametrize('parameter', [
+    """GeT this""",
+], indirect=['parameter'])
+def test_script_parser_raises_invalid_command_verb(script_parser, parameter):
+    with pytest.raises(InvalidCommandVerbError):
+        for _ in script_parser.get_commands(parameter):
+            pass
 
 
-def test_script_parser_raises_invalid_command_verb(parser):
-    test_strings = [
-        # Not properly cased
-        """GeT this""",
-    ]
-    for test_str in test_strings:
-        with pytest.raises(InvalidCommandVerbError):
-            for _ in parser.get_commands(test_str):
-                pass
+@pytest.mark.parametrize('parameter', [
+    """GET http://localhost:9200/twitter?size=100&text=this is me&page=1""",
+], indirect=['parameter'])
+def test_script_parser_raises_invalid_command_path(script_parser, parameter):
+    with pytest.raises(InvalidCommandPathError):
+        for _ in script_parser.get_commands(parameter):
+            pass
 
 
-def test_script_parser_raises_invalid_command_path(parser):
-    test_strings = [
-        # Path contains base URL
-        """GET http://localhost:9200/twitter?size=100&text=this is me&page=1""",
-    ]
-    for test_str in test_strings:
-        with pytest.raises(InvalidCommandPathError):
-            for _ in parser.get_commands(test_str):
-                pass
+@pytest.mark.parametrize('parameter', [
+    """GET /twitter/_search?size=100\n{'not valid'}""",
+    """GET /twitter/_search?size=100\n{'not valid 1'}\n{'not valid 2'}\n""",
+], indirect=['parameter'])
+def test_script_parser_raises_invalid_command_body(script_parser, parameter):
+    with pytest.raises(InvalidCommandBodyError):
+        for _ in script_parser.get_commands(parameter):
+            pass
 
 
-def test_script_parser_raises_invalid_command_body(parser):
-    test_strings = [
-        # Contains invalid JSON body
-        """GET /twitter/_search?size=100\n{'not valid'}""",
-        # Contains invalid NDJSON body
-        """GET /twitter/_search?size=100\n{'not valid 1'}\n{'not valid 2'}\n""",
-    ]
-    for test_str in test_strings:
-        with pytest.raises(InvalidCommandBodyError):
-            for _ in parser.get_commands(test_str):
-                pass
+@pytest.mark.parametrize('parameter', [
+    """GET path""",
+    """DELETE path?len=0""",
+    """          \t POST  \tpath/to/happiness  \t   """,
+    """\n  \n\n\t  PUT  /path/surrounded/by/slash/?and=more&plus="a few more"  \n \t\t\n\r""",
+    """GET twitter/_search\n{}""",
+    """GET twitter/_search\n{"query": {}}""",
+    """GET twitter/_search\n{"query1": {}}\n{"query2": {}}\n{"query3": {}}""",
+], indirect=['parameter'])
+def test_script_parser_with_single_command(script_parser, parameter):
+    commands = [command for command in script_parser.get_commands(parameter)]
+    assert len(commands) == 1
+    prefix = script_parser.get_ctx().es_host
+    assert prefix in commands[0].path
 
 
-def test_script_parser_with_single_command(parser):
-    test_strings = [
-        # A very tiny command string
-        """GET path""",
-        # A bit longer command string
-        """DELETE path?len=0""",
-        # A string with a lot of spaces around
-        """          \t POST  \tpath/to/happiness  \t   """,
-        # A string with a lot of newlines around
-        """\n  \n\n\t  PUT  /path/surrounded/by/slash/?and=more&plus="a few more"  \n \t\t\n\r""",
-        # A valid command with an empty JSON body
-        """GET twitter/_search\n{}""",
-        # A valid command with a bigger JSON body
-        """GET twitter/_search\n{"query": {}}""",
-        # A valid command with an  NDJSON body
-        """GET twitter/_search\n{"query1": {}}\n{"query2": {}}\n{"query3": {}}""",
-    ]
-    for test_str in test_strings:
-        commands = [command for command in parser.get_commands(test_str)]
-        assert len(commands) == 1
-        prefix = parser.get_ctx().es_host
-        assert prefix in commands[0].path
+def test_script_parser_raises_context_object_not_set_error():
+    with pytest.raises(ContextObjectNotSetError):
+        for _ in ScriptParser().get_commands(''):
+            pass

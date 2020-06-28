@@ -10,78 +10,58 @@ from esmigrate.internals import GlobLoader
 
 
 @pytest.fixture(scope='module')
-def context():
-    return ContextConfig().load_for('dev')
-
-
-@pytest.fixture(scope='module')
-def loader(context):
+def glob_loader():
     _loader = GlobLoader()
-    _loader.init_ctx(context)
+    _loader.init_ctx(ContextConfig().load_for('test'))
     return _loader
 
 
-def test_scan_dir_raises_context_not_set_error():
-    with pytest.raises(ContextObjectNotSetError):
-        GlobLoader().scan_dir()
-
-
-def test_scan_dir_initialized(loader):
-    assert loader.get_ctx().profile == 'dev'
-
-
-def test_scan_dir_loads_absolute_path(loader):
-    loader.get_ctx().schema_dir = os.path.join(os.getcwd(), 'tests', 'resources', 'schema_dir')
-    assert len(loader.scan_dir()) >= 0
-
-
-def test_scan_dir_loads_relative_path(loader):
-    loader.get_ctx().schema_dir = 'tests/resources/schema_dir'
-    assert len(loader.scan_dir()) >= 0
-
-
-def test_scan_dir_loads_current_working_dir(loader):
-    loader.get_ctx().schema_dir = None
-    assert len(loader.scan_dir()) >= 0
-
-
-def test_scan_dir_raises_not_a_directory_error(loader):
-    loader.get_ctx().schema_dir = 'wtf'
-    with pytest.raises(NotADirectoryError):
-        loader.scan_dir()
-
-
 @pytest.fixture(scope='function')
-def params(request):
+def parameter(request):
     return request.param
 
 
-@pytest.mark.parametrize('params', [
+def test_glob_loader_initialized_with_test_context(glob_loader):
+    assert glob_loader.get_ctx().profile == 'test'
+
+
+def test_scan_dir_raises_not_a_directory_error(glob_loader):
+    with pytest.raises(NotADirectoryError):
+        glob_loader.scan_dir('not_a_valid_path')
+
+
+def test_scan_dir_parses_valid_file_names(glob_loader):
+    assert len(glob_loader.scan_dir('tests/resources/schema_dir')) > 0
+
+
+@pytest.mark.parametrize('parameter', [
     'V1_1__create_index_mapping_for_twitter.exm',
     'V1_2__create_new_doc_in_twitter.exm',
     'V1_3__update_existing_doc_in_twitter.exm',
     'V1_3__update_existing_doc_in_twitter.exm',
     'V1_4__delete_all_doc_in_twitter.exm',
     'V1_5__delete_index_twitter.exm',
-], indirect=True)
-def test_envvar_regex(monkeypatch, context, params):
+], indirect=['parameter'])
+def test_envvar_regex(monkeypatch, parameter):
     monkeypatch.setenv('SCHEMA_PATTERN',
                        'V(?P<version>[\\d]+)_(?P<sequence>[\\d]+)__(?P<name>[\\w]+)\\.(?P<extension>[\\w]+)')
-    pattern = rf"^{os.getenv('SCHEMA_PATTERN')}$"
-    # test that envvar can be read
-    assert context.schema_pattern == pattern
-    # test that envvar overwrites default assignment
-    context2 = ContextConfig()
-    assert context2.schema_pattern == pattern
 
-    rex = re.compile(pattern)
-    assert rex.match(params)
+    _context = ContextConfig()
+    _pattern = rf"^{os.getenv('SCHEMA_PATTERN')}$"
+    assert _context.schema_pattern == _pattern
+
+    rex = re.compile(_pattern)
+    assert rex.match(parameter)
 
 
-def test_scan_dir_raises_invalid_schema_pattern_error(loader):
-    loader.get_ctx().schema_dir = 'tests/resources/schema_dir'
-    # test by overriding with a pattern that will not match file names
-    loader.get_ctx().schema_pattern =\
+def test_scan_dir_raises_invalid_schema_pattern_error():
+    _ctx = ContextConfig()
+    _ctx.schema_pattern = \
         r'^(?P<version>[\d]+)_(?P<sequence>[\d]+)_(?P<name>[\w]+)\.(?P<extension>[\w]+)$'
     with pytest.raises(InvalidSchemaPatternError):
-        loader.scan_dir()
+        GlobLoader(_ctx).scan_dir('tests/resources/schema_dir')
+
+
+def test_scan_dir_raises_context_object_not_set_error():
+    with pytest.raises(ContextObjectNotSetError):
+        GlobLoader().scan_dir('.')
