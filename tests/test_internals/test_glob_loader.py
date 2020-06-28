@@ -10,40 +10,39 @@ from esmigrate.internals import GlobLoader
 
 
 @pytest.fixture(scope='module')
-def loader():
-    _context = ContextConfig().load_for('test')
+def glob_loader():
     _loader = GlobLoader()
-    _loader.init_ctx(_context)
+    _loader.init_ctx(ContextConfig().load_for('test'))
     return _loader
 
 
-def test_glob_loader_initialized_with_test_context(loader):
-    assert loader.get_ctx().profile == 'test'
-
-
-def test_scan_dir_raises_not_a_directory_error(loader):
-    with pytest.raises(NotADirectoryError):
-        loader.scan_dir('not_a_valid_path')
-
-
-def test_scan_dir_parses_valid_file_names(loader):
-    assert len(loader.scan_dir('tests/resources/schema_dir')) > 0
-
-
 @pytest.fixture(scope='function')
-def params(request):
+def parameter(request):
     return request.param
 
 
-@pytest.mark.parametrize('params', [
+def test_glob_loader_initialized_with_test_context(glob_loader):
+    assert glob_loader.get_ctx().profile == 'test'
+
+
+def test_scan_dir_raises_not_a_directory_error(glob_loader):
+    with pytest.raises(NotADirectoryError):
+        glob_loader.scan_dir('not_a_valid_path')
+
+
+def test_scan_dir_parses_valid_file_names(glob_loader):
+    assert len(glob_loader.scan_dir('tests/resources/schema_dir')) > 0
+
+
+@pytest.mark.parametrize('parameter', [
     'V1_1__create_index_mapping_for_twitter.exm',
     'V1_2__create_new_doc_in_twitter.exm',
     'V1_3__update_existing_doc_in_twitter.exm',
     'V1_3__update_existing_doc_in_twitter.exm',
     'V1_4__delete_all_doc_in_twitter.exm',
     'V1_5__delete_index_twitter.exm',
-], indirect=True)
-def test_envvar_regex(monkeypatch, params):
+], indirect=['parameter'])
+def test_envvar_regex(monkeypatch, parameter):
     monkeypatch.setenv('SCHEMA_PATTERN',
                        'V(?P<version>[\\d]+)_(?P<sequence>[\\d]+)__(?P<name>[\\w]+)\\.(?P<extension>[\\w]+)')
 
@@ -52,7 +51,7 @@ def test_envvar_regex(monkeypatch, params):
     assert _context.schema_pattern == _pattern
 
     rex = re.compile(_pattern)
-    assert rex.match(params)
+    assert rex.match(parameter)
 
 
 def test_scan_dir_raises_invalid_schema_pattern_error():
