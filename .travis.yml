@@ -1,3 +1,6 @@
+# travis.ci config file
+
+# Default language
 language: python
 # environment variables
 env:
