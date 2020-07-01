@@ -18,6 +18,7 @@ more-itertools==8.3.0
 packaging==20.4
 pluggy==0.13.1
 py==1.8.1
+pyfakefs==4.0.2
 pylint==2.5.3
 pyparsing==2.4.7
 pyrsistent==0.16.0

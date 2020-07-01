@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import re
 
-from esmigrate.commons import Command, is_valid_path, is_valid_json, JSON_HEADER, is_valid_ndjson, NDJSON_HEADER, \
+from esmigrate.commons import Command, is_valid_url_path, is_valid_json, JSON_HEADER, is_valid_ndjson, NDJSON_HEADER, \
     http_verbs
 from esmigrate.commons.helpers import construct_path
 from esmigrate.contexts import ContextConfig
@@ -39,7 +39,7 @@ class ScriptParser(object):
 
             if verb not in http_verbs:
                 raise InvalidCommandVerbError(f'Unexpected verb found: "{verb}"')
-            if not is_valid_path(self._ctx.es_host, path):
+            if not is_valid_url_path(self._ctx.es_host, path):
                 raise InvalidCommandPathError(f'Illegal path "{path}"')
 
             path = construct_path(self._ctx.es_host, path)
