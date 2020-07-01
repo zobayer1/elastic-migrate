@@ -27,7 +27,7 @@ def construct_path(base: str, *paths: str) -> str:
     return '/'.join(p.strip('/') for p in path_components)
 
 
-def is_valid_path(base: str, *paths: str) -> bool:
+def is_valid_url_path(base: str, *paths: str) -> bool:
     path_url = construct_path(base, *paths)
     try:
         validators.url(path_url, allow_special_ips=True)

@@ -52,6 +52,7 @@ coverage.xml
 cover/
 tox_logs/
 logs/
+schema_dir/
 
 # Translations
 *.mo

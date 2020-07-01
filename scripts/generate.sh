@@ -1,7 +1,7 @@
 #!/bin/bash
 # This script creates a test directory for holding schema files used to run test
 # configure target directory name to hold test schema files
-dirname='tests/resources/schema_dir'
+dirname='schema_dir'
 
 # create directory silently or exit on fail
 rm -rf $dirname || exit $?
@@ -67,6 +67,3 @@ EOF
 cat << EOF > "$dirname/V1_5__delete_index_twitter.exm"
 DELETE twitter
 EOF
-
-# add them to git
-git add $dirname --all
