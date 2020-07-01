@@ -38,7 +38,7 @@ setup(
     long_description=long_description,
     use_scm_version=True,
     setup_requires=setup_dependencies,
-    packages=find_packages(exclude=['docs', 'tests*']),
+    packages=find_packages(exclude=['docs', 'tests']),
     include_package_data=True,
     zip_safe=False,
     platforms='any',

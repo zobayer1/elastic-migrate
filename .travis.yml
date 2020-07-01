@@ -1,37 +1,34 @@
-# travis.ci config file
-
-# Default language
 language: python
-# environment variables
+
 env:
   - ENV=travis
-# target python versions
+
 python:
   - "3.6"
   - "3.7"
   - "3.8"
-# operating systems
+
 os:
   - linux
   - osx
   - windows
-# configure jobs
+
 jobs:
   allow_failures:
     - os: windows
     - os: osx
-# install dependencies
+
 install:
   - pip install --upgrade pip
   - pip install -r requirements.txt
   - pip install -e .
-# run tests
+
 script:
   - py.test --cov esmigrate --cov-report term-missing
-# upload coverage reports
+
 after_success:
   - codecov
-# target branches for builds
+
 branches:
   only:
     - master

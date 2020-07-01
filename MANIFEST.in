@@ -1,17 +1,10 @@
-exclude .env
 exclude .travis.yml
-exclude esmigrate.db
-exclude config.json
-recursive-exclude logs *
-recursive-exclude schema_dir *
-include *.py
+exclude .pyup.yml
+exclude .pre-commit-config.yaml
+exclude .gitignore
+include requirements.txt
+include README.md
 include .coveragerc
 include tox.ini
-include LICENSE
-include requirements.txt
-include *.md
-include *.toml
-recursive-include esmigrate *
-recursive-include tests *
-recursive-include docs *
-recursive-include scripts *
+recursive-include scripts *.sh
+recursive-include tests *.py

@@ -5,3 +5,6 @@ requires = ["setuptools>=42", "wheel", "setuptools_scm[toml]>=3.4"]
 write_to = "esmigrate/version.py"
 write_to_template = "# -*- coding: utf-8 -*-\n\n__version__ = '{version}'\n"
 version_scheme = "release-branch-semver"
+
+[tool.check-manifest]
+ignore = ["esmigrate/version.py"]
