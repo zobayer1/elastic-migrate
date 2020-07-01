@@ -2,5 +2,6 @@
 
 
 class InvalidCommandBodyError(RuntimeError):
-    """Raised when command body is not a valid JSON object"""
+    """Raised when command body is not a valid JSON or NDJSON object"""
+
     pass

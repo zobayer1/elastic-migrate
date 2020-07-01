@@ -16,4 +16,4 @@ rm -rf ./logs
 # remove test coverage cache
 rm -rf ./.pytest_cache
 rm -rf ./.tox
-rm -f ./.coverage
+rm -f ./.coverage coverage.xml

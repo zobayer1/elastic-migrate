@@ -2,5 +2,6 @@
 
 
 class InvalidCommandVerbError(RuntimeError):
-    """Raised when command verb is not one of GET, PUT, POST, DELETE"""
+    """Raised when command verb is an unsupported HTTP verb"""
+
     pass

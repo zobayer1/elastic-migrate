@@ -1,20 +1,28 @@
 # -*- coding: utf-8 -*-
 import pytest
 
-from esmigrate.commons import Command, JSON_HEADER, NDJSON_HEADER, version, version_short, title, Header
+from esmigrate.commons import (
+    Command,
+    JSON_HEADER,
+    NDJSON_HEADER,
+    version,
+    version_short,
+    title,
+    Header,
+)
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def verb():
-    return 'GET'
+    return "GET"
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def path():
-    return '/twitter/_search?size=100'
+    return "/twitter/_search?size=100"
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def body():
     return """
         {
@@ -25,7 +33,7 @@ def body():
         """
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def command(verb, path, body):
     return Command(verb, path, body)
 
@@ -55,7 +63,7 @@ def test_repr_outputs_string(command, verb, path):
     assert len(repr_text) > 0
     assert verb in repr_text
     assert path in repr_text
-    assert 'header' in repr_text
+    assert "header" in repr_text
 
 
 def test_version_string_not_empty():

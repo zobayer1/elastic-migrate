@@ -2,5 +2,6 @@
 
 
 class InvalidSchemaPatternError(RuntimeError):
-    """Raises when schema pattern is invalid or filename does not match with it"""
+    """Raised when schema pattern is invalid or does not match with filename"""
+
     pass

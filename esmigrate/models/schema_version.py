@@ -8,7 +8,7 @@ from esmigrate.models.base import Base
 
 
 class SchemaVersion(Base):
-    __tablename__ = 'schema_version'
+    __tablename__ = "schema_version"
 
     version = Column(String, primary_key=True)
     version_rank = Column(Integer)

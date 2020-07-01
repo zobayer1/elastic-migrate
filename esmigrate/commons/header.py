@@ -2,7 +2,6 @@
 
 
 class Header(object):
-
     def __init__(self, header: dict):
         self._dict = header
 
@@ -10,10 +9,10 @@ class Header(object):
         return self._dict
 
     def is_json_header(self):
-        return self._dict.get('Content-Type') == 'application/json'
+        return self._dict.get("Content-Type") == "application/json"
 
     def is_ndjson_header(self):
-        return self._dict.get('Content-Type') == 'application/x-ndjson'
+        return self._dict.get("Content-Type") == "application/x-ndjson"
 
     def __str__(self):
         return str(self._dict)
