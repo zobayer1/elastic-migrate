@@ -44,7 +44,7 @@ class ScriptParser(object):
         ]
         if len(occurs) == 0 or occurs[0] != 0:
             raise InvalidCommandScriptError(
-                f'Unexpected command found: "{stripped_lines[0].split()[0]}"'
+                f"Unexpected command found: {stripped_lines[0].split()[0]}"
             )
 
         occurs.append(len(stripped_lines))
@@ -54,9 +54,9 @@ class ScriptParser(object):
             verb, path = m.group(1).strip(), m.group(2).strip()
 
             if verb not in http_verbs:
-                raise InvalidCommandVerbError(f'Unexpected verb found: "{verb}"')
+                raise InvalidCommandVerbError(f"Unexpected verb found: {verb}")
             if not is_valid_url_path(self._ctx.es_host, path):
-                raise InvalidCommandPathError(f'Illegal path "{path}"')
+                raise InvalidCommandPathError(f"Illegal path {path}")
 
             path = construct_path(self._ctx.es_host, path)
             cmdnext = occurs[idx + 1]

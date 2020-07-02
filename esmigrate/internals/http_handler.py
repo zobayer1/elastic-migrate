@@ -22,7 +22,7 @@ class HTTPHandler(object):
             raise ContextObjectNotSetError("Context not set")
 
         if command.verb not in http_verbs:
-            raise InvalidCommandVerbError(f'Unexpected verb found: "{command.verb}"')
+            raise InvalidCommandVerbError(f"Unexpected verb found: {command.verb}")
 
         for k, v in self._ctx.headers.items():
             command.head[k] = v
