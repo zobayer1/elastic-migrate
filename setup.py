@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
-"""""" """""" """""" """""" """""" """""" """""" """""" """""" """""" """""" """""" """""
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
  ███████╗███████╗    ███╗   ███╗██╗ ██████╗ ██████╗  █████╗ ████████╗███████╗
  ██╔════╝██╔════╝    ████╗ ████║██║██╔════╝ ██╔══██╗██╔══██╗╚══██╔══╝██╔════╝
  █████╗  ███████╗    ██╔████╔██║██║██║  ███╗██████╔╝███████║   ██║   █████╗
  ██╔══╝  ╚════██║    ██║╚██╔╝██║██║██║   ██║██╔══██╗██╔══██║   ██║   ██╔══╝
  ███████╗███████║    ██║ ╚═╝ ██║██║╚██████╔╝██║  ██║██║  ██║   ██║   ███████╗
  ╚══════╝╚══════╝    ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
-""" """""" """""" """""" """""" """""" """""" """""" """""" """""" """""" """""" """""" ""
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 from os import path
 from setuptools import find_packages, setup
 
@@ -17,6 +17,7 @@ setup_dependencies = [
 install_dependencies = [
     "setuptools-scm",
     "click",
+    "appdirs",
     "click-log",
     "requests",
     "sqlalchemy",
@@ -46,7 +47,11 @@ setup(
     zip_safe=False,
     platforms="any",
     install_requires=install_dependencies,
-    entry_points={"console_scripts": ["esmigrate = esmigrate.cli:main",],},
+    entry_points={
+        "console_scripts": [
+            "esmigrate = esmigrate.cli:main",
+        ],
+    },
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "Environment :: Console",
