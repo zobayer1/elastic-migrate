@@ -14,9 +14,6 @@ class HTTPHandler(object):
     def init_ctx(self, ctx: ContextConfig):
         self._ctx = ctx
 
-    def get_ctx(self):
-        return self._ctx
-
     def make_requests(self, command: Command):
         if self._ctx is None:
             raise ContextObjectNotSetError("Context not set")

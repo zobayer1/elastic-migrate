@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 import re
+from urllib.parse import urlparse
 
 from esmigrate.commons import (
     Command,
-    is_valid_url_path,
     is_valid_json,
     JSON_HEADER,
     is_valid_ndjson,
@@ -29,9 +29,6 @@ class ScriptParser(object):
     def init_ctx(self, ctx: ContextConfig):
         self._ctx = ctx
 
-    def get_ctx(self):
-        return self._ctx
-
     def get_commands(self, script_text: str):
         if self._ctx is None:
             raise ContextObjectNotSetError("Context not set")
@@ -55,8 +52,10 @@ class ScriptParser(object):
 
             if verb not in http_verbs:
                 raise InvalidCommandVerbError(f"Unexpected verb found: {verb}")
-            if not is_valid_url_path(self._ctx.es_host, path):
-                raise InvalidCommandPathError(f"Illegal path {path}")
+
+            parsed_path = urlparse(path)
+            if parsed_path.scheme or parsed_path.netloc:
+                raise InvalidCommandPathError(f"Unexpected URL scheme found: {path}")
 
             path = construct_path(self._ctx.es_host, path)
             cmdnext = occurs[idx + 1]
@@ -66,9 +65,9 @@ class ScriptParser(object):
             else:
                 body = "\n".join(stripped_lines[cmdline + 1 : cmdnext])
                 if is_valid_json(body):
-                    head = JSON_HEADER.dict()
+                    head = JSON_HEADER
                 elif is_valid_ndjson(body):
-                    head = NDJSON_HEADER.dict()
+                    head = NDJSON_HEADER
                 else:
                     raise InvalidCommandBodyError(
                         f"Expected a {JSON_HEADER} or {NDJSON_HEADER} body"

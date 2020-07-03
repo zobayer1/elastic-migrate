@@ -9,12 +9,8 @@ from esmigrate.internals import GlobLoader
 @pytest.fixture(scope="module")
 def glob_loader():
     _loader = GlobLoader()
-    _loader.init_ctx(ContextConfig().load_for("test"))
+    _loader.init_ctx(ContextConfig())
     return _loader
-
-
-def test_glob_loader_initialized_with_test_context(glob_loader):
-    assert glob_loader.get_ctx().profile == "test"
 
 
 def test_scan_dir_raises_not_a_directory_error(glob_loader):
