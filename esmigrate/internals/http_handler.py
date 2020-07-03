@@ -14,15 +14,12 @@ class HTTPHandler(object):
     def init_ctx(self, ctx: ContextConfig):
         self._ctx = ctx
 
-    def get_ctx(self):
-        return self._ctx
-
     def make_requests(self, command: Command):
         if self._ctx is None:
             raise ContextObjectNotSetError("Context not set")
 
         if command.verb not in http_verbs:
-            raise InvalidCommandVerbError(f'Unexpected verb found: "{command.verb}"')
+            raise InvalidCommandVerbError(f"Unexpected verb found: {command.verb}")
 
         for k, v in self._ctx.headers.items():
             command.head[k] = v

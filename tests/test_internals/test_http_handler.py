@@ -10,15 +10,9 @@ from esmigrate.internals import HTTPHandler
 
 @pytest.fixture(scope="module")
 def http_handler():
-    _ctx = ContextConfig().load_for("test")
-    _ctx.headers = {"header_key": "header_value"}
     _handler = HTTPHandler()
-    _handler.init_ctx(_ctx)
+    _handler.init_ctx(ContextConfig())
     return _handler
-
-
-def test_http_handler_initialized_with_test_context(http_handler):
-    assert http_handler.get_ctx().profile == "test"
 
 
 def test_http_handler_raises_invalid_command_verb_error(http_handler):

@@ -1,22 +1,13 @@
 # -*- coding: utf-8 -*-
-import os
-import re
-
 import pytest
 
+from esmigrate.commons import local_config_file_path, user_config_file_path
 from esmigrate.contexts import ContextConfig
-from esmigrate.exceptions import InvalidSchemaPatternError
-
-
-@pytest.fixture(scope="function")
-def parameter(request):
-    return request.param
-
-
-def test_context_loads_with_defaults():
-    context = ContextConfig()
-    assert context.profile == "dev"
-    assert len(str(context)) > 0
+from esmigrate.exceptions import (
+    InvalidSchemaPatternError,
+    ConfigurationFileReadError,
+    InvalidElasticHostUrlError,
+)
 
 
 def test_context_fails_with_invalid_schema_pattern_error(monkeypatch):
@@ -25,26 +16,37 @@ def test_context_fails_with_invalid_schema_pattern_error(monkeypatch):
         ContextConfig()
 
 
-@pytest.mark.parametrize(
-    "parameter",
-    [
-        "V1_1__create_index_mapping_for_twitter.exm",
-        "V1_2__create_new_doc_in_twitter.exm",
-        "V1_3__update_existing_doc_in_twitter.exm",
-        "V1_3__update_existing_doc_in_twitter.exm",
-        "V1_4__delete_all_doc_in_twitter.exm",
-        "V1_5__delete_index_twitter.exm",
-    ],
-    indirect=["parameter"],
-)
-def test_envvar_regex(monkeypatch, parameter):
-    monkeypatch.setenv(
-        "SCHEMA_PATTERN",
-        "V(?P<version>[\\d]+)_(?P<sequence>[\\d]+)__(?P<name>[\\w]+)\\.(?P<extension>[\\w]+)",
+def test_context_config_loads_from_envvar_config_path(monkeypatch, fs):
+    monkeypatch.setenv("ESMIGRATE_CONFIG", "/tmp/elastic-migrate/config.json")
+    fs.create_file(
+        "/tmp/elastic-migrate/config.json", contents="""{"profiles":[{"test":{}}]}"""
     )
+    context = ContextConfig().load_for("test")
+    assert context.profile == "test"
 
-    _context = ContextConfig()
-    _pattern = rf"^{os.getenv('SCHEMA_PATTERN')}$"
-    assert _context.schema_pattern == _pattern
 
-    assert re.match(_pattern, parameter)
+def test_context_config_loads_from_cwd_config_path(fs):
+    fs.create_file(local_config_file_path, contents="""{"profiles":[{"test":{}}]}""")
+    context = ContextConfig().load_for("test")
+    assert context.profile == "test"
+
+
+def test_context_config_loads_from_user_config_path(fs):
+    fs.create_file(user_config_file_path, contents="""{"profiles":[{"test":{}}]}""")
+    context = ContextConfig().load_for("test")
+    assert context.profile == "test"
+
+
+def test_context_fails_with_configuration_file_read_error(fs):
+    fs.create_file(local_config_file_path, contents="not valid json")
+    with pytest.raises(ConfigurationFileReadError):
+        ContextConfig().load_for("test")
+
+
+def test_context_fails_with_invalid_elastic_host_url_error(fs):
+    fs.create_file(
+        local_config_file_path,
+        contents="""{"profiles":[{"test":{"elastic_host":"invalid_host"}}]}""",
+    )
+    with pytest.raises(InvalidElasticHostUrlError):
+        ContextConfig().load_for("test")

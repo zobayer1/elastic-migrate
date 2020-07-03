@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import json
 
 
 class Command(object):
@@ -40,8 +39,3 @@ class Command(object):
     @head.setter
     def head(self, value: dict):
         self._head = value
-
-    def __repr__(self):
-        return (
-            f"{self._verb} {self._path}\n{self._body}\nheader={json.dumps(self._head)}"
-        )
