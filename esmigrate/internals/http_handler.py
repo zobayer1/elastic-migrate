@@ -24,9 +24,7 @@ class HTTPHandler(object):
         for k, v in self._ctx.headers.items():
             command.head[k] = v
 
-        response = self._session.request(
-            command.verb, url=command.path, data=command.body, headers=command.head
-        )
+        response = self._session.request(command.verb, url=command.path, data=command.body, headers=command.head)
         response.raise_for_status()
 
         return response

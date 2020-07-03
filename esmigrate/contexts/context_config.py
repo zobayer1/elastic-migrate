@@ -25,13 +25,9 @@ class ContextConfig(object):
         self.headers = {"Connection": "keep-alive"}
         self.schema_dir = None
         self.schema_ext = ".exm"
-        self.schema_pattern = (
-            rf"^{os.getenv('SCHEMA_PATTERN', ContextConfig._default_pattern)}$"
-        )
+        self.schema_pattern = rf"^{os.getenv('SCHEMA_PATTERN', ContextConfig._default_pattern)}$"
         if not all(p in self.schema_pattern for p in ContextConfig._named_groups):
-            raise InvalidSchemaPatternError(
-                f"SCHEMA_PATTERN must have named groups for {ContextConfig._named_groups}"
-            )
+            raise InvalidSchemaPatternError(f"SCHEMA_PATTERN must have named groups for {ContextConfig._named_groups}")
 
     def load_for(self, profile: str = "dev"):
         profile = str(profile).strip()
@@ -48,28 +44,14 @@ class ContextConfig(object):
                             if profile in _profile:
                                 selected_profile = profile
                                 json_profile_data = _profile[profile]
-                                self.es_host = json_profile_data.get(
-                                    "elastic_host", self.es_host
-                                )
-                                self.headers = json_profile_data.get(
-                                    "elastic_headers", self.headers
-                                )
-                                self.schema_db = json_profile_data.get(
-                                    "schema_db", self.schema_db
-                                )
-                                self.schema_dir = json_profile_data.get(
-                                    "schema_dir", self.schema_dir
-                                )
-                                self.schema_ext = json_profile_data.get(
-                                    "schema_ext", self.schema_ext
-                                )
+                                self.es_host = json_profile_data.get("elastic_host", self.es_host)
+                                self.headers = json_profile_data.get("elastic_headers", self.headers)
+                                self.schema_db = json_profile_data.get("schema_db", self.schema_db)
+                                self.schema_dir = json_profile_data.get("schema_dir", self.schema_dir)
+                                self.schema_ext = json_profile_data.get("schema_ext", self.schema_ext)
 
-                                if not checkers.is_url(
-                                    self.es_host, allow_special_ips=True
-                                ):
-                                    raise InvalidElasticHostUrlError(
-                                        f"Invalid URL: {self.es_host}"
-                                    )
+                                if not checkers.is_url(self.es_host, allow_special_ips=True):
+                                    raise InvalidElasticHostUrlError(f"Invalid URL: {self.es_host}")
 
                                 break
 

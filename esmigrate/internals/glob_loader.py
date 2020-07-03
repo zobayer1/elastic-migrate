@@ -22,11 +22,7 @@ class GlobLoader(object):
         if not os.path.isdir(schema_dir):
             raise NotADirectoryError(f"Not a valid directory: {schema_dir}")
 
-        schema_ext = (
-            self._ctx.schema_ext
-            if self._ctx.schema_ext.startswith(".")
-            else f".{self._ctx.schema_ext}"
-        )
+        schema_ext = self._ctx.schema_ext if self._ctx.schema_ext.startswith(".") else f".{self._ctx.schema_ext}"
 
         rex = re.compile(self._ctx.schema_pattern)
 
@@ -37,9 +33,7 @@ class GlobLoader(object):
             if m:
                 _ver, _seq, _name, _ = m.groups()
             else:
-                raise InvalidSchemaPatternError(
-                    f"Illegal file name: {_item}, does not match configured pattern"
-                )
+                raise InvalidSchemaPatternError(f"Illegal file name: {_item}, does not match configured pattern")
             file_items.append(_item)
 
         return file_items
