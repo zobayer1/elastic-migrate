@@ -5,9 +5,6 @@ from esmigrate.commons import (
     Command,
     JSON_HEADER,
     NDJSON_HEADER,
-    version,
-    version_short,
-    title,
     Header,
 )
 
@@ -64,16 +61,3 @@ def test_repr_outputs_string(command, verb, path):
     assert verb in repr_text
     assert path in repr_text
     assert "header" in repr_text
-
-
-def test_version_string_not_empty():
-    assert version and len(version) > 0
-
-
-def test_version_short_is_substring_of_version():
-    assert version_short and len(version_short) > 0
-    assert version_short in version
-
-
-def test_title_string_not_empty():
-    assert title and len(title) > 0

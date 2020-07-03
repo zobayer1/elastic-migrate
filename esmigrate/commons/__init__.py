@@ -15,6 +15,7 @@ http_verbs = ["GET", "PUT", "POST", "DELETE"]
 JSON_HEADER = Header({"Content-Type": "application/json"})
 NDJSON_HEADER = Header({"Content-Type": "application/x-ndjson"})
 
+appname = "elastic-migrate"
 version = get_version(root="../../", relative_to=__file__)
 version_short = version.split("+")[0]
 title = f"""
@@ -36,6 +37,7 @@ __all__ = [
     "is_valid_ndjson",
     "is_valid_url_path",
     "parse_file_path",
+    "appname",
     "version",
     "version_short",
     "title",
