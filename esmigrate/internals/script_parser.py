@@ -33,16 +33,10 @@ class ScriptParser(object):
         if self._ctx is None:
             raise ContextObjectNotSetError("Context not set")
 
-        stripped_lines = [
-            line.strip() for line in script_text.split("\n") if len(line.strip()) > 0
-        ]
-        occurs = [
-            idx for idx, line in enumerate(stripped_lines) if self._pattern.match(line)
-        ]
+        stripped_lines = [line.strip() for line in script_text.split("\n") if len(line.strip()) > 0]
+        occurs = [idx for idx, line in enumerate(stripped_lines) if self._pattern.match(line)]
         if len(occurs) == 0 or occurs[0] != 0:
-            raise InvalidCommandScriptError(
-                f"Unexpected command found: {stripped_lines[0].split()[0]}"
-            )
+            raise InvalidCommandScriptError(f"Unexpected command found: {stripped_lines[0].split()[0]}")
 
         occurs.append(len(stripped_lines))
         for idx in range(len(occurs) - 1):
@@ -69,8 +63,6 @@ class ScriptParser(object):
                 elif is_valid_ndjson(body):
                     head = NDJSON_HEADER
                 else:
-                    raise InvalidCommandBodyError(
-                        f"Expected a {JSON_HEADER} or {NDJSON_HEADER} body"
-                    )
+                    raise InvalidCommandBodyError(f"Expected a {JSON_HEADER} or {NDJSON_HEADER} body")
 
             yield Command(verb, path, body, head)

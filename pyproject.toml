@@ -11,7 +11,7 @@ version_scheme = "release-branch-semver"
 ignore = ["esmigrate/version.py"]
 
 [tool.black]
-line-length = 88
+line-length = 120
 target-version = ['py36', 'py37', 'py38']
 include = '\.pyi?$'
 exclude = '''
