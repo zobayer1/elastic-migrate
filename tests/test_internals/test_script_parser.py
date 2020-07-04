@@ -14,6 +14,7 @@ from esmigrate.internals import ScriptParser
 
 @pytest.fixture(scope="module")
 def script_parser():
+    """pytest fixture for providing default ScriptParser object"""
     _parser = ScriptParser()
     _parser.init_ctx(ContextConfig())
     return _parser
@@ -21,6 +22,7 @@ def script_parser():
 
 @pytest.fixture(scope="function")
 def parameter(request):
+    """pytest fixture for allowing indirect pytest.mark.parametrize"""
     return request.param
 
 
@@ -28,6 +30,7 @@ def parameter(request):
     "parameter", ["no command", "no command\nGET path", "GET", "GETTING this"], indirect=["parameter"],
 )
 def test_script_parser_raises_invalid_command_script(script_parser, parameter):
+    """Test fails if get_commands does not raise error for invalid command script"""
     with pytest.raises(InvalidCommandScriptError):
         for _ in script_parser.get_commands(parameter):
             pass
@@ -35,6 +38,7 @@ def test_script_parser_raises_invalid_command_script(script_parser, parameter):
 
 @pytest.mark.parametrize("parameter", ["GeT this", " delete this"], indirect=["parameter"])
 def test_script_parser_raises_invalid_command_verb(script_parser, parameter):
+    """Test fails if get_commands does not raise error for invalid command verb"""
     with pytest.raises(InvalidCommandVerbError):
         for _ in script_parser.get_commands(parameter):
             pass
@@ -44,6 +48,7 @@ def test_script_parser_raises_invalid_command_verb(script_parser, parameter):
     "parameter", ["GET http://localhost:9200/twitter?size=100&text=this is me&page=1"], indirect=["parameter"],
 )
 def test_script_parser_raises_invalid_command_path(script_parser, parameter):
+    """Test fails if get_commands does not raise error for invalid command path"""
     with pytest.raises(InvalidCommandPathError):
         for _ in script_parser.get_commands(parameter):
             pass
@@ -58,6 +63,7 @@ def test_script_parser_raises_invalid_command_path(script_parser, parameter):
     indirect=["parameter"],
 )
 def test_script_parser_raises_invalid_command_body(script_parser, parameter):
+    """Test fails if get_commands does not raise error for invalid command body"""
     with pytest.raises(InvalidCommandBodyError):
         for _ in script_parser.get_commands(parameter):
             pass
@@ -77,11 +83,13 @@ def test_script_parser_raises_invalid_command_body(script_parser, parameter):
     indirect=["parameter"],
 )
 def test_script_parser_with_single_command(script_parser, parameter):
+    """Test fails if get_commands cannot process script with single valid command"""
     commands = [command for command in script_parser.get_commands(parameter)]
     assert len(commands) == 1
 
 
 def test_script_parser_raises_context_object_not_set_error():
+    """Test fails if get_commands does not raise error when called without a context"""
     with pytest.raises(ContextObjectNotSetError):
         for _ in ScriptParser().get_commands(""):
             pass
