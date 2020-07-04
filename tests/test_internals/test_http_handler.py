@@ -10,6 +10,7 @@ from esmigrate.internals import HTTPHandler
 
 @pytest.fixture(scope="module")
 def http_handler():
+    """pytest fixture for providing default HTTPHandler object"""
     _handler = HTTPHandler()
     _handler.init_ctx(ContextConfig())
     return _handler
