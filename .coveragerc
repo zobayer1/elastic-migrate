@@ -6,3 +6,4 @@ omit =
 exclude_lines =
     pragma: no cover
     def __repr__
+    def __del__

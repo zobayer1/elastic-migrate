@@ -23,6 +23,7 @@ class SchemaVersion(Base):
     success = Column(Boolean)
     query_results = Column(String)
 
-    def __init__(self):
+    def __init__(self, version: str):
+        self.version = version
         self.installed_by = getpass.getuser()
         self.installed_on = datetime.now()
