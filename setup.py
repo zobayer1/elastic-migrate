@@ -14,14 +14,15 @@ setup_dependencies = [
     "wheel",
     "setuptools-scm",
 ]
+
 install_dependencies = [
     "setuptools-scm",
-    "click",
     "appdirs",
+    "click",
     "click-log",
     "requests",
     "sqlalchemy",
-    "validator_collection",
+    "validator-collection",
 ]
 
 try:
