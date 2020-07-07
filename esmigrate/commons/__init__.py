@@ -1,8 +1,13 @@
 # -*- coding: utf-8 -*-
 import os
+import sys
+
+if sys.version_info < (3, 8):  # pragma: no cover
+    from importlib_metadata import version as get_version
+else:  # pragma: no cover
+    from importlib.metadata import version as get_version
 
 import appdirs
-from setuptools_scm import get_version
 
 from esmigrate.commons.command import Command
 from esmigrate.commons.helpers import (
@@ -16,8 +21,7 @@ JSON_HEADER = {"Content-Type": "application/json"}
 NDJSON_HEADER = {"Content-Type": "application/x-ndjson"}
 
 appname = "elastic-migrate"
-version = get_version(root="../../", relative_to=__file__)
-version_short = version.split("+")[0]
+version = get_version(appname)
 
 title = f"""
   ███████╗███████╗    ███╗   ███╗██╗ ██████╗ ██████╗  █████╗ ████████╗███████╗
@@ -25,7 +29,7 @@ title = f"""
   █████╗  ███████╗    ██╔████╔██║██║██║  ███╗██████╔╝███████║   ██║   █████╗
   ██╔══╝  ╚════██║    ██║╚██╔╝██║██║██║   ██║██╔══██╗██╔══██║   ██║   ██╔══╝
   ███████╗███████║    ██║ ╚═╝ ██║██║╚██████╔╝██║  ██║██║  ██║   ██║   ███████╗
-  ╚══════╝╚══════╝    ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ╚══════╝  {version_short}
+  ╚══════╝╚══════╝    ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ╚══════╝  {version}
   Elasticsearch migrations made easy!
 """
 
@@ -38,7 +42,6 @@ __all__ = [
     "NDJSON_HEADER",
     "appname",
     "version",
-    "version_short",
     "title",
     "local_config_file_path",
     "user_config_file_path",
