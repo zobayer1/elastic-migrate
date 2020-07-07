@@ -16,7 +16,7 @@ setup_dependencies = [
 ]
 
 install_dependencies = [
-    "setuptools-scm",
+    "importlib-metadata;python_version<'3.8'",
     "appdirs",
     "click",
     "click-log",
