@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 
-class InvalidSchemaVersionError(RuntimeError):
+class SchemaVersionSqlDbError(RuntimeError):
     """Raised when schema version entity is invalid or conflicting"""
 
     pass

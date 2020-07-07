@@ -8,7 +8,7 @@ from esmigrate.exceptions.invalid_command_verb_error import InvalidCommandVerbEr
 from esmigrate.exceptions.invalid_db_connection_error import InvalidDBConnectionError
 from esmigrate.exceptions.invalid_elastic_host_url_error import InvalidElasticHostUrlError
 from esmigrate.exceptions.invalid_schema_pattern_error import InvalidSchemaPatternError
-from esmigrate.exceptions.invalid_schema_version_error import InvalidSchemaVersionError
+from esmigrate.exceptions.schema_version_sqldb_error import SchemaVersionSqlDbError
 
 __all__ = [
     "InvalidCommandScriptError",
@@ -20,5 +20,5 @@ __all__ = [
     "ConfigurationFileReadError",
     "InvalidElasticHostUrlError",
     "InvalidDBConnectionError",
-    "InvalidSchemaVersionError",
+    "SchemaVersionSqlDbError",
 ]
