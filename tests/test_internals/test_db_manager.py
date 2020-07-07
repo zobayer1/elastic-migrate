@@ -1,41 +1,86 @@
 # -*- coding: utf-8 -*-
 import pytest
 
-from esmigrate.exceptions import InvalidDBConnectionError, InvalidSchemaVersionError
+from esmigrate.exceptions import InvalidDBConnectionError, SchemaVersionSqlDbError
 from esmigrate.internals import get_db_manager
 from esmigrate.models import SchemaVersion
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def db_manager():
     """pytest fixture for providing singleton DBManager instance"""
     _db_man = get_db_manager("sqlite:///:memory:", echo=True)
-    _db_man.initialize_db()
     return _db_man
 
 
-@pytest.mark.dependency()
-def test_db_manager_successfully_creates_an_entry(db_manager):
-    """Test fails if insert_new_schema fails with an error"""
-    scmver = SchemaVersion("v1.0")
+@pytest.fixture(scope="function")
+def db_with_success_row(db_manager):
+    """pytest fixture for providing populated table with a single `success=true` entry"""
+    scmver = SchemaVersion("1.0")
+    scmver.success = True
+
     db_manager.insert_new_schema(scmver)
+    yield db_manager
+    db_manager.delete_all_schema()
 
 
-@pytest.mark.dependency(depends=["test_db_manager_successfully_creates_an_entry"])
-def test_db_manager_successfully_finds_created_object(db_manager):
-    """Test fails if find_schema_by_version cannot find entry with key `v1.0`"""
-    scmver_read = db_manager.find_schema_by_version("v1.0")
-    assert scmver_read.version == "v1.0"
+@pytest.fixture(scope="function")
+def db_with_failed_row(db_manager):
+    """pytest fixture for providing populated table with a single `success=false` entry"""
+    scmver = SchemaVersion("1.0")
+    scmver.success = False
+
+    db_manager.insert_new_schema(scmver)
+    yield db_manager
+    db_manager.delete_all_schema()
 
 
-@pytest.mark.dependency(
-    depends=["test_db_manager_successfully_creates_an_entry", "test_db_manager_successfully_finds_created_object"]
-)
-def test_db_manager_raises_error_when_inserting_duplicate(db_manager):
+def test_db_manager_finds_by_version(db_with_success_row):
+    """Test fails if find_schema_by_version cannot find entry with primary key `1.0`"""
+    scmver_read = db_with_success_row.find_schema_by_version("1.0")
+    assert scmver_read.version == "1.0"
+
+
+def test_db_manager_finds_latest_schema(db_with_success_row):
+    """Test fails if find_latest_schema cannot find latest schema"""
+    row = db_with_success_row.find_latest_schema()
+    assert row.installed_rank == 1
+
+
+def test_db_manager_finds_all_schema(db_with_success_row):
+    """Test fails if find_all_schema cannot find all records"""
+    rows = db_with_success_row.find_all_schema()
+    assert len(rows) == 1
+
+
+def test_db_manager_inserts_schema_with_correct_installed_rank(db_with_success_row):
+    """Test fails if insert_new_schema cannot assign next installed_rank"""
+    scmver = SchemaVersion("1.1")
+    scmver.success = True
+
+    db_with_success_row.insert_new_schema(scmver)
+    assert scmver.installed_rank == 2
+
+
+def test_db_manager_raises_error_when_inserting_duplicate(db_with_success_row):
     """Test fails if insert_new_schema does not fail integrity violation"""
-    scmver = SchemaVersion("v1.0")
-    with pytest.raises(InvalidSchemaVersionError):
-        db_manager.insert_new_schema(scmver)
+    scmver = SchemaVersion("1.0")
+    with pytest.raises(SchemaVersionSqlDbError):
+        db_with_success_row.insert_new_schema(scmver)
+
+
+def test_db_manager_raises_error_when_inserting_after_error(db_with_failed_row):
+    """Test fails if insert_new_schema does not raise error when inserting after a failed row"""
+    scmver = SchemaVersion("1.1")
+    with pytest.raises(SchemaVersionSqlDbError):
+        db_with_failed_row.insert_new_schema(scmver)
+
+
+def test_db_manager_deletes_all_failed_schema(db_with_failed_row):
+    """Test fails if delete_all_failed_schema does not remove the failed row"""
+    db_with_failed_row.delete_all_failed_schema()
+    rows = db_with_failed_row.find_all_schema()
+    assert (len(rows)) == 0
 
 
 def test_db_manager_cannot_find_entry(db_manager):
