@@ -7,18 +7,20 @@ from esmigrate.exceptions.invalid_command_script_error import InvalidCommandScri
 from esmigrate.exceptions.invalid_command_verb_error import InvalidCommandVerbError
 from esmigrate.exceptions.invalid_db_connection_error import InvalidDBConnectionError
 from esmigrate.exceptions.invalid_elastic_host_url_error import InvalidElasticHostUrlError
+from esmigrate.exceptions.invalid_schema_file_error import InvalidSchemaFileError
 from esmigrate.exceptions.invalid_schema_pattern_error import InvalidSchemaPatternError
 from esmigrate.exceptions.schema_version_sqldb_error import SchemaVersionSqlDbError
 
 __all__ = [
+    "ConfigurationFileReadError",
+    "ContextObjectNotSetError",
+    "InvalidCommandBodyError",
+    "InvalidCommandPathError",
     "InvalidCommandScriptError",
     "InvalidCommandVerbError",
-    "InvalidCommandPathError",
-    "InvalidCommandBodyError",
-    "ContextObjectNotSetError",
-    "InvalidSchemaPatternError",
-    "ConfigurationFileReadError",
-    "InvalidElasticHostUrlError",
     "InvalidDBConnectionError",
+    "InvalidElasticHostUrlError",
+    "InvalidSchemaFileError",
+    "InvalidSchemaPatternError",
     "SchemaVersionSqlDbError",
 ]
