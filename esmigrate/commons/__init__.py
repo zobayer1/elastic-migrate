@@ -9,6 +9,7 @@ else:  # pragma: no cover
 
 import appdirs
 
+from esmigrate.commons.script_data import ScriptData
 from esmigrate.commons.command import Command
 from esmigrate.commons.helpers import (
     is_valid_json,
@@ -46,6 +47,7 @@ __all__ = [
     "local_config_file_path",
     "user_config_file_path",
     "Command",
+    "ScriptData",
     "is_valid_json",
     "is_valid_ndjson",
     "parse_file_path",
