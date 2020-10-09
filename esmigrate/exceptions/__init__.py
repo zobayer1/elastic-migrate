@@ -1,26 +1,82 @@
 # -*- coding: utf-8 -*-
-from esmigrate.exceptions.configuration_file_read_error import ConfigurationFileReadError
-from esmigrate.exceptions.context_object_not_set_error import ContextObjectNotSetError
-from esmigrate.exceptions.invalid_command_body_error import InvalidCommandBodyError
-from esmigrate.exceptions.invalid_command_path_error import InvalidCommandPathError
-from esmigrate.exceptions.invalid_command_script_error import InvalidCommandScriptError
-from esmigrate.exceptions.invalid_command_verb_error import InvalidCommandVerbError
-from esmigrate.exceptions.invalid_db_connection_error import InvalidDBConnectionError
-from esmigrate.exceptions.invalid_elastic_host_url_error import InvalidElasticHostUrlError
-from esmigrate.exceptions.invalid_schema_file_error import InvalidSchemaFileError
-from esmigrate.exceptions.invalid_schema_pattern_error import InvalidSchemaPatternError
-from esmigrate.exceptions.schema_version_sqldb_error import SchemaVersionSqlDbError
 
 __all__ = [
-    "ConfigurationFileReadError",
     "ContextObjectNotSetError",
     "InvalidCommandBodyError",
     "InvalidCommandPathError",
     "InvalidCommandScriptError",
     "InvalidCommandVerbError",
     "InvalidDBConnectionError",
-    "InvalidElasticHostUrlError",
     "InvalidSchemaFileError",
     "InvalidSchemaPatternError",
     "SchemaVersionSqlDbError",
+    "UserProfileNotFoundError",
+    "Errors",
 ]
+
+
+class Errors(object):
+
+    ERR_NO_PROFILE = -1
+    ERR_INVALID_DB = -2
+    ERR_SCHEMA_INIT = -3
+
+
+class ContextObjectNotSetError(RuntimeError):
+    """Raised when a context dependency is not met"""
+
+    pass
+
+
+class InvalidCommandBodyError(RuntimeError):
+    """Raised when command body is not a valid JSON or NDJSON object"""
+
+    pass
+
+
+class InvalidCommandPathError(RuntimeError):
+    """Raised when command path is not a valid URL path"""
+
+    pass
+
+
+class InvalidCommandScriptError(RuntimeError):
+    """Raised when command script does not have or start with a command"""
+
+    pass
+
+
+class InvalidCommandVerbError(RuntimeError):
+    """Raised when command verb is an unsupported HTTP verb"""
+
+    pass
+
+
+class InvalidDBConnectionError(RuntimeError):
+    """Raised when database connection URL is invalid"""
+
+    pass
+
+
+class InvalidSchemaFileError(RuntimeError):
+    """Raised when schema file cannot be read"""
+
+    pass
+
+
+class InvalidSchemaPatternError(RuntimeError):
+    """Raised when schema pattern is invalid or does not match with filename"""
+
+    pass
+
+
+class SchemaVersionSqlDbError(RuntimeError):
+    """Raised when schema version entity is invalid or conflicting"""
+
+    pass
+
+
+class UserProfileNotFoundError(RuntimeError):
+    """Raised when requested user profile could not be loaded from configuration files"""
+
+    pass

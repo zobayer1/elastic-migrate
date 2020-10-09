@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from sqlalchemy import create_engine
-from sqlalchemy.exc import SQLAlchemyError, ArgumentError
+from sqlalchemy.exc import SQLAlchemyError, ArgumentError, UnboundExecutionError
 from sqlalchemy.orm import sessionmaker
 
 from esmigrate.exceptions import InvalidDBConnectionError, SchemaVersionSqlDbError
@@ -14,12 +14,15 @@ class DBManager(object):
             self.engine = create_engine(db_url, echo=echo)
             self.session = sessionmaker(bind=self.engine)()
             Base.metadata.create_all(bind=self.engine)
-        except ArgumentError as err:
+        except (ArgumentError, UnboundExecutionError) as err:
             raise InvalidDBConnectionError(str(err))
 
     def __del__(self):
         if hasattr(self, "session") and self.session:
             self.session.close()
+
+    def schema_version_exists(self):
+        return SchemaVersion.metadata.tables[SchemaVersion.__tablename__].exists(self.engine)
 
     def insert_new_schema(self, scmver: SchemaVersion):
         try:

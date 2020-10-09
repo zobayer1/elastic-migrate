@@ -35,6 +35,11 @@ def db_with_failed_row(db_manager):
     db_manager.delete_all_schema()
 
 
+def test_db_manager_creates_table(db_manager):
+    """Test fails if db_manager failed to create model during instantiation"""
+    assert db_manager.schema_version_exists()
+
+
 def test_db_manager_finds_by_version(db_with_success_row):
     """Test fails if find_schema_by_version cannot find entry with primary key `1.0`"""
     scmver_read = db_with_success_row.find_schema_by_version("1.0")
