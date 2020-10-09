@@ -16,7 +16,7 @@ class HTTPHandler(object):
 
     def make_requests(self, command: Command):
         if self._ctx is None:
-            raise ContextObjectNotSetError("Context not set")
+            raise ContextObjectNotSetError("Context was not set")
 
         if command.verb not in http_verbs:
             raise InvalidCommandVerbError(f"Unexpected verb found: {command.verb}")

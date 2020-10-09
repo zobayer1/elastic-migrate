@@ -17,7 +17,7 @@ class GlobLoader(object):
 
     def scan_dir(self, schema_dir: str):
         if self._ctx is None:
-            raise ContextObjectNotSetError("Context not set")
+            raise ContextObjectNotSetError("Context was not set")
 
         if not os.path.isdir(schema_dir):
             raise NotADirectoryError(f"Not a valid directory: {schema_dir}")

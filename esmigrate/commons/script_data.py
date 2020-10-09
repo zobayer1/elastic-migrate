@@ -3,6 +3,10 @@ from hashlib import sha1
 
 
 class ScriptData(object):
+    @staticmethod
+    def make_sha1(s, encoding="utf-8"):
+        return sha1(s.encode(encoding)).digest()
+
     def __init__(self, version: int, sequence: int, name: str, extension: str, path: str, content: str):
         self.version_base = version
         self.version_rank = sequence
@@ -11,7 +15,4 @@ class ScriptData(object):
         self.path = path
         self.content = content
         self.checksum = ScriptData.make_sha1(content)
-
-    @staticmethod
-    def make_sha1(s, encoding="utf-8"):
-        return sha1(s.encode(encoding)).digest()
+        self.status = None
