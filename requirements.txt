@@ -37,4 +37,4 @@ urllib3==1.25.10
 validator-collection==1.5.0
 virtualenv==20.0.34
 wcwidth==0.2.5
-zipp==3.1.0
+zipp==3.3.0
