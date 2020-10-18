@@ -83,7 +83,7 @@ def upgrade(cfg, schema_version="latest"):
         file_count = len(schema_entries)
         if file_count == 0:
             click.echo("No schema file found, Nothing to do")
-            return
+            sys.exit(0)
         latest_file_version = float(f"{schema_entries[-1].version_base}.{schema_entries[-1].version_rank}")
         if not requested_version:
             requested_version = latest_file_version
