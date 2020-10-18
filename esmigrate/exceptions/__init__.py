@@ -16,10 +16,19 @@ __all__ = [
 
 
 class Errors(object):
+    # Profile errors
+    ERR_PROFILE_NOT_FOUND = -101
 
-    ERR_NO_PROFILE = -1
-    ERR_INVALID_DB = -2
-    ERR_SCHEMA_INIT = -3
+    # Database errors
+    ERR_INVALID_DB = -201
+    ERR_SCHEMA_DB_ERROR = -202
+
+    # Directory errors
+    ERR_NOT_A_DIR = -301
+    ERR_SCHEMA_FILE_ERROR = -302
+
+    # Parameter errors
+    ERR_INVALID_SCMVER = -401
 
 
 class ContextObjectNotSetError(RuntimeError):

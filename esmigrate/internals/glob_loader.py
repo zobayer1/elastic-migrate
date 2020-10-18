@@ -19,7 +19,7 @@ class GlobLoader(object):
         if self._ctx is None:
             raise ContextObjectNotSetError("Context was not set")
 
-        if not os.path.isdir(schema_dir):
+        if not schema_dir or not os.path.isdir(schema_dir):
             raise NotADirectoryError(f"Not a valid directory: {schema_dir}")
 
         schema_ext = self._ctx.schema_ext if self._ctx.schema_ext.startswith(".") else f".{self._ctx.schema_ext}"
@@ -39,7 +39,7 @@ class GlobLoader(object):
                 with open(_path, "r") as schema_file:
                     _content = schema_file.read()
             except Exception as err:
-                raise InvalidSchemaFileError(str(err))
+                raise InvalidSchemaFileError(f"Error reading file: {_path}, {str(err)}")
 
             file_items.append(
                 ScriptData(version=_ver, sequence=_seq, name=_name, extension=_ext, path=_path, content=_content)

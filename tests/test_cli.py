@@ -49,7 +49,7 @@ def test_cli_with_version_argument_succeeds(runner):
 def test_cli_with_command_fails_to_load_context_profile(runner):
     """Test fails if `esmigrate --profile {profile} {command}` does not return error"""
     result = runner.invoke(cli.main, ["--profile", "invalid-profile", "config"])
-    assert result.exit_code == Errors.ERR_NO_PROFILE
+    assert result.exit_code == Errors.ERR_PROFILE_NOT_FOUND
 
 
 def test_cli_with_command_loads_context_profile(runner, mocker, context):
