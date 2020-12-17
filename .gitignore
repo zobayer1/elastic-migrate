@@ -149,3 +149,4 @@ cython_debug/
 esmigrate/version.py
 esmigrate.db
 config.json
+scripts/
