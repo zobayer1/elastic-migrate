@@ -17,10 +17,6 @@ class DBManager(object):
         except (ArgumentError, UnboundExecutionError) as err:
             raise InvalidDBConnectionError(str(err))
 
-    def __del__(self):
-        if hasattr(self, "session") and self.session:
-            self.session.close()
-
     def schema_version_exists(self):
         return SchemaVersion.metadata.tables[SchemaVersion.__tablename__].exists(self.engine)
 
