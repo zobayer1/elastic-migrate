@@ -5,7 +5,7 @@ cfgv==3.2.0
 chardet==4.0.0
 click==7.1.2
 click-log==0.3.2
-codecov==2.1.10
+codecov==2.1.11
 coverage==5.3
 distlib==0.3.1
 filelock==3.0.12
