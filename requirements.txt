@@ -30,7 +30,7 @@ pyrsistent==0.17.3
 pytest==6.2.2
 pytest-cov==2.11.1
 pytest-mock==3.5.1
-PyYAML==5.3.1
+PyYAML==5.4.1
 requests==2.25.1
 requests-mock==1.8.0
 setuptools-scm==5.0.1
