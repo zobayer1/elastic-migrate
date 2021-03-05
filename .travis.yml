@@ -11,13 +11,6 @@ python:
 
 os:
   - linux
-  - osx
-  - windows
-
-jobs:
-  allow_failures:
-    - os: windows
-    - os: osx
 
 install:
   - pip install --upgrade pip
