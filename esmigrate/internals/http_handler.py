@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 import requests
+from requests.exceptions import HTTPError, ConnectionError
 
 from esmigrate.commons import Command, http_verbs
 from esmigrate.contexts import ContextConfig
-from esmigrate.exceptions import ContextObjectNotSetError, InvalidCommandVerbError
+from esmigrate.exceptions import ContextObjectNotSetError, InvalidCommandVerbError, ElasticsearchConnError
 
 
 class HTTPHandler(object):
@@ -24,7 +25,12 @@ class HTTPHandler(object):
         for k, v in self._ctx.headers.items():
             command.head[k] = v
 
-        response = self._session.request(command.verb, url=command.path, data=command.body, headers=command.head)
-        response.raise_for_status()
+        try:
+            response = self._session.request(command.verb, url=command.path, data=command.body, headers=command.head)
+            response.raise_for_status()
+        except HTTPError:
+            raise
+        except ConnectionError as err:
+            raise ElasticsearchConnError(err)
 
         return response

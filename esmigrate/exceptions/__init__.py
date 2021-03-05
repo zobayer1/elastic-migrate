@@ -1,18 +1,5 @@
 # -*- coding: utf-8 -*-
-
-__all__ = [
-    "ContextObjectNotSetError",
-    "InvalidCommandBodyError",
-    "InvalidCommandPathError",
-    "InvalidCommandScriptError",
-    "InvalidCommandVerbError",
-    "InvalidDBConnectionError",
-    "InvalidSchemaFileError",
-    "InvalidSchemaPatternError",
-    "SchemaVersionSqlDbError",
-    "UserProfileNotFoundError",
-    "Errors",
-]
+from requests.exceptions import ConnectionError
 
 
 class Errors(object):
@@ -20,15 +7,20 @@ class Errors(object):
     ERR_PROFILE_NOT_FOUND = -101
 
     # Database errors
-    ERR_INVALID_DB = -201
-    ERR_SCHEMA_DB_ERROR = -202
+    ERR_DB_CONNECTION_FAILED = -201
+    ERR_DB_IN_ERROR_STATE = -202
 
     # Directory errors
-    ERR_NOT_A_DIR = -301
-    ERR_SCHEMA_FILE_ERROR = -302
+    ERR_INVALID_SCHEMA_DIRECTORY = -301
+    ERR_INVALID_SCHEMA_FILE = -302
+    ERR_INVALID_SCHEMA_COMMAND = -303
 
     # Parameter errors
     ERR_INVALID_SCMVER = -401
+
+    # HTTP errors
+    ERR_ES_HTTPERROR = -501
+    ERR_ES_CONNERROR = -502
 
 
 class ContextObjectNotSetError(RuntimeError):
@@ -89,3 +81,25 @@ class UserProfileNotFoundError(RuntimeError):
     """Raised when requested user profile could not be loaded from configuration files"""
 
     pass
+
+
+class ElasticsearchConnError(ConnectionError):
+    """Raised when connection error occurs from elasticsearch server"""
+
+    pass
+
+
+__all__ = [
+    "ContextObjectNotSetError",
+    "ElasticsearchConnError",
+    "InvalidCommandBodyError",
+    "InvalidCommandPathError",
+    "InvalidCommandScriptError",
+    "InvalidCommandVerbError",
+    "InvalidDBConnectionError",
+    "InvalidSchemaFileError",
+    "InvalidSchemaPatternError",
+    "SchemaVersionSqlDbError",
+    "UserProfileNotFoundError",
+    "Errors",
+]

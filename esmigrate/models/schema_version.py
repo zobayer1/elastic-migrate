@@ -4,6 +4,7 @@ from datetime import datetime
 
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, LargeBinary
 
+from esmigrate.commons import ScriptData
 from esmigrate.models.base import Base
 
 
@@ -29,3 +30,13 @@ class SchemaVersion(Base):
         self.installed_by = getpass.getuser()
         self.installed_on = datetime.now()
         self.type = "NOSQL"
+
+    @classmethod
+    def from_script_data(cls, script_data: ScriptData):
+        scmver = cls(script_data.version)
+        scmver.version_base = script_data.version_base
+        scmver.version_rank = script_data.version_rank
+        scmver.description = script_data.description
+        scmver.script = script_data.path
+        scmver.checksum = script_data.checksum
+        return scmver

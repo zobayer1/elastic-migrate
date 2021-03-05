@@ -11,6 +11,7 @@ import appdirs
 
 from esmigrate.commons.script_data import ScriptData
 from esmigrate.commons.command import Command
+from esmigrate.commons.formatters import query_results_string
 from esmigrate.commons.helpers import (
     is_valid_json,
     is_valid_ndjson,
@@ -51,4 +52,5 @@ __all__ = [
     "is_valid_json",
     "is_valid_ndjson",
     "parse_file_path",
+    "query_results_string",
 ]
