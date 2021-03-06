@@ -161,24 +161,36 @@ def upgrade(cfg, schema_version="latest"):
     click.echo(f"Schema database upgraded to {latest}")
 
 
-#
-#
-# @main.command(help="Downgrade to specified schema version")
-# @click.pass_obj
-# def downgrade(cfg):
-#     click.echo(f"Active profile: {cfg.profile}")
-#     return True
-#
-#
-# @main.command(help="Revert to last successful schema version")
-# @click.pass_obj
-# def rollback(cfg):
-#     click.echo(f"Active profile: {cfg.profile}")
-#     return True
-#
-#
-# @main.command(help="Reset schema versions lookup")
-# @click.pass_obj
-# def reset(cfg):
-#     click.echo(f"Active profile: {cfg.profile}")
-#     return True
+@main.command(help="Revert to last successful schema version")
+@click.pass_obj
+def rollback(cfg):
+    try:
+        db_manager = get_db_manager(cfg.schema_db)
+        latest_db_entry = db_manager.find_latest_schema()
+        if latest_db_entry and not latest_db_entry.success:
+            click.echo(f"Schema database has error entry for version {latest_db_entry.version}")
+            db_manager.delete_all_failed_schema()
+            click.echo("Rollback successful")
+        else:
+            click.echo("Schema database does not have any error entry")
+    except SchemaVersionSqlDbError as err:
+        click.echo(f"SchemaVersionSqlDbError: {str(err)}")
+        sys.exit(Errors.ERR_DB_IN_ERROR_STATE)
+    except InvalidDBConnectionError as err:
+        click.echo(f"InvalidDBConnectionError: {str(err)}")
+        sys.exit(Errors.ERR_DB_CONNECTION_FAILED)
+
+
+@main.command(help="Reset schema versions lookup")
+@click.pass_obj
+def reset(cfg):
+    try:
+        db_manager = get_db_manager(cfg.schema_db)
+        db_manager.delete_all_schema()
+        click.echo("Schema database successfully reset")
+    except SchemaVersionSqlDbError as err:
+        click.echo(f"SchemaVersionSqlDbError: {str(err)}")
+        sys.exit(Errors.ERR_DB_IN_ERROR_STATE)
+    except InvalidDBConnectionError as err:
+        click.echo(f"InvalidDBConnectionError: {str(err)}")
+        sys.exit(Errors.ERR_DB_CONNECTION_FAILED)
