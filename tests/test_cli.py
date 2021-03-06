@@ -274,39 +274,58 @@ def test_cli_upgrade_cmd_succeeds_for_valid_schema_file(runner, mocker, context,
     assert result.exit_code == 0
 
 
-#
-#
-# def test_cli_with_upgrade_cmd_invocation_succeeds(runner, context):
-#     """Test fails `esmigrate upgrade` does not return with success"""
-#     result = runner.invoke(cli.main, ["upgrade"])
-#     assert result.exit_code == 0
-#     assert not result.exception
-#     assert result.output.strip()
-#     assert context.profile in result.output.strip()
-#
-#
-# def test_cli_with_downgrade_cmd_invocation_succeeds(runner, context):
-#     """Test fails `esmigrate downgrade` does not return with success"""
-#     result = runner.invoke(cli.main, ["downgrade"])
-#     assert result.exit_code == 0
-#     assert not result.exception
-#     assert result.output.strip()
-#     assert context.profile in result.output.strip()
-#
-#
-# def test_cli_with_rollback_cmd_invocation_succeeds(runner, context):
-#     """Test fails `esmigrate rollback` does not return with success"""
-#     result = runner.invoke(cli.main, ["rollback"])
-#     assert result.exit_code == 0
-#     assert not result.exception
-#     assert result.output.strip()
-#     assert context.profile in result.output.strip()
-#
-#
-# def test_cli_with_reset_cmd_invocation_succeeds(runner, context):
-#     """Test fails `esmigrate reset` does not return with success"""
-#     result = runner.invoke(cli.main, ["reset"])
-#     assert result.exit_code == 0
-#     assert not result.exception
-#     assert result.output.strip()
-#     assert context.profile in result.output.strip()
+def test_cli_rollback_cmd_fails_with_db_connection_error(runner, mocker, context):
+    """Test fails if `esmigrate rollback` fails to check db connection error"""
+    mocker.patch("esmigrate.cli.ContextConfig.load_for", return_value=context)
+    mocker.patch("esmigrate.cli.get_db_manager", side_effect=InvalidDBConnectionError)
+    result = runner.invoke(cli.main, ["--profile", context.profile, "rollback"])
+    assert result.exit_code == Errors.ERR_DB_CONNECTION_FAILED
+
+
+def test_cli_rollback_cmd_fails_with_sql_db_error(runner, mocker, context):
+    """Test fails if `esmigrate rollback` fails to check sql query error"""
+    mocker.patch("esmigrate.cli.ContextConfig.load_for", return_value=context)
+    mocker.patch("esmigrate.cli.get_db_manager", side_effect=SchemaVersionSqlDbError)
+    result = runner.invoke(cli.main, ["--profile", context.profile, "rollback"])
+    assert result.exit_code == Errors.ERR_DB_IN_ERROR_STATE
+
+
+def test_cli_rollback_cmd_succeeds_when_no_error_entry(runner, mocker, context):
+    """Test fails if `esmigrate rollback` does not succeed when there is no error in schema db"""
+    mocker.patch("esmigrate.cli.ContextConfig.load_for", return_value=context)
+    mocker.patch("esmigrate.internals.db_manager.DBManager.find_latest_schema", return_value=None)
+    result = runner.invoke(cli.main, ["--profile", context.profile, "rollback"])
+    assert result.exit_code == 0
+
+
+def test_cli_rollback_cmd_succeeds_with_error_entry(runner, mocker, context, error_schema):
+    """Test fails if `esmigrate rollback` does not succeed when there are errors in schema db"""
+    mocker.patch("esmigrate.cli.ContextConfig.load_for", return_value=context)
+    mocker.patch("esmigrate.internals.db_manager.DBManager.find_latest_schema", return_value=error_schema)
+    mocker.patch("esmigrate.internals.db_manager.DBManager.delete_all_failed_schema", return_value=None)
+    result = runner.invoke(cli.main, ["--profile", context.profile, "rollback"])
+    assert result.exit_code == 0
+
+
+def test_cli_reset_cmd_fails_with_db_connection_error(runner, mocker, context):
+    """Test fails if `esmigrate reset` fails to check db connection error"""
+    mocker.patch("esmigrate.cli.ContextConfig.load_for", return_value=context)
+    mocker.patch("esmigrate.cli.get_db_manager", side_effect=InvalidDBConnectionError)
+    result = runner.invoke(cli.main, ["--profile", context.profile, "reset"])
+    assert result.exit_code == Errors.ERR_DB_CONNECTION_FAILED
+
+
+def test_cli_reset_cmd_fails_with_sql_db_error(runner, mocker, context):
+    """Test fails if `esmigrate reset` fails to check sql query error"""
+    mocker.patch("esmigrate.cli.ContextConfig.load_for", return_value=context)
+    mocker.patch("esmigrate.cli.get_db_manager", side_effect=SchemaVersionSqlDbError)
+    result = runner.invoke(cli.main, ["--profile", context.profile, "reset"])
+    assert result.exit_code == Errors.ERR_DB_IN_ERROR_STATE
+
+
+def test_cli_reset_cmd_succeeds(runner, mocker, context):
+    """Test fails if `esmigrate reset` does not exit without error"""
+    mocker.patch("esmigrate.cli.ContextConfig.load_for", return_value=context)
+    mocker.patch("esmigrate.internals.db_manager.DBManager.delete_all_schema", return_value=None)
+    result = runner.invoke(cli.main, ["--profile", context.profile, "reset"])
+    assert result.exit_code == 0
