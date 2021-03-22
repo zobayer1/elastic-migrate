@@ -9,7 +9,7 @@ codecov==2.1.11
 coverage==5.5
 distlib==0.3.1
 filelock==3.0.12
-flake8==3.8.4
+flake8==3.9.0
 identify==1.5.10
 idna==2.05 # pyup: ignore
 importlib-metadata==2.1.1;python_version<'3.8' # pyup: ignore
