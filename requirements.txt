@@ -38,7 +38,7 @@ six==1.15.0
 SQLAlchemy==1.3.22
 toml==0.10.2
 tox==3.20.1
-urllib3==1.26.2
+urllib3==1.26.4
 validator-collection==1.5.0
 virtualenv==20.2.2
 wcwidth==0.2.5
