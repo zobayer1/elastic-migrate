@@ -27,7 +27,9 @@ def parameter(request):
 
 
 @pytest.mark.parametrize(
-    "parameter", ["no command", "no command\nGET path", "GET", "GETTING this"], indirect=["parameter"],
+    "parameter",
+    ["no command", "no command\nGET path", "GET", "GETTING this"],
+    indirect=["parameter"],
 )
 def test_script_parser_raises_invalid_command_script(script_parser, parameter):
     """Test fails if get_commands does not raise error for invalid command script"""
@@ -45,7 +47,9 @@ def test_script_parser_raises_invalid_command_verb(script_parser, parameter):
 
 
 @pytest.mark.parametrize(
-    "parameter", ["GET http://localhost:9200/twitter?size=100&text=this is me&page=1"], indirect=["parameter"],
+    "parameter",
+    ["GET http://localhost:9200/twitter?size=100&text=this is me&page=1"],
+    indirect=["parameter"],
 )
 def test_script_parser_raises_invalid_command_path(script_parser, parameter):
     """Test fails if get_commands does not raise error for invalid command path"""
