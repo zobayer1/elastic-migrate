@@ -67,6 +67,7 @@ def test_db_manager_inserts_schema_with_correct_installed_rank(db_with_success_r
     assert scmver.installed_rank == 2
 
 
+@pytest.mark.filterwarnings("ignore::RuntimeWarning")
 def test_db_manager_raises_error_when_inserting_duplicate(db_with_success_row):
     """Test fails if insert_new_schema does not fail integrity violation"""
     scmver = SchemaVersion("1.0")
