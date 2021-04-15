@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.exc import SQLAlchemyError, ArgumentError, UnboundExecutionError
 from sqlalchemy.orm import sessionmaker
 
@@ -18,7 +18,7 @@ class DBManager(object):
             raise InvalidDBConnectionError(str(err))
 
     def schema_version_exists(self):
-        return SchemaVersion.metadata.tables[SchemaVersion.__tablename__].exists(self.engine)
+        return SchemaVersion.__tablename__ in inspect(self.engine).get_table_names()
 
     def insert_new_schema(self, scmver: SchemaVersion):
         try:
