@@ -34,7 +34,7 @@ PyYAML==5.4.1
 requests==2.25.1
 requests-mock==1.9.2
 setuptools-scm==6.0.1
-six==1.15.0
+six==1.16.0
 SQLAlchemy==1.4.12
 toml==0.10.2
 tox==3.23.0
