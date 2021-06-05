@@ -5,7 +5,7 @@ import time
 import click
 from requests.exceptions import HTTPError
 
-from esmigrate.commons import title, query_results_string
+from esmigrate.commons import appname, title, query_results_string
 from esmigrate.contexts import ContextConfig
 from esmigrate.exceptions import (
     InvalidDBConnectionError,
@@ -26,7 +26,7 @@ from esmigrate.models import SchemaVersion
 
 @click.group(invoke_without_command=True)
 @click.help_option(help="Show help index and exit")
-@click.version_option(message="v%(version)s", help="Show the version and exit")
+@click.version_option(message="v%(version)s", package_name=appname, help="Show the version and exit")
 @click.option("-p", "--profile", default="test", help="Set configuration profile")
 @click.pass_context
 def main(ctx, profile: str = "test"):
