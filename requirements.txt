@@ -10,7 +10,7 @@ coverage==5.5
 distlib==0.3.2
 filelock==3.0.12
 flake8==3.9.2
-identify==2.2.9
+identify==2.2.10
 idna==2.05 # pyup: ignore
 importlib-metadata==2.1.1;python_version<'3.8' # pyup: ignore
 iniconfig==1.1.1
@@ -35,7 +35,7 @@ requests==2.25.1
 requests-mock==1.9.3
 setuptools-scm==6.0.1
 six==1.16.0
-SQLAlchemy==1.4.17
+SQLAlchemy==1.4.18
 toml==0.10.2
 tox==3.23.1
 urllib3==1.26.5
