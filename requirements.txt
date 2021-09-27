@@ -7,7 +7,7 @@ click==8.0.1
 click-log==0.3.2
 codecov==2.1.12
 coverage==5.5
-distlib==0.3.2
+distlib==0.3.3
 filelock==3.0.12
 flake8==3.9.2
 identify==2.2.15
