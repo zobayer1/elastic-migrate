@@ -6,15 +6,15 @@ chardet==4.0.0
 click==8.0.1
 click-log==0.3.2
 codecov==2.1.12
-coverage==5.5
+coverage==6.0
 distlib==0.3.3
-filelock==3.1.0
+filelock==3.3.0
 flake8==3.9.2
-identify==2.2.15
+identify==2.3.0
 idna==2.05 # pyup: ignore
 importlib-metadata==2.1.1;python_version<'3.8' # pyup: ignore
 iniconfig==1.1.1
-jsonschema==3.2.0
+jsonschema==4.0.1
 mccabe==0.6.1
 more-itertools==8.10.0
 nodeenv==1.6.0
@@ -28,7 +28,7 @@ pyflakes==2.3.1
 pyparsing==2.4.7
 pyrsistent==0.18.0
 pytest==6.2.5
-pytest-cov==2.12.1
+pytest-cov==3.0.0
 pytest-mock==3.6.1
 PyYAML==5.4.1
 requests==2.26.0
@@ -42,4 +42,4 @@ urllib3==1.26.7
 validator-collection==1.5.0
 virtualenv==20.8.1
 wcwidth==0.2.5
-zipp==3.5.0
+zipp==3.6.0
