@@ -24,7 +24,7 @@ pre-commit==2.15.0
 py==1.10.0
 pycodestyle==2.8.0
 pyfakefs==4.5.1
-pyflakes==2.3.1
+pyflakes==2.4.0
 pyparsing==2.4.7
 pyrsistent==0.18.0
 pytest==6.2.5
