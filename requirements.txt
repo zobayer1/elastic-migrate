@@ -8,7 +8,7 @@ click-log==0.3.2
 codecov==2.1.12
 coverage==6.3.2
 distlib==0.3.4
-filelock==3.3.0
+filelock==3.6.0
 flake8==4.0.1
 identify==2.3.0
 idna==2.05 # pyup: ignore
