@@ -29,7 +29,7 @@ pyparsing==3.0.7
 pyrsistent==0.18.1
 pytest==7.1.0
 pytest-cov==3.0.0
-pytest-mock==3.6.1
+pytest-mock==3.7.0
 PyYAML==5.4.1
 requests==2.26.0
 requests-mock==1.9.3
