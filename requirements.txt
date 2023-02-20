@@ -28,7 +28,7 @@ pyflakes==3.0.1
 pyparsing==3.0.9
 pyrsistent==0.19.3
 pytest==7.2.1
-pytest-cov==3.0.0
+pytest-cov==4.0.0
 pytest-mock==3.6.1
 PyYAML==5.4.1
 requests==2.26.0
