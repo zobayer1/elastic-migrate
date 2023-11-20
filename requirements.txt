@@ -41,5 +41,5 @@ tox==4.11.3
 urllib3==2.1.0
 validator-collection==1.5.0
 virtualenv==20.24.6
-wcwidth==0.2.5
+wcwidth==0.2.10
 zipp==3.6.0
