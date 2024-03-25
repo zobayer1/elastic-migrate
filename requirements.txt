@@ -35,7 +35,7 @@ requests==2.31.0
 requests-mock==1.11.0
 setuptools-scm==8.0.4
 six==1.16.0
-SQLAlchemy==1.4.25
+SQLAlchemy==2.0.29
 toml==0.10.2
 tox==3.24.4
 urllib3==1.26.7
