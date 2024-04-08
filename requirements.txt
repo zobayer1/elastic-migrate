@@ -23,7 +23,7 @@ pluggy==1.4.0
 pre-commit==3.7.0
 py==1.11.0
 pycodestyle==2.11.1
-pyfakefs==4.5.1
+pyfakefs==5.4.0
 pyflakes==2.4.0
 pyparsing==2.4.7
 pyrsistent==0.18.0
