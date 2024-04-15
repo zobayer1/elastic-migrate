@@ -27,7 +27,7 @@ pyfakefs==5.4.1
 pyflakes==3.2.0
 pyparsing==3.1.2
 pyrsistent==0.20.0
-pytest==6.2.5
+pytest==8.1.1
 pytest-cov==3.0.0
 pytest-mock==3.6.1
 PyYAML==5.4.1
