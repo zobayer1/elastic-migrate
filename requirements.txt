@@ -33,7 +33,7 @@ pytest-mock==3.14.0
 PyYAML==6.0.1
 requests==2.31.0
 requests-mock==1.12.1
-setuptools-scm==6.3.2
+setuptools-scm==8.1.0
 six==1.16.0
 SQLAlchemy==1.4.25
 toml==0.10.2
