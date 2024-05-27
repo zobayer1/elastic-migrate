@@ -6,7 +6,7 @@ chardet==5.2.0
 click==8.1.7
 click-log==0.4.0
 codecov==2.1.13
-coverage==6.0.1
+coverage==7.5.2
 distlib==0.3.3
 filelock==3.3.0
 flake8==4.0.1
