@@ -16,7 +16,7 @@ importlib-metadata==2.1.1;python_version<'3.8' # pyup: ignore
 iniconfig==2.0.0
 jsonschema==4.22.0
 mccabe==0.7.0
-more-itertools==8.10.0
+more-itertools==10.3.0
 nodeenv==1.6.0
 packaging==21.0
 pluggy==1.0.0
