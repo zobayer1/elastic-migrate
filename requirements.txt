@@ -37,7 +37,7 @@ setuptools-scm==8.1.0
 six==1.16.0
 SQLAlchemy==2.0.31
 toml==0.10.2
-tox==3.24.4
+tox==4.16.0
 urllib3==1.26.7
 validator-collection==1.5.0
 virtualenv==20.8.1
