@@ -25,7 +25,7 @@ py==1.11.0
 pycodestyle==2.12.1
 pyfakefs==5.6.0
 pyflakes==3.2.0
-pyparsing==2.4.7
+pyparsing==3.1.2
 pyrsistent==0.18.0
 pytest==6.2.5
 pytest-cov==3.0.0
