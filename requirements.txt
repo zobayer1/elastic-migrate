@@ -40,6 +40,6 @@ toml==0.10.2
 tox==4.20.0
 urllib3==2.2.3
 validator-collection==1.5.0
-virtualenv==20.8.1
+virtualenv==20.26.6
 wcwidth==0.2.5
 zipp==3.6.0
