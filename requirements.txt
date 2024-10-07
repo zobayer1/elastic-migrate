@@ -32,7 +32,7 @@ pytest-cov==5.0.0
 pytest-mock==3.14.0
 PyYAML==6.0.2
 requests==2.32.3
-requests-mock==1.9.3
+requests-mock==1.12.1
 setuptools-scm==6.3.2
 six==1.16.0
 SQLAlchemy==1.4.25
