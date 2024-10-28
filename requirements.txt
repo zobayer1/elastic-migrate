@@ -18,7 +18,7 @@ jsonschema==4.23.0
 mccabe==0.7.0
 more-itertools==10.5.0
 nodeenv==1.9.1
-packaging==21.0
+packaging==24.1
 pluggy==1.0.0
 pre-commit==2.15.0
 py==1.10.0
