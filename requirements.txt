@@ -15,7 +15,7 @@ idna==2.05 # pyup: ignore
 importlib-metadata==2.1.1;python_version<'3.8' # pyup: ignore
 iniconfig==2.0.0
 jsonschema==4.23.0
-mccabe==0.6.1
+mccabe==0.7.0
 more-itertools==8.10.0
 nodeenv==1.6.0
 packaging==21.0
