@@ -73,6 +73,12 @@ def main(ctx: click.Context, profile: str = "test") -> None:
     except InvalidConfigurationError as err:
         sys.exit(fail(err, Errors.ERR_INVALID_CONFIGURATION))
     click.echo(f"Profile loaded: {profile}")
+    if not ctx.obj.es_verify_certs:
+        click.echo(
+            "WARNING: TLS certificate verification is disabled (elastic_verify_certs: false), "
+            "connections to Elasticsearch are not authenticated",
+            err=True,
+        )
 
 
 @main.command(help="Initialize schema version database, upgrading a v1 table if present")

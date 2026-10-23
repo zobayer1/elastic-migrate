@@ -110,6 +110,19 @@ def test_cli_fails_with_invalid_configuration(runner, mocker):
     assert "InvalidConfigurationError: bad timeout" in result.output
 
 
+def test_cli_warns_when_certificate_verification_is_disabled(runner, context):
+    """Test fails if disabling TLS verification does not print a warning on every run"""
+    context.es_verify_certs = False
+    result = invoke(runner, "config")
+    assert result.exit_code == 0
+    assert "WARNING: TLS certificate verification is disabled" in result.output
+
+
+def test_cli_does_not_warn_when_certificates_are_verified(runner, context):
+    """Test fails if the insecure warning is printed while verification is enabled"""
+    assert "WARNING" not in invoke(runner, "config").output
+
+
 def test_cli_config_command_loads_context_profile(runner, context):
     """Test fails if `esmigrate config` does not print the loaded profile"""
     result = invoke(runner, "config")

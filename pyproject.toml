@@ -32,7 +32,6 @@ dependencies = [
     "httpx>=0.28",
     "platformdirs>=4.0",
     "sqlalchemy[asyncio]>=2.0",
-    "validator-collection>=1.5",
 ]
 
 [project.urls]

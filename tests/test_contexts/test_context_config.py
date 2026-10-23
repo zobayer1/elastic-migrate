@@ -106,3 +106,157 @@ def test_context_schema_path_requires_schema_dir():
     """Test fails if schema_path silently falls back when schema_dir is unset"""
     with pytest.raises(InvalidConfigurationError, match="schema_dir is not configured"):
         _ = ContextConfig().schema_path
+
+
+@pytest.mark.parametrize(
+    "host",
+    [
+        "https://my-domain:8000",
+        "http://elasticsearch:9200",
+        "http://my_host:9200",
+        "https://es-prod.example.com:9200",
+        "https://10.0.0.5",
+        "http://[::1]:9200",
+        "https://proxy.example.com/es",
+    ],
+)
+def test_context_accepts_valid_hosts(fs, host):
+    """Test fails if valid http(s) hosts, including single-label names from #109, are rejected"""
+    write_profile(fs, schema_dir="s", elastic_host=host)
+    assert ContextConfig().load_for("test").es_host == host
+
+
+@pytest.mark.parametrize(
+    ("host", "message"),
+    [
+        ("localhost:9200", "http or https"),
+        ("ftp://es.example.com", "http or https"),
+        ("https://", "no host name"),
+        ("https://es.example.com:99999", "not a valid URL"),
+        ("https://es.example.com:0", "invalid port"),
+        ("https://elastic:secret@es.example.com", "must not contain credentials"),
+        (9200, "must be a string"),
+    ],
+)
+def test_context_rejects_invalid_hosts(fs, host, message):
+    """Test fails if an invalid elastic_host is accepted or silently replaced"""
+    write_profile(fs, schema_dir="s", elastic_host=host)
+    with pytest.raises(InvalidConfigurationError, match=message):
+        ContextConfig().load_for("test")
+
+
+def test_context_interpolates_environment_variables(fs, monkeypatch):
+    """Test fails if ${VAR} references are not resolved in string fields, nested headers and lists"""
+    monkeypatch.setenv("ES_HOST", "es.internal")
+    monkeypatch.setenv("ES_PASSWORD", "s3cr3t")
+    monkeypatch.setenv("TENANT", "gov")
+    write_profile(
+        fs,
+        schema_dir="schemas/${TENANT}",
+        elastic_host="https://${ES_HOST}:9200",
+        elastic_username="migrator",
+        elastic_password="${ES_PASSWORD}",
+        elastic_headers={"X-Tenant": "${TENANT}"},
+        unused=["${TENANT}", 1],
+    )
+    context = ContextConfig().load_for("test")
+    assert context.es_host == "https://es.internal:9200"
+    assert context.es_password == "s3cr3t"
+    assert context.schema_dir == "schemas/gov"
+    assert context.headers == {"X-Tenant": "gov"}
+
+
+@pytest.mark.parametrize(
+    ("fields", "message"),
+    [
+        ({"elastic_password": "${MISSING_SECRET}"}, "MISSING_SECRET referenced by elastic_password is not set"),
+        ({"elastic_headers": {"X-A": "${MISSING_SECRET}"}}, r"referenced by elastic_headers\.X-A"),
+        ({"tags": ["${MISSING_SECRET}"]}, r"referenced by tags\[0\]"),
+    ],
+)
+def test_context_rejects_unset_environment_variables(fs, monkeypatch, fields, message):
+    """Test fails if a reference to an unset environment variable silently becomes an empty string"""
+    monkeypatch.delenv("MISSING_SECRET", raising=False)
+    write_profile(fs, schema_dir="s", **fields)
+    with pytest.raises(InvalidConfigurationError, match=message):
+        ContextConfig().load_for("test")
+
+
+def test_context_loads_security_fields(fs):
+    """Test fails if auth, CA and client certificate fields are not loaded"""
+    for path in ("/certs/ca.pem", "/certs/client.pem", "/certs/client.key"):
+        fs.create_file(path)
+    write_profile(
+        fs,
+        schema_dir="s",
+        elastic_username="migrator",
+        elastic_password="pw",
+        elastic_ca_certs="/certs/ca.pem",
+        elastic_client_cert="/certs/client.pem",
+        elastic_client_key="/certs/client.key",
+        elastic_client_key_password="keypw",
+    )
+    context = ContextConfig().load_for("test")
+    assert (context.es_username, context.es_password) == ("migrator", "pw")
+    assert context.es_ca_certs == "/certs/ca.pem"
+    assert (context.es_client_cert, context.es_client_key) == ("/certs/client.pem", "/certs/client.key")
+    assert context.es_client_key_password == "keypw"
+    assert context.es_verify_certs is True
+
+
+def test_context_allows_disabled_certificate_verification(fs):
+    """Test fails if elastic_verify_certs false is not accepted"""
+    write_profile(fs, schema_dir="s", elastic_verify_certs=False)
+    assert ContextConfig().load_for("test").es_verify_certs is False
+
+
+@pytest.mark.parametrize(
+    ("fields", "message"),
+    [
+        ({"elastic_username": "migrator"}, "must be set together"),
+        ({"elastic_password": "pw"}, "must be set together"),
+        ({"elastic_username": "u", "elastic_password": "p", "elastic_api_key": "k"}, "not both"),
+        ({"elastic_client_key": "/certs/client.key"}, "need elastic_client_cert"),
+        ({"elastic_client_key_password": "pw"}, "need elastic_client_cert"),
+        ({"elastic_ca_certs": "/certs/missing.pem"}, "file does not exist"),
+        ({"elastic_ca_certs": "/certs/client.key", "elastic_verify_certs": False}, "no effect"),
+        ({"elastic_verify_certs": "false"}, "must be true or false"),
+        ({"elastic_api_key": 123}, "elastic_api_key must be a string"),
+        ({"elastic_headers": {"X-A": 1}}, "string values"),
+        ({"elastic_headers": ["X-A"]}, "string values"),
+    ],
+)
+def test_context_rejects_invalid_security_settings(fs, fields, message):
+    """Test fails if inconsistent or invalid auth and TLS settings are accepted"""
+    fs.create_file("/certs/client.key")
+    write_profile(fs, schema_dir="s", **fields)
+    with pytest.raises(InvalidConfigurationError, match=message):
+        ContextConfig().load_for("test")
+
+
+def test_context_masks_secrets(fs):
+    """Test fails if passwords, API keys or Authorization headers are printed by repr"""
+    fs.create_file("/certs/client.pem")
+    write_profile(
+        fs,
+        schema_dir="s",
+        elastic_api_key="api-key-value",
+        elastic_client_cert="/certs/client.pem",
+        elastic_client_key_password="key-password-value",
+        elastic_headers={"Authorization": "Basic dXNlcjpwYXNz", "X-Tenant": "gov"},
+    )
+    text = repr(ContextConfig().load_for("test"))
+    for secret in ("api-key-value", "key-password-value", "dXNlcjpwYXNz"):
+        assert secret not in text
+    assert "elastic_api_key: ****" in text
+    assert "elastic_client_key_password: ****" in text
+    assert '"Authorization": "****"' in text
+    assert '"X-Tenant": "gov"' in text
+    assert "elastic_password: None" in text
+
+
+def test_context_ignores_profiles_list_missing(fs):
+    """Test fails if a config file without a profiles list breaks loading of other files"""
+    fs.create_file(user_config_file_path, contents=json.dumps({"other": 1}))
+    write_profile(fs, schema_dir="s")
+    assert ContextConfig().load_for("test").schema_dir == "s"
