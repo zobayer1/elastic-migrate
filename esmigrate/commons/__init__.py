@@ -1,14 +1,8 @@
 # -*- coding: utf-8 -*-
 import os
-import sys
+from importlib.metadata import version as get_version
 
-if sys.version_info < (3, 8):  # pragma: no cover
-    # noinspection PyUnresolvedReferences
-    from importlib_metadata import version as get_version
-else:  # pragma: no cover
-    from importlib.metadata import version as get_version
-
-import appdirs
+from platformdirs import user_config_dir
 
 from esmigrate.commons.script_data import ScriptData
 from esmigrate.commons.command import Command
@@ -37,7 +31,7 @@ title = f"""
 """
 
 local_config_file_path = os.path.join(os.getcwd(), "config.json")
-user_config_file_path = os.path.join(appdirs.user_config_dir(appname=appname), "config.json")
+user_config_file_path = os.path.join(user_config_dir(appname=appname), "config.json")
 
 __all__ = [
     "http_verbs",

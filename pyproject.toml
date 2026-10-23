@@ -1,29 +1,80 @@
 [build-system]
-requires = ["setuptools>=42", "wheel", "setuptools_scm[toml]>=3.4"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling>=1.27", "hatch-vcs>=0.4"]
+build-backend = "hatchling.build"
 
-[tool.setuptools_scm]
-write_to = "esmigrate/version.py"
-write_to_template = "# -*- coding: utf-8 -*-\n\n__version__ = '{version}'\n"
-version_scheme = "release-branch-semver"
+[project]
+name = "elastic-migrate"
+dynamic = ["version"]
+description = "Elasticsearch migration tool."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+authors = [{ name = "Zobayer Hasan", email = "zobayer1@gmail.com" }]
+keywords = ["python", "elastic", "elasticsearch", "migrate", "migration"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Database",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "click>=8.1",
+    "platformdirs>=4.0",
+    "requests>=2.32",
+    "sqlalchemy>=2.0",
+    "validator-collection>=1.5",
+]
 
-[tool.check-manifest]
-ignore = ["esmigrate/version.py"]
+[project.urls]
+Homepage = "https://github.com/zobayer1/elastic-migrate"
+Issues = "https://github.com/zobayer1/elastic-migrate/issues"
 
-[tool.black]
-line-length = 120
-include = '\.pyi?$'
-exclude = '''
-/(
-    \.eggs
-  | \.git
-  | \.pytest_cache
-  | \.tox
-  | \.venv
-  | schema_dir
-  | scripts
-  | build
-  | dist
-  | setup.py
-)/
-'''
+[project.scripts]
+esmigrate = "esmigrate.cli:main"
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.0",
+    "pyfakefs>=5.7",
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "pytest-mock>=3.14",
+    "requests-mock>=1.12",
+]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.targets.sdist]
+include = ["esmigrate", "tests", "README.md", "LICENSE"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["esmigrate"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = [
+    "error::DeprecationWarning",
+    "error::PendingDeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["esmigrate"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 99
+exclude_also = [
+    "def __repr__",
+    "def __del__",
+]

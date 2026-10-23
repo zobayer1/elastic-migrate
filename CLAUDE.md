@@ -17,18 +17,19 @@ ElasticMigrate (`esmigrate` CLI, package name `elastic-migrate`) is a Flyway-sty
 ## Commands
 
 ```bash
-pip install -r requirements.txt && pip install -e .   # dev setup (package must be installed: version comes from importlib.metadata)
-py.test --cov esmigrate --cov-report term-missing     # full test suite with coverage
-py.test tests/test_internals/test_script_parser.py    # single file
-py.test tests/test_cli.py::test_cli_upgrade_cmd_fails_with_value_error   # single test
-flake8 esmigrate tests                                # lint (max line length 120)
-black .                                               # format (line length 120, setup.py excluded)
-tox                                                   # py36–py39 + lint
-pre-commit run --all-files                            # black, check-manifest, whitespace/EOF fixers
+uv sync                                               # create/update .venv (Python 3.11 from .python-version) with dev group
+uv run pre-commit install                             # (re)install git hook after .venv is recreated
+uv run pytest --cov                                   # full suite, branch coverage, fails under the fail_under floor
+uv run --isolated --python 3.14 pytest --cov          # same on 3.14 without touching .venv
+uv run pytest tests/test_internals/test_script_parser.py   # single file
+uv run pytest tests/test_cli.py::test_cli_upgrade_cmd_fails_with_value_error   # single test
+uv run pre-commit run --all-files                     # hooks (whitespace/EOF fixers; ruff from #255)
+uv build                                              # wheel + sdist
+uv lock --upgrade                                     # manual dependency update (no bots)
 ```
 
-- pytest config lives in `tox.ini` `[pytest]` and turns `DeprecationWarning`/`PendingDeprecationWarning` into errors.
-- Versioning is via `setuptools_scm` from git tags; `esmigrate/version.py` is generated and must not be committed.
+- All config lives in `pyproject.toml`: build (hatchling + hatch-vcs), pytest (`DeprecationWarning`/`PendingDeprecationWarning` are errors), coverage (`fail_under` is a floor — raise it, never lower it). Only pass `--cov` for full runs, otherwise single-test runs trip the coverage floor.
+- Version comes from git tags via hatch-vcs and is read at runtime with `importlib.metadata`, so the package must be installed (`uv sync` does this).
 
 ## Architecture
 
@@ -48,7 +49,7 @@ Key behaviors:
 ## Coding style
 
 - Every `.py` file (including empty `__init__.py`) starts with `# -*- coding: utf-8 -*-`.
-- black, line length 120; flake8 with the same limit.
+- Line length 120 (formatter: ruff, from #255; no formatter hook until then).
 - Classes explicitly subclass `object`; private attributes use a leading underscore (`self._ctx`); short-lived locals and loop vars are often underscore-prefixed (`_path`, `_ver`, `_file`).
 - Type hints on parameters, rarely on return values. f-strings throughout.
 - Subpackages re-export their public API through `__init__.py` with an explicit `__all__`; import from the package (`from esmigrate.internals import ScriptParser`), not the submodule.
@@ -68,7 +69,7 @@ Key behaviors:
 
 - Keep talking to Elasticsearch over plain HTTP requests (no elasticsearch-py), but move to **async with `httpx`**. The DB layer also goes **async** (SQLAlchemy async engine, `aiosqlite` by default).
 - **Python ≥ 3.11 only**; test matrix is exactly 3.11 and 3.14. Code follows 3.11+ idioms: no `# -*- coding: utf-8 -*-` headers, no explicit `(object)` bases, `X | None` and builtin generics in hints. (The "Coding style" section below describes the legacy code until #255 lands.)
-- **uv** is the project manager (`uv sync`, `uv run`, `uv.lock`); tox and `requirements.txt` go away (#254).
+- **uv** is the project manager (`uv sync`, `uv run`, `uv.lock`), with hatchling + hatch-vcs as build backend (#254).
 - Target **Elasticsearch 8**; integration tests run against ES 8 in Docker.
 - Work is tracked through **GitHub issues** (milestone `v2.0.0`, label `modernization`, issues #253–#262; `gh issue list -m v2.0.0`). Reference the issue in commit messages (`Closes #N`). PRs are restricted to collaborators; a PR is opened only once the whole renovation is done.
 - No automatic dependency updates (pyup removed, no Dependabot).
@@ -77,6 +78,6 @@ Key behaviors:
 
 Verified on 2026-10-23 with Python 3.14 and latest unpinned deps (SQLAlchemy 2.1, click 8.5, pytest 9):
 - SQLAlchemy 2.x deprecation failures fixed in #256 (2.0-style `DeclarativeBase`, `Mapped`, `select()`); tests pass on 3.11 and 3.14.
-- Legacy tooling (Travis CI, Codecov and pyup were removed in #253): `setup.py` + `setup_requires`; `requirements.txt` is a full pinned freeze mixing runtime and dev tools; black pinned to 20.8b1 in pre-commit; `importlib_metadata` shim for Python < 3.8; tox/classifiers target 3.6–3.9.
+- Legacy tooling: Travis CI, Codecov and pyup removed in #253; setup.py/tox/requirements.txt replaced by `pyproject.toml` + uv in #254; the broken black 20.8b1 hook was removed in #254, ruff replaces it in #255.
 - Elasticsearch-era assumptions: default host `http://localhost:9200` with no TLS/auth config (ES 8+ enables security by default); test fixtures use mapping types (`PUT twitter/_mapping/doc`), removed in ES 7/8.
 - Known version-ordering bug: `ScriptData.version_base`/`version_rank` are regex-captured strings, so `GlobLoader` sorts lexicographically (`"10" < "9"`), and `cli.upgrade` compares versions as floats (`"1.10"` → `1.1` < `1.9`). Breaks once version or sequence reaches 10.
