@@ -1,36 +1,40 @@
 import getpass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Self
 
-from sqlalchemy import LargeBinary, String, Text
+from sqlalchemy import LargeBinary, String, Text, UniqueConstraint
 from sqlalchemy.dialects.mysql import LONGTEXT
 from sqlalchemy.orm import Mapped, mapped_column
 
-from esmigrate.commons import ScriptData
+from esmigrate.commons import DEFAULT_NAMESPACE, ScriptData
 from esmigrate.models.base import Base
+from esmigrate.models.types import UTCDateTime
 
 
 class SchemaVersion(Base):
     __tablename__ = "esm_schema_version"
+    __table_args__ = (UniqueConstraint("namespace", "installed_rank"),)
 
+    namespace: Mapped[str] = mapped_column(String(64), primary_key=True)
     version: Mapped[str] = mapped_column(String(64), primary_key=True)
     version_base: Mapped[int | None]
     version_rank: Mapped[int | None]
-    installed_rank: Mapped[int | None] = mapped_column(unique=True)
+    installed_rank: Mapped[int | None]
     description: Mapped[str | None] = mapped_column(String(255))
     type: Mapped[str | None] = mapped_column(String(16))
     script: Mapped[str | None] = mapped_column(String(1024))
     checksum: Mapped[bytes | None] = mapped_column(LargeBinary)
     installed_by: Mapped[str | None] = mapped_column(String(255))
-    installed_on: Mapped[datetime | None]
+    installed_on: Mapped[datetime | None] = mapped_column(UTCDateTime)
     execution_time: Mapped[int | None]
     success: Mapped[bool | None]
     query_results: Mapped[str | None] = mapped_column(Text().with_variant(LONGTEXT(), "mysql", "mariadb"))
 
-    def __init__(self, version: str) -> None:
+    def __init__(self, version: str, namespace: str = DEFAULT_NAMESPACE) -> None:
+        self.namespace = namespace
         self.version = version
         self.installed_by = getpass.getuser()
-        self.installed_on = datetime.now()
+        self.installed_on = datetime.now(UTC)
         self.type = "NOSQL"
 
     @classmethod

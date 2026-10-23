@@ -38,3 +38,16 @@ def test_context_silently_skips_invalid_json_in_load_order(monkeypatch, fs):
     assert context.schema_dir == "dir1"
     assert context.schema_ext == ".exm2"
     assert context.es_host == "http://127.0.0.1:9200"
+
+
+def test_context_defaults_schema_namespace():
+    """Test fails if a new context does not use the default schema namespace"""
+    context = ContextConfig()
+    assert context.schema_namespace == "default"
+    assert "schema_namespace: default" in repr(context)
+
+
+def test_context_loads_schema_namespace(fs):
+    """Test fails if schema_namespace is not read from the profile"""
+    fs.create_file(local_config_file_path, contents="""{"profiles":[{"test":{"schema_namespace": "billing"}}]}""")
+    assert ContextConfig().load_for("test").schema_namespace == "billing"

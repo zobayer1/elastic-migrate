@@ -5,7 +5,7 @@ from typing import Self
 
 from validator_collection import checkers
 
-from esmigrate.commons import local_config_file_path, user_config_file_path
+from esmigrate.commons import DEFAULT_NAMESPACE, local_config_file_path, user_config_file_path
 from esmigrate.exceptions import (
     InvalidSchemaPatternError,
     UserProfileNotFoundError,
@@ -24,6 +24,7 @@ class ContextConfig:
         self.headers = {"Connection": "keep-alive"}
         self.schema_dir = None
         self.schema_ext = ".exm"
+        self.schema_namespace = DEFAULT_NAMESPACE
         self.schema_pattern = rf"^{os.getenv('SCHEMA_PATTERN', ContextConfig._default_pattern)}$"
         if not all(p in self.schema_pattern for p in ContextConfig._named_groups):
             raise InvalidSchemaPatternError(f"SCHEMA_PATTERN must have named groups for {ContextConfig._named_groups}")
@@ -47,6 +48,7 @@ class ContextConfig:
                                 self.schema_db = json_profile_data.get("schema_db", self.schema_db)
                                 self.schema_dir = json_profile_data.get("schema_dir", self.schema_dir)
                                 self.schema_ext = json_profile_data.get("schema_ext", self.schema_ext)
+                                self.schema_namespace = json_profile_data.get("schema_namespace", self.schema_namespace)
                                 if checkers.is_url(json_profile_data.get("elastic_host"), allow_special_ips=True):
                                     self.es_host = json_profile_data.get("elastic_host", self.es_host)
 
@@ -69,5 +71,6 @@ class ContextConfig:
             + f"schema_version_db: {self.schema_db}\n"
             + f"schema_file_directory: {self.schema_dir if self.schema_dir else os.getcwd()}\n"
             + f"schema_file_extension: {self.schema_ext}\n"
+            + f"schema_namespace: {self.schema_namespace}\n"
             + f"schema_filename_pattern: {self.schema_pattern}\n"
         )

@@ -8,6 +8,7 @@ class Errors:
     # Database errors
     ERR_DB_CONNECTION_FAILED = -201
     ERR_DB_IN_ERROR_STATE = -202
+    ERR_DB_LEGACY_TABLE = -203
 
     # Directory errors
     ERR_INVALID_SCHEMA_DIRECTORY = -301
@@ -70,6 +71,12 @@ class InvalidSchemaPatternError(RuntimeError):
     pass
 
 
+class LegacySchemaTableError(RuntimeError):
+    """Raised when the schema version table uses the v1 layout and must be upgraded with `esmigrate init`"""
+
+    pass
+
+
 class SchemaVersionSqlDbError(RuntimeError):
     """Raised when schema version entity is invalid or conflicting"""
 
@@ -99,6 +106,7 @@ __all__ = [
     "InvalidDBConnectionError",
     "InvalidSchemaFileError",
     "InvalidSchemaPatternError",
+    "LegacySchemaTableError",
     "SchemaVersionSqlDbError",
     "UserProfileNotFoundError",
 ]

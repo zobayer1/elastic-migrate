@@ -51,3 +51,9 @@ def test_scan_dir_sorts_versions_numerically(glob_loader, fs):
         fs.create_file(f"./schema_dir/{name}")
     versions = [item.version for item in glob_loader.scan_dir("./schema_dir")]
     assert versions == ["1.2", "1.9", "1.10", "9.1", "10.1"]
+
+
+def test_scan_dir_stores_paths_relative_to_schema_dir(glob_loader, fs):
+    """Test fails if scan_dir keeps the schema directory prefix in script paths"""
+    fs.create_file("/srv/project/schema_dir/V1_1__create_index.exm")
+    assert [item.path for item in glob_loader.scan_dir("/srv/project/schema_dir")] == ["V1_1__create_index.exm"]

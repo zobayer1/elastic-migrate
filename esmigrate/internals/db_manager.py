@@ -1,12 +1,15 @@
-from collections.abc import AsyncIterator, Sequence
+import re
+from collections.abc import AsyncIterator, Mapping, Sequence
 from contextlib import asynccontextmanager
-from typing import Self
+from datetime import UTC, datetime
+from typing import Any, Self
 
-from sqlalchemy import URL, ColumnElement, delete, inspect, make_url, select
+from sqlalchemy import URL, ColumnElement, Connection, delete, insert, inspect, make_url, select, text
 from sqlalchemy.exc import ArgumentError, InvalidRequestError, NoSuchModuleError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
-from esmigrate.exceptions import InvalidDBConnectionError, SchemaVersionSqlDbError
+from esmigrate.commons import DEFAULT_NAMESPACE
+from esmigrate.exceptions import InvalidDBConnectionError, LegacySchemaTableError, SchemaVersionSqlDbError
 from esmigrate.models import SchemaVersion
 from esmigrate.models.base import Base
 
@@ -22,6 +25,8 @@ DRIVER_EXTRAS = {
     "asyncpg": "postgres",
     "aiomysql": "mysql",
 }
+
+LEGACY_BACKUP_TABLE = "esm_schema_version_v1_backup"
 
 
 def to_async_url(db_url: str) -> URL:
@@ -48,22 +53,73 @@ def create_engine(db_url: str, echo: bool = False) -> AsyncEngine:
         raise InvalidDBConnectionError(f"Unsupported database driver: {url.drivername}, {err}") from err
 
 
+def is_legacy_table(conn: Connection) -> bool:
+    inspector = inspect(conn)
+    if not inspector.has_table(SchemaVersion.__tablename__):
+        return False
+    return "namespace" not in {column["name"] for column in inspector.get_columns(SchemaVersion.__tablename__)}
+
+
+def upgrade_legacy_table(conn: Connection) -> None:
+    if inspect(conn).has_table(LEGACY_BACKUP_TABLE):
+        raise SchemaVersionSqlDbError(f"Backup table {LEGACY_BACKUP_TABLE} already exists, remove it before upgrading")
+    table = SchemaVersion.__table__
+    conn.execute(text(f"CREATE TABLE {LEGACY_BACKUP_TABLE} AS SELECT * FROM {table.name}"))
+    rows = conn.execute(text(f"SELECT * FROM {LEGACY_BACKUP_TABLE}")).mappings().all()
+    conn.execute(text(f"DROP TABLE {table.name}"))
+    table.create(conn)
+    if rows:
+        conn.execute(insert(table), [upgrade_legacy_row(row) for row in rows])
+
+
+def upgrade_legacy_row(row: Mapping[str, Any]) -> dict[str, Any]:
+    values = {column.name: row[column.name] for column in SchemaVersion.__table__.columns if column.name in row}
+    values["namespace"] = DEFAULT_NAMESPACE
+    if values.get("script"):
+        values["script"] = re.split(r"[\\/]", values["script"])[-1]
+    if values.get("success") is not None:
+        values["success"] = bool(values["success"])
+    installed_on = values.get("installed_on")
+    if isinstance(installed_on, str):
+        installed_on = datetime.fromisoformat(installed_on)
+    if installed_on is not None:
+        values["installed_on"] = installed_on.astimezone(UTC)
+    return values
+
+
 class DBManager:
-    def __init__(self, engine: AsyncEngine) -> None:
+    def __init__(self, engine: AsyncEngine, namespace: str = DEFAULT_NAMESPACE, upgraded: bool = False) -> None:
         self._engine = engine
         self._sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
+        self.namespace = namespace
+        self.upgraded_legacy_table = upgraded
 
     @classmethod
     @asynccontextmanager
-    async def connect(cls, db_url: str, echo: bool = False) -> AsyncIterator[Self]:
+    async def connect(
+        cls, db_url: str, namespace: str = DEFAULT_NAMESPACE, upgrade: bool = False, echo: bool = False
+    ) -> AsyncIterator[Self]:
         engine = create_engine(db_url, echo)
         try:
+            try:
+                async with engine.connect() as conn:
+                    legacy = await conn.run_sync(is_legacy_table)
+            except SQLAlchemyError as err:
+                raise InvalidDBConnectionError(str(err)) from err
+            if legacy and not upgrade:
+                raise LegacySchemaTableError("Schema version table uses the v1 layout, run `esmigrate init` to upgrade")
+            if legacy:
+                try:
+                    async with engine.begin() as conn:
+                        await conn.run_sync(upgrade_legacy_table)
+                except SQLAlchemyError as err:
+                    raise SchemaVersionSqlDbError(f"Legacy table upgrade failed: {err}") from err
             try:
                 async with engine.begin() as conn:
                     await conn.run_sync(Base.metadata.create_all)
             except SQLAlchemyError as err:
                 raise InvalidDBConnectionError(str(err)) from err
-            yield cls(engine)
+            yield cls(engine, namespace, upgraded=legacy)
         finally:
             await engine.dispose()
 
@@ -75,9 +131,10 @@ class DBManager:
     async def insert_new_schema(self, scmver: SchemaVersion) -> None:
         async with self._sessionmaker() as session:
             try:
-                if await session.get(SchemaVersion, scmver.version):
+                scmver.namespace = self.namespace
+                if await session.get(SchemaVersion, (self.namespace, scmver.version)):
                     raise SchemaVersionSqlDbError(f"Version already installed: {scmver.version}")
-                scmver_latest = await self._find_latest_schema(session)
+                scmver_latest = await self._find_latest_schema(session, self.namespace)
                 if scmver_latest and not scmver_latest.success:
                     raise SchemaVersionSqlDbError(f"Failed previous version: {scmver_latest.version}")
                 scmver.installed_rank = scmver_latest.installed_rank + 1 if scmver_latest else 1
@@ -89,15 +146,16 @@ class DBManager:
 
     async def find_schema_by_version(self, version: str) -> SchemaVersion | None:
         async with self._sessionmaker() as session:
-            return await session.get(SchemaVersion, version)
+            return await session.get(SchemaVersion, (self.namespace, version))
 
     async def find_latest_schema(self) -> SchemaVersion | None:
         async with self._sessionmaker() as session:
-            return await self._find_latest_schema(session)
+            return await self._find_latest_schema(session, self.namespace)
 
     async def find_all_schema(self) -> Sequence[SchemaVersion]:
         async with self._sessionmaker() as session:
-            return (await session.scalars(select(SchemaVersion).order_by(SchemaVersion.installed_rank))).all()
+            query = select(SchemaVersion).where(SchemaVersion.namespace == self.namespace)
+            return (await session.scalars(query.order_by(SchemaVersion.installed_rank))).all()
 
     async def delete_all_failed_schema(self) -> None:
         await self._delete(SchemaVersion.success.is_(False))
@@ -108,13 +166,14 @@ class DBManager:
     async def _delete(self, condition: ColumnElement[bool]) -> None:
         async with self._sessionmaker() as session:
             try:
-                await session.execute(delete(SchemaVersion).where(condition))
+                await session.execute(delete(SchemaVersion).where(SchemaVersion.namespace == self.namespace, condition))
                 await session.commit()
             except SQLAlchemyError as err:
                 await session.rollback()
                 raise SchemaVersionSqlDbError(str(err)) from err
 
     @staticmethod
-    async def _find_latest_schema(session: AsyncSession) -> SchemaVersion | None:
-        query = select(SchemaVersion).order_by(SchemaVersion.installed_rank.desc())
+    async def _find_latest_schema(session: AsyncSession, namespace: str) -> SchemaVersion | None:
+        query = select(SchemaVersion).where(SchemaVersion.namespace == namespace)
+        query = query.order_by(SchemaVersion.installed_rank.desc())
         return (await session.scalars(query)).first()

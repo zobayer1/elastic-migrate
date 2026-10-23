@@ -18,6 +18,7 @@ JSON_HEADER = {"Content-Type": "application/json"}
 NDJSON_HEADER = {"Content-Type": "application/x-ndjson"}
 
 appname = "elastic-migrate"
+DEFAULT_NAMESPACE = "default"
 version = get_version(appname)
 
 title = f"""
@@ -34,6 +35,7 @@ local_config_file_path = os.path.join(os.getcwd(), "config.json")
 user_config_file_path = os.path.join(user_config_dir(appname=appname), "config.json")
 
 __all__ = [
+    "DEFAULT_NAMESPACE",
     "JSON_HEADER",
     "NDJSON_HEADER",
     "Command",

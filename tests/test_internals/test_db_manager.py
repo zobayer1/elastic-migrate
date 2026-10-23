@@ -1,10 +1,54 @@
+import sqlite3
+from datetime import UTC, datetime
+
 import pytest
 from sqlalchemy.exc import IntegrityError, OperationalError
 
-from esmigrate.exceptions import InvalidDBConnectionError, SchemaVersionSqlDbError
+from esmigrate.exceptions import (
+    InvalidDBConnectionError,
+    LegacySchemaTableError,
+    SchemaVersionSqlDbError,
+)
 from esmigrate.internals import DBManager
-from esmigrate.internals.db_manager import to_async_url
+from esmigrate.internals.db_manager import LEGACY_BACKUP_TABLE, to_async_url, upgrade_legacy_row
 from esmigrate.models import SchemaVersion
+
+LEGACY_TABLE_DDL = """
+CREATE TABLE esm_schema_version (
+    version VARCHAR NOT NULL PRIMARY KEY,
+    version_base INTEGER,
+    version_rank INTEGER,
+    installed_rank INTEGER UNIQUE,
+    description VARCHAR,
+    type VARCHAR,
+    script VARCHAR,
+    checksum BLOB,
+    installed_by VARCHAR,
+    installed_on DATETIME,
+    execution_time INTEGER,
+    success BOOLEAN,
+    query_results VARCHAR
+)
+"""
+
+LEGACY_ROWS = [
+    (
+        "1.0",
+        1,
+        0,
+        1,
+        "a.exm",
+        "NOSQL",
+        "/srv/schema/V1_0__a.exm",
+        b"x",
+        "ops",
+        "2021-06-16 09:57:22.123456",
+        1,
+        1,
+        "[]",
+    ),
+    ("1.1", 1, 1, 2, "b.exm", "NOSQL", "C:\\schema\\V1_1__b.exm", b"y", "ops", "2021-06-17 10:00:00", 2, 0, "[]"),
+]
 
 
 def make_schema(version, success=True):
@@ -204,3 +248,140 @@ async def test_db_manager_wraps_delete_errors(db_with_success_row, mocker):
     mocker.patch("sqlalchemy.ext.asyncio.AsyncSession.execute", side_effect=error)
     with pytest.raises(SchemaVersionSqlDbError):
         await db_with_success_row.delete_all_schema()
+
+
+def create_legacy_db(path, rows=LEGACY_ROWS):
+    with sqlite3.connect(path) as conn:
+        conn.execute(LEGACY_TABLE_DDL)
+        conn.executemany(f"INSERT INTO esm_schema_version VALUES ({', '.join('?' * 13)})", rows)
+    conn.close()
+
+
+def table_names(path):
+    with sqlite3.connect(path) as conn:
+        names = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+    conn.close()
+    return names
+
+
+async def test_db_manager_round_trips_installed_on_as_utc(db_manager):
+    """Test fails if installed_on is not returned as UTC-aware with microseconds preserved"""
+    scmver = make_schema("1.0")
+    scmver.installed_on = datetime(2026, 10, 24, 1, 2, 3, 456789, tzinfo=UTC)
+    await db_manager.insert_new_schema(scmver)
+    row = await db_manager.find_schema_by_version("1.0")
+    assert row.installed_on == datetime(2026, 10, 24, 1, 2, 3, 456789, tzinfo=UTC)
+    assert row.installed_on.tzinfo == UTC
+
+
+async def test_db_manager_isolates_namespaces(db_url):
+    """Test fails if versions, ranks, lookups and deletes leak between namespaces"""
+    async with (
+        DBManager.connect(db_url, namespace="alpha") as alpha,
+        DBManager.connect(db_url, namespace="beta") as beta,
+    ):
+        await alpha.insert_new_schema(make_schema("1.0"))
+        await alpha.insert_new_schema(make_schema("1.1"))
+        await beta.insert_new_schema(make_schema("1.0", success=False))
+        assert (await beta.find_latest_schema()).installed_rank == 1
+        assert (await alpha.find_latest_schema()).version == "1.1"
+        assert [row.version for row in await beta.find_all_schema()] == ["1.0"]
+        assert (await beta.find_schema_by_version("1.1")) is None
+        await alpha.insert_new_schema(make_schema("1.2"))
+        await beta.delete_all_failed_schema()
+        await alpha.delete_all_schema(cutoff_rank=3)
+        assert [row.version for row in await alpha.find_all_schema()] == ["1.0", "1.1"]
+        assert await beta.find_all_schema() == []
+
+
+async def test_db_manager_rejects_legacy_table_without_upgrade(tmp_path):
+    """Test fails if connect does not refuse a v1 table unless an upgrade is requested"""
+    path = tmp_path / "legacy.db"
+    create_legacy_db(path)
+    with pytest.raises(LegacySchemaTableError, match="esmigrate init"):
+        async with DBManager.connect(f"sqlite:///{path}"):
+            pass
+    assert LEGACY_BACKUP_TABLE not in table_names(path)
+
+
+async def test_db_manager_upgrades_legacy_table(tmp_path):
+    """Test fails if init-style upgrade does not migrate v1 rows into the default namespace and keep a backup"""
+    path = tmp_path / "legacy.db"
+    create_legacy_db(path)
+    async with DBManager.connect(f"sqlite:///{path}", upgrade=True) as db:
+        assert db.upgraded_legacy_table
+        rows = await db.find_all_schema()
+    assert [(row.namespace, row.version, row.script, row.success) for row in rows] == [
+        ("default", "1.0", "V1_0__a.exm", True),
+        ("default", "1.1", "V1_1__b.exm", False),
+    ]
+    assert rows[0].installed_on.tzinfo == UTC
+    assert rows[0].installed_on.microsecond == 123456
+    assert LEGACY_BACKUP_TABLE in table_names(path)
+    async with DBManager.connect(f"sqlite:///{path}") as db:
+        assert not db.upgraded_legacy_table
+        assert len(await db.find_all_schema()) == 2
+
+
+async def test_db_manager_upgrades_empty_legacy_table(tmp_path):
+    """Test fails if an empty v1 table cannot be upgraded"""
+    path = tmp_path / "legacy.db"
+    create_legacy_db(path, rows=[])
+    async with DBManager.connect(f"sqlite:///{path}", upgrade=True) as db:
+        assert await db.find_all_schema() == []
+
+
+async def test_db_manager_refuses_upgrade_when_backup_exists(tmp_path):
+    """Test fails if the upgrade overwrites an existing backup table"""
+    path = tmp_path / "legacy.db"
+    create_legacy_db(path)
+    with sqlite3.connect(path) as conn:
+        conn.execute(f"CREATE TABLE {LEGACY_BACKUP_TABLE} (version VARCHAR)")
+    conn.close()
+    with pytest.raises(SchemaVersionSqlDbError, match="already exists"):
+        async with DBManager.connect(f"sqlite:///{path}", upgrade=True):
+            pass
+
+
+async def test_db_manager_wraps_upgrade_errors(tmp_path, mocker):
+    """Test fails if database errors during the legacy upgrade are not raised as SchemaVersionSqlDbError"""
+    path = tmp_path / "legacy.db"
+    create_legacy_db(path)
+    error = OperationalError("CREATE TABLE", {}, Exception("disk I/O error"))
+    mocker.patch("esmigrate.internals.db_manager.upgrade_legacy_table", side_effect=error)
+    with pytest.raises(SchemaVersionSqlDbError, match="Legacy table upgrade failed"):
+        async with DBManager.connect(f"sqlite:///{path}", upgrade=True):
+            pass
+
+
+async def test_db_manager_upgrade_is_noop_for_current_table(db_url):
+    """Test fails if upgrade=True changes a database that already uses the current layout"""
+    async with DBManager.connect(db_url) as db:
+        await db.insert_new_schema(make_schema("1.0"))
+    async with DBManager.connect(db_url, upgrade=True) as db:
+        assert not db.upgraded_legacy_table
+        assert len(await db.find_all_schema()) == 1
+
+
+def test_upgrade_legacy_row_converts_naive_local_time_to_utc():
+    """Test fails if a naive v1 timestamp is not interpreted as local time and converted to UTC"""
+    local = datetime(2021, 6, 16, 9, 57, 22)
+    values = upgrade_legacy_row({"version": "1.0", "installed_on": local, "script": None, "success": None})
+    assert values["installed_on"] == local.astimezone(UTC)
+    assert values["namespace"] == "default"
+    assert values["script"] is None
+    assert values["success"] is None
+
+
+def test_upgrade_legacy_row_keeps_missing_install_time():
+    """Test fails if a v1 row without installed_on gets a fabricated timestamp"""
+    assert upgrade_legacy_row({"version": "1.0", "installed_on": None})["installed_on"] is None
+
+
+async def test_db_manager_reports_table_creation_errors(db_url, mocker):
+    """Test fails if errors while creating the table are not raised as InvalidDBConnectionError"""
+    error = OperationalError("CREATE TABLE", {}, Exception("permission denied"))
+    mocker.patch("esmigrate.models.base.Base.metadata.create_all", side_effect=error)
+    with pytest.raises(InvalidDBConnectionError, match="permission denied"):
+        async with DBManager.connect(db_url):
+            pass

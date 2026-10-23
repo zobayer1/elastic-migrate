@@ -41,7 +41,14 @@ class GlobLoader:
                 raise InvalidSchemaFileError(f"Error reading file: {_path}, {err!s}") from err
 
             file_items.append(
-                ScriptData(version=_ver, sequence=_seq, name=_name, extension=_ext, path=_path, content=_content)
+                ScriptData(
+                    version=_ver,
+                    sequence=_seq,
+                    name=_name,
+                    extension=_ext,
+                    path=os.path.relpath(_path, schema_dir),
+                    content=_content,
+                )
             )
 
         sorted_items = sorted(file_items, key=lambda k: k.version_key)
