@@ -27,10 +27,11 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
+    "aiosqlite>=0.21",
     "click>=8.1",
     "platformdirs>=4.0",
     "requests>=2.32",
-    "sqlalchemy>=2.0",
+    "sqlalchemy[asyncio]>=2.0",
     "validator-collection>=1.5",
 ]
 
@@ -41,11 +42,20 @@ Issues = "https://github.com/zobayer1/elastic-migrate/issues"
 [project.scripts]
 esmigrate = "esmigrate.cli:main"
 
+[project.optional-dependencies]
+postgres = [
+    "asyncpg>=0.30",
+]
+mysql = [
+    "aiomysql>=0.2",
+]
+
 [dependency-groups]
 dev = [
     "pre-commit>=4.0",
     "pyfakefs>=5.7",
     "pytest>=8.3",
+    "pytest-asyncio>=1.0",
     "pytest-cov>=6.0",
     "pytest-mock>=3.14",
     "requests-mock>=1.12",
@@ -76,6 +86,8 @@ known-first-party = ["esmigrate"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 filterwarnings = [
     "error::DeprecationWarning",
     "error::PendingDeprecationWarning",
