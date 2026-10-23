@@ -27,14 +27,14 @@ uv run ruff check --fix .                             # lint (incl. import sorti
 uv run ruff format .                                  # format
 uv run pyright                                        # type check esmigrate + tests (standard mode)
 uv run pre-commit run --all-files                     # ruff check/format, whitespace/EOF fixers, pyright
-docker compose up -d --wait                           # ES 8.19, PostgreSQL 17, MySQL 8.4 for integration tests
+docker compose up -d --wait                           # ES 8.19 (plain :9200, HTTPS+auth :9201, mTLS :9202), PostgreSQL 17, MySQL 8.4
 uv run pytest -m integration                          # integration tests (all three DBs + real ES), no coverage floor
 docker compose down                                   # stop services (data is ephemeral)
 uv build                                              # wheel + sdist
 uv lock --upgrade                                     # manual dependency update (no bots)
 ```
 
-- `uv run pytest` excludes integration tests (`addopts = -m "not integration"`). Integration tests fail, never skip, when a service is down. Ports can be moved with `ESMIGRATE_ES_PORT` / `ESMIGRATE_PG_PORT` / `ESMIGRATE_MYSQL_PORT`; tests read `ESMIGRATE_TEST_ES_URL` / `ESMIGRATE_TEST_PG_URL` / `ESMIGRATE_TEST_MYSQL_URL`. Compose credentials (`esmigrate`/`esmigrate`) are local test-only values.
+- `uv run pytest` excludes integration tests (`addopts = -m "not integration"`). Integration tests fail, never skip, when a service is down. Ports can be moved with `ESMIGRATE_ES_PORT` / `ESMIGRATE_PG_PORT` / `ESMIGRATE_MYSQL_PORT`; tests read `ESMIGRATE_TEST_ES_URL` / `ESMIGRATE_TEST_PG_URL` / `ESMIGRATE_TEST_MYSQL_URL`. Compose credentials (`esmigrate`/`esmigrate`, ES `elastic`/`esmigrate-secret`) are local test-only values. The one-shot `es-certs` service writes a test CA, server and client certificate to the git-ignored `.certs/` (reused across runs; delete it to regenerate). Secured clusters move with `ESMIGRATE_ES_SECURE_PORT` / `ESMIGRATE_ES_MTLS_PORT`; tests read `ESMIGRATE_TEST_ES_SECURE_URL` / `ESMIGRATE_TEST_ES_MTLS_URL` / `ESMIGRATE_TEST_ES_PASSWORD` / `ESMIGRATE_TEST_CERTS_DIR`.
 - All config lives in `pyproject.toml`: build (hatchling + hatch-vcs), ruff, pytest (`DeprecationWarning`/`PendingDeprecationWarning` are errors), coverage (`fail_under` is a floor — raise it, never lower it). Only pass `--cov` for full runs, otherwise single-test runs trip the coverage floor.
 - Version comes from git tags via hatch-vcs and is read at runtime with `importlib.metadata`, so the package must be installed (`uv sync` does this).
 
@@ -88,6 +88,6 @@ Key behaviors:
 
 ## Current state
 
-- Done on `modernize`: #253 (CI/bot cleanup), #263 (Apache-2.0), #256 (SQLAlchemy 2), #254 (pyproject + uv), #255 (ruff, 3.11+ style), #257 (integer version ordering), #258 (async httpx + async DB, CLI rewrite), #59 (schema namespaces, UTC timestamps, explicit v1 table upgrade), #264 (positive exit codes), #265 (pyright), #259 (Docker integration tests on all three DBs).
-- Remaining in milestone `v2.0.0`: #260 (ES 8 TLS/auth, fixes #109 host validation), #261 (GitHub Actions on 3.11/3.14), #108 (default profile `default`), #64 (stdlib logging), #262 (docs incl. "Migrating from v1").
+- Done on `modernize`: #253 (CI/bot cleanup), #263 (Apache-2.0), #256 (SQLAlchemy 2), #254 (pyproject + uv), #255 (ruff, 3.11+ style), #257 (integer version ordering), #258 (async httpx + async DB, CLI rewrite), #59 (schema namespaces, UTC timestamps, explicit v1 table upgrade), #264 (positive exit codes), #265 (pyright), #259 (Docker integration tests on all three DBs), #260 + #109 (TLS, mTLS, basic/API-key auth, `${VAR}` interpolation, strict host validation).
+- Remaining in milestone `v2.0.0`: #261 (GitHub Actions on 3.11/3.14), #108 (default profile `default`), #64 (stdlib logging), #266 (default extension `.exm` → `.esm`), #262 (docs incl. "Migrating from v1").
 - Coverage is 100% with `fail_under = 100`.

@@ -84,7 +84,7 @@ class HTTPHandler:
             response.raise_for_status()
         except httpx.HTTPStatusError as err:
             raise ElasticsearchHTTPError(err.response) from err
-        except httpx.TransportError as err:
+        except (httpx.TransportError, ssl.SSLError) as err:
             tls_error = find_tls_error(err)
             if tls_error is not None:
                 message = (

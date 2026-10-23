@@ -245,3 +245,11 @@ def test_find_tls_error_stops_on_cyclic_exception_chains():
     first, second = httpx.ConnectError("first"), httpx.ConnectError("second")
     first.__context__, second.__context__ = second, first
     assert find_tls_error(first) is None
+
+
+async def test_http_handler_reports_raw_ssl_errors(http_handler, mocker):
+    """Test fails if a TLS 1.3 alert raised as a bare ssl.SSLError after the handshake escapes unwrapped"""
+    error = ssl.SSLError(1, "[SSL: TLSV13_ALERT_CERTIFICATE_REQUIRED] tlsv13 alert certificate required")
+    mocker.patch.object(http_handler._client, "request", side_effect=error)
+    with pytest.raises(ElasticsearchConnError, match=r"TLS error: .*certificate required"):
+        await http_handler.make_requests(Command("GET", "/twitter"))
