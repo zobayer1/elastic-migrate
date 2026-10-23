@@ -5,14 +5,13 @@ cfgv==3.3.1
 chardet==4.0.0
 click==8.0.3
 click-log==0.3.2
-codecov==2.1.12
 coverage==6.0.1
 distlib==0.3.3
 filelock==3.3.0
 flake8==4.0.1
 identify==2.3.0
-idna==2.05 # pyup: ignore
-importlib-metadata==2.1.1;python_version<'3.8' # pyup: ignore
+idna==2.05
+importlib-metadata==2.1.1;python_version<'3.8'
 iniconfig==1.1.1
 jsonschema==4.1.0
 mccabe==0.6.1
