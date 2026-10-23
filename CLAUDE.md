@@ -38,6 +38,12 @@ uv lock --upgrade                                     # manual dependency update
 - All config lives in `pyproject.toml`: build (hatchling + hatch-vcs), ruff, pytest (`DeprecationWarning`/`PendingDeprecationWarning` are errors), coverage (`fail_under` is a floor — raise it, never lower it). Only pass `--cov` for full runs, otherwise single-test runs trip the coverage floor.
 - Version comes from git tags via hatch-vcs and is read at runtime with `importlib.metadata`, so the package must be installed (`uv sync` does this).
 
+## CI
+
+- `.github/workflows/ci.yml` runs on every push, PRs to `main` and manually: `lint` (pre-commit incl. strict pyright), `unit` and `integration` (Python 3.11 and 3.14; integration starts the full `docker compose` stack), `build` (`uv build` + `twine check --strict`). Jobs call the same `uv run …` commands used locally.
+- Coverage goes to Codecov via **OIDC** (`use_oidc: true`, `id-token: write`) — no token secret; flags `unit` / `integration`.
+- Action versions: use the newest major releases and check `runs.using` is `node24` (no deprecated Node runtimes). Actions that receive a write token, a secret or an OIDC token are pinned to a commit SHA with a `# vX.Y.Z` comment; others use major tags. Validate workflow edits with `uvx --from actionlint-py actionlint`.
+
 ## Architecture
 
 Flow of `esmigrate -p <profile> upgrade` (all orchestration lives in `esmigrate/cli.py`):
