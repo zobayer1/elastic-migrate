@@ -2,7 +2,7 @@ import json
 import os
 import re
 from json.decoder import JSONDecodeError
-from typing import Any, Self
+from typing import Any, Self, cast
 from urllib.parse import urlsplit
 
 from esmigrate.commons import DEFAULT_NAMESPACE, local_config_file_path, user_config_file_path
@@ -27,9 +27,9 @@ def interpolate(value: Any, field: str) -> Any:
 
         return ENV_REFERENCE.sub(resolve, value)
     if isinstance(value, dict):
-        return {key: interpolate(item, f"{field}.{key}") for key, item in value.items()}
+        return {key: interpolate(item, f"{field}.{key}") for key, item in cast(dict[str, Any], value).items()}
     if isinstance(value, list):
-        return [interpolate(item, f"{field}[{index}]") for index, item in enumerate(value)]
+        return [interpolate(item, f"{field}[{index}]") for index, item in enumerate(cast(list[Any], value))]
     return value
 
 
@@ -77,9 +77,12 @@ def optional_file(data: dict[str, Any], field: str) -> str | None:
 
 
 def parse_headers(value: object) -> dict[str, str]:
-    if not isinstance(value, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in value.items()):
+    if not isinstance(value, dict):
         raise InvalidConfigurationError("elastic_headers must be an object of string values")
-    return dict(value)
+    headers = cast(dict[object, object], value)
+    if not all(isinstance(k, str) and isinstance(v, str) for k, v in headers.items()):
+        raise InvalidConfigurationError("elastic_headers must be an object of string values")
+    return {str(k): str(v) for k, v in headers.items()}
 
 
 class ContextConfig:
@@ -116,10 +119,13 @@ class ContextConfig:
             if _path and os.path.isfile(str(_path)):
                 try:
                     with open(_path, encoding="utf-8") as _file:
-                        json_config_data = json.loads(_file.read())
+                        json_config_data: Any = json.loads(_file.read())
                 except (OSError, JSONDecodeError):
                     continue
-                for _profile in json_config_data.get("profiles") or []:
+                if not isinstance(json_config_data, dict):
+                    continue
+                profiles: list[dict[str, Any]] = cast(dict[str, Any], json_config_data).get("profiles") or []
+                for _profile in profiles:
                     if profile in _profile:
                         self.profile = profile
                         merged.update(_profile[profile])

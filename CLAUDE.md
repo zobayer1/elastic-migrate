@@ -25,7 +25,7 @@ uv run pytest tests/test_internals/test_script_parser.py   # single file
 uv run pytest tests/test_cli.py::test_cli_upgrade_cmd_fails_with_value_error   # single test
 uv run ruff check --fix .                             # lint (incl. import sorting, pyupgrade)
 uv run ruff format .                                  # format
-uv run pyright                                        # type check esmigrate + tests (standard mode)
+uv run pyright                                        # type check: strict for esmigrate/, standard for tests/
 uv run pre-commit run --all-files                     # ruff check/format, whitespace/EOF fixers, pyright
 docker compose up -d --wait                           # ES 8.19 (plain :9200, HTTPS+auth :9201, mTLS :9202), PostgreSQL 17, MySQL 8.4
 uv run pytest -m integration                          # integration tests (all three DBs + real ES), no coverage floor
@@ -60,7 +60,7 @@ Key behaviors:
 
 - Python 3.11+ idioms, enforced by ruff (`E W F I UP B SIM C4 PT RUF ANN2`, line length 120): no encoding headers, no `(object)` bases, `X | None`, builtin generics, `typing.Self`, `collections.abc` types, `raise ... from err` inside `except`.
 - Return type hints are required on all functions in `esmigrate/` (`ANN2`); tests are exempt.
-- pyright (standard mode, `[tool.pyright]`) must report 0 errors for `esmigrate/` and `tests/`. Narrow optionals with `assert x is not None` / `isinstance` in tests; use `SCHEMA_TABLE` (typed `Table`) instead of `SchemaVersion.__table__`. Use `-> AsyncGenerator[T, None]` (not `AsyncIterator`) for `@asynccontextmanager`.
+- pyright must report 0 errors: **strict** mode for `esmigrate/` (no unknown types — annotate empty collections, use `dict[str, str]`/`tuple[...]` not bare generics, `cast` JSON values after `isinstance`), standard mode for `tests/`. Narrow optionals with `assert x is not None` / `isinstance` in tests; use `SCHEMA_TABLE` (typed `Table`) instead of `SchemaVersion.__table__`. Use `-> AsyncGenerator[T, None]` (not `AsyncIterator`) for `@asynccontextmanager`.
 - Private attributes use a leading underscore (`self._ctx`); short-lived locals and loop vars are often underscore-prefixed (`_path`, `_ver`, `_file`). f-strings throughout.
 - Subpackages re-export their public API through `__init__.py` with an explicit `__all__`; import from the package (`from esmigrate.internals import ScriptParser`), not the submodule.
 - Custom exceptions live in `esmigrate/exceptions/__init__.py`: subclass `RuntimeError`, one-line docstring `"""Raised when ..."""` plus `pass` (or a small `__init__` when they carry data, like `ElasticsearchHTTPError.response`), kept alphabetical and listed in `__all__`.

@@ -273,3 +273,11 @@ def test_context_ignores_profiles_list_missing(fs):
     fs.create_file(user_config_file_path, contents=json.dumps({"other": 1}))
     write_profile(fs, schema_dir="s")
     assert ContextConfig().load_for("test").schema_dir == "s"
+
+
+@pytest.mark.parametrize("contents", ["[]", '"text"', "42"])
+def test_context_skips_config_files_without_json_object(fs, contents):
+    """Test fails if a config file holding valid JSON that is not an object breaks loading of other files"""
+    fs.create_file(user_config_file_path, contents=contents)
+    write_profile(fs, schema_dir="s")
+    assert ContextConfig().load_for("test").schema_dir == "s"

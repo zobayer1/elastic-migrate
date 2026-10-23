@@ -1,5 +1,5 @@
 class Command:
-    def __init__(self, verb: str, path: str, body: str | None = None, head: dict | None = None) -> None:
+    def __init__(self, verb: str, path: str, body: str | None = None, head: dict[str, str] | None = None) -> None:
         self.verb = verb
         self.path = path
         self.body = body
@@ -30,9 +30,9 @@ class Command:
         self._body = value
 
     @property
-    def head(self) -> dict:
+    def head(self) -> dict[str, str]:
         return self._head
 
     @head.setter
-    def head(self, value: dict) -> None:
+    def head(self, value: dict[str, str]) -> None:
         self._head = value

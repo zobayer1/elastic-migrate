@@ -29,7 +29,7 @@ from esmigrate.internals import DBManager, GlobLoader, HTTPHandler, ScriptParser
 from esmigrate.internals.db_manager import LEGACY_BACKUP_TABLE
 from esmigrate.models import SchemaVersion
 
-DB_ERRORS = {
+DB_ERRORS: dict[type[Exception], Errors] = {
     InvalidDBConnectionError: Errors.ERR_DB_CONNECTION_FAILED,
     LegacySchemaTableError: Errors.ERR_DB_LEGACY_TABLE,
     SchemaVersionSqlDbError: Errors.ERR_DB_IN_ERROR_STATE,
@@ -179,7 +179,7 @@ async def upgrade_schema(cfg: ContextConfig, db: DBManager, requested: tuple[int
 
 async def apply_schema(db: DBManager, http_handler: HTTPHandler, script_parser: ScriptParser, entry: ScriptData) -> int:
     click.echo(f"Processing schema {entry.description}")
-    query_results = []
+    query_results: list[str] = []
     error_code = 0
     tic = time.perf_counter()
     try:

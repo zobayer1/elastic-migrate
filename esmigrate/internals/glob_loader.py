@@ -27,7 +27,7 @@ class GlobLoader:
 
         rex = re.compile(self._ctx.schema_pattern)
 
-        file_items = []
+        file_items: list[ScriptData] = []
         for _path in glob.glob(os.path.join(schema_dir, f"*{schema_ext}")):
             _, filename, extension = parse_file_path(_path)
             m = rex.match(filename + extension)

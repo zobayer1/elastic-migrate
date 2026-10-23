@@ -93,6 +93,7 @@ pythonVersion = "3.11"
 venvPath = "."
 venv = ".venv"
 typeCheckingMode = "standard"
+strict = ["esmigrate"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
