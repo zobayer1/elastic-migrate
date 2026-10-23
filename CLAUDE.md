@@ -47,8 +47,8 @@ Flow of `esmigrate -p <profile> upgrade` (all orchestration lives in `esmigrate/
 Key behaviors:
 - **Async boundary:** click commands are sync and call `sys.exit(asyncio.run(run_<command>(cfg)))`; async functions return exit codes instead of calling `sys.exit`, so `async with` cleanup always runs. Scripts and commands execute strictly sequentially.
 - **Fail fast:** a failed script is still inserted with `success=False`; later `upgrade` runs refuse while the latest row is failed. `rollback` deletes failed rows, `reset` deletes all rows (both per namespace). An unreachable ES aborts without recording a row.
-- **v1 tables:** a table without the `namespace` column raises `LegacySchemaTableError` (exit -203) for every command except `init`, which upgrades it explicitly and keeps `esm_schema_version_v1_backup`. No silent schema changes.
-- Failure categories map to negative exit codes in `exceptions.Errors` (-1xx profile/config, -2xx DB, -3xx schema files, -4xx params, -5xx HTTP); the CLI prints `<ExceptionName>: <message>` via `cli.fail()`.
+- **v1 tables:** a table without the `namespace` column raises `LegacySchemaTableError` (exit 22) for every command except `init`, which upgrades it explicitly and keeps `esm_schema_version_v1_backup`. No silent schema changes.
+- Failure categories map to positive exit codes in the `exceptions.Errors` `IntEnum`, grouped by tens (1x profile/config, 2x DB, 3x schema files, 4x params, 5x HTTP); never use 1, 2, 126–127 or 128+ (uncaught error, click usage error, shell, signals). The shell sees exactly these values. The CLI prints `<ExceptionName>: <message>` via `cli.fail()`.
 - Nothing stores the ES host: request paths in `query_results` are host-relative and `script` is relative to `schema_dir`.
 
 ## Coding style
@@ -81,7 +81,7 @@ Key behaviors:
 
 ## Current state
 
-- Done on `modernize`: #253 (CI/bot cleanup), #263 (Apache-2.0), #256 (SQLAlchemy 2), #254 (pyproject + uv), #255 (ruff, 3.11+ style), #257 (integer version ordering), #258 (async httpx + async DB, CLI rewrite), #59 (schema namespaces, UTC timestamps, explicit v1 table upgrade).
+- Done on `modernize`: #253 (CI/bot cleanup), #263 (Apache-2.0), #256 (SQLAlchemy 2), #254 (pyproject + uv), #255 (ruff, 3.11+ style), #257 (integer version ordering), #258 (async httpx + async DB, CLI rewrite), #59 (schema namespaces, UTC timestamps, explicit v1 table upgrade), #264 (positive exit codes).
 - Remaining in milestone `v2.0.0`: #259 (Docker: ES 8 + PostgreSQL + MySQL integration tests), #260 (ES 8 TLS/auth, fixes #109 host validation), #261 (GitHub Actions on 3.11/3.14), #108 (default profile `default`), #64 (stdlib logging), #262 (docs incl. "Migrating from v1").
 - Coverage is 100% with `fail_under = 100`.
 - Test fixture data still uses ES mapping types (`PUT twitter/_mapping/doc`), removed in ES 7/8 — fixed in #259.
