@@ -6,6 +6,8 @@ from esmigrate.commons import ScriptData, parse_file_path
 from esmigrate.contexts import ContextConfig
 from esmigrate.exceptions import ContextObjectNotSetError, InvalidSchemaFileError, InvalidSchemaPatternError
 
+MAX_VERSION_PART = 2**31 - 1
+
 
 class GlobLoader:
     def __init__(self, ctx: ContextConfig | None = None) -> None:
@@ -33,9 +35,11 @@ class GlobLoader:
                 _ver, _seq, _name, _ext = m.groups()
             else:
                 raise InvalidSchemaPatternError(f"Illegal file name: {_path}, does not match configured pattern")
+            if max(int(_ver), int(_seq)) > MAX_VERSION_PART:
+                raise InvalidSchemaPatternError(f"Version number too large: {_path}, maximum is {MAX_VERSION_PART}")
 
             try:
-                with open(_path) as schema_file:
+                with open(_path, encoding="utf-8") as schema_file:
                     _content = schema_file.read()
             except Exception as err:
                 raise InvalidSchemaFileError(f"Error reading file: {_path}, {err!s}") from err

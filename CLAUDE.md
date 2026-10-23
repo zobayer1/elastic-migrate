@@ -46,7 +46,7 @@ Flow of `esmigrate -p <profile> upgrade` (all orchestration lives in `esmigrate/
 2. **`internals.GlobLoader.scan_dir`** (sync, local disk) — globs `schema_dir` for `*<schema_ext>`, validates names (`V1_10__name.exm` → version `"1.10"`, `version_key` `(1, 10)`), returns `commons.ScriptData` sorted by `version_key`, with `path` relative to `schema_dir`.
 3. **`internals.ScriptParser.get_commands`** — Kibana-console-like script → `commons.Command`s: a `VERB path` line (GET/PUT/POST/DELETE) plus optional JSON/NDJSON body. Emits host-relative paths (`/twitter/_doc`); absolute and protocol-relative URLs are rejected.
 4. **`internals.HTTPHandler`** — `async with HTTPHandler(ctx)` wraps one `httpx.AsyncClient` (base URL = `elastic_host`, profile headers, timeout). Non-2xx → `ElasticsearchHTTPError` (carries `.response`); transport errors/timeouts → `ElasticsearchConnError`. Plain HTTP by design — no elasticsearch-py client.
-5. **`internals.DBManager`** — `async with DBManager.connect(url, namespace=..., upgrade=False)` creates the table and always disposes the async engine. Bare URLs are mapped to async drivers (`sqlite`→aiosqlite, `postgresql`/`postgres`→asyncpg, `mysql`/`mariadb`→aiomysql); sync drivers are rejected. Every query is scoped to the namespace.
+5. **`internals.DBManager`** — `async with DBManager.connect(url, namespace=..., upgrade=False)` creates the table and always disposes the async engine. Bare URLs are mapped to async drivers (`sqlite`→aiosqlite, `postgresql`/`postgres`→asyncpg, `mysql`/`mariadb`→asyncmy); sync drivers are rejected. Every query is scoped to the namespace.
 6. **`models.SchemaVersion`** — table `esm_schema_version`, PK `(namespace, version)`, `installed_rank` unique per namespace, `installed_on` UTC via `models.types.UTCDateTime`. Portable across SQLite/PostgreSQL/MySQL; dialect differences use `with_variant`, never separate model classes.
 
 Key behaviors:
@@ -70,7 +70,7 @@ Key behaviors:
 
 - Tests mirror the package layout: `tests/test_<subpackage>/test_<module>.py`, plus `tests/test_cli.py`.
 - No live Elasticsearch needed for unit tests: `respx` (`respx_mock` fixture) fakes ES, real SQLite files in `tmp_path` back DB tests (in-memory SQLite does not work with async engines), `pyfakefs` (`fs`) for config/schema-file tests that need no DB, `pytest-mock` (`mocker`) only to inject failures, `monkeypatch` for env vars.
-- Integration tests live in `tests/integration/` (auto-marked `integration`) and use the real CLI with a real `config.json` via `ESMIGRATE_CONFIG`. The `db_url` fixture parametrizes every test over SQLite, PostgreSQL and MySQL; `es_index` gives a unique index deleted afterwards. `asyncpg`/`aiomysql` are in the dev group so every dev env can reach all backends.
+- Integration tests live in `tests/integration/` (auto-marked `integration`) and use the real CLI with a real `config.json` via `ESMIGRATE_CONFIG`. The `db_url` fixture parametrizes every test over SQLite, PostgreSQL and MySQL; `es_index` gives a unique index deleted afterwards. `asyncpg`/`asyncmy` are in the dev group so every dev env can reach all backends.
 - Async tests are plain `async def` (`asyncio_mode = "auto"`). CLI tests must stay sync `def` because commands call `asyncio.run`; seed/inspect the DB there with `asyncio.run(...)`.
 - Fixtures have a docstring (`"""pytest fixture for ..."""`). Parametrized tests often use an indirect `parameter` fixture (`@pytest.mark.parametrize("parameter", [...], indirect=["parameter"])`).
 - Every test has a one-line docstring of the form `"""Test fails if ..."""`.

@@ -57,3 +57,23 @@ def test_scan_dir_stores_paths_relative_to_schema_dir(glob_loader, fs):
     """Test fails if scan_dir keeps the schema directory prefix in script paths"""
     fs.create_file("/srv/project/schema_dir/V1_1__create_index.exm")
     assert [item.path for item in glob_loader.scan_dir("/srv/project/schema_dir")] == ["V1_1__create_index.exm"]
+
+
+@pytest.mark.parametrize("name", ["V2147483648_1__too_big.exm", "V1_2147483648__too_big.exm"])
+def test_scan_dir_rejects_versions_exceeding_integer_columns(glob_loader, fs, name):
+    """Test fails if version parts larger than a 32-bit INTEGER column are accepted"""
+    fs.create_file(f"./schema_dir/{name}")
+    with pytest.raises(InvalidSchemaPatternError, match="Version number too large"):
+        glob_loader.scan_dir("./schema_dir")
+
+
+def test_scan_dir_accepts_largest_version(glob_loader, fs):
+    """Test fails if the largest 32-bit version and sequence are rejected"""
+    fs.create_file("./schema_dir/V2147483647_2147483647__max.exm")
+    assert glob_loader.scan_dir("./schema_dir")[0].version_key == (2147483647, 2147483647)
+
+
+def test_scan_dir_reads_utf8_scripts(glob_loader, fs):
+    """Test fails if schema files are not read as UTF-8 regardless of the locale"""
+    fs.create_file("./schema_dir/V1_0__unicode.exm", contents='PUT twitter/_doc/1\n{"user": "zoë"}', encoding="utf-8")
+    assert "zoë" in glob_loader.scan_dir("./schema_dir")[0].content

@@ -17,13 +17,13 @@ ASYNC_DRIVERS = {
     "sqlite": "sqlite+aiosqlite",
     "postgres": "postgresql+asyncpg",
     "postgresql": "postgresql+asyncpg",
-    "mysql": "mysql+aiomysql",
-    "mariadb": "mysql+aiomysql",
+    "mysql": "mysql+asyncmy",
+    "mariadb": "mysql+asyncmy",
 }
 
 DRIVER_EXTRAS = {
     "asyncpg": "postgres",
-    "aiomysql": "mysql",
+    "asyncmy": "mysql",
 }
 
 LEGACY_BACKUP_TABLE = "esm_schema_version_v1_backup"

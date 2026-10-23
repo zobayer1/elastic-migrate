@@ -47,7 +47,7 @@ class ScriptParser:
             if cmdline + 1 >= cmdnext:
                 body, head = None, None
             else:
-                body = "\n".join(stripped_lines[cmdline + 1 : cmdnext])
+                body = "\n".join(stripped_lines[cmdline + 1 : cmdnext]) + "\n"
                 if is_valid_json(body):
                     head = JSON_HEADER
                 elif is_valid_ndjson(body):

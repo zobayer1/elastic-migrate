@@ -107,3 +107,19 @@ def test_script_parser_raises_invalid_command_script_for_empty_script(script_par
 def test_script_parser_emits_host_relative_paths(script_parser, parameter, expected):
     """Test fails if get_commands does not produce a single leading-slash path without host"""
     assert next(script_parser.get_commands(parameter)).path == expected
+
+
+@pytest.mark.parametrize(
+    "parameter",
+    [
+        'POST /_bulk\n{"delete": {"_id": "1"}}',
+        'POST /_bulk\n{"index": {}}\n{"user": "me"}',
+        'GET /t/_search\n{"query": {}}',
+    ],
+    indirect=["parameter"],
+)
+def test_script_parser_terminates_bodies_with_newline(script_parser, parameter):
+    """Test fails if request bodies are not newline-terminated as required by the elasticsearch bulk API"""
+    body = next(script_parser.get_commands(parameter)).body
+    assert body is not None
+    assert body.endswith("}\n")

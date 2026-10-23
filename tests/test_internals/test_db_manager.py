@@ -90,8 +90,8 @@ async def db_with_failed_row(db_manager):
         ("sqlite:///esmigrate.db", "sqlite+aiosqlite"),
         ("postgresql://user@host/db", "postgresql+asyncpg"),
         ("postgres://user@host/db", "postgresql+asyncpg"),
-        ("mysql://user@host/db", "mysql+aiomysql"),
-        ("mariadb://user@host/db", "mysql+aiomysql"),
+        ("mysql://user@host/db", "mysql+asyncmy"),
+        ("mariadb://user@host/db", "mysql+asyncmy"),
         ("postgresql+psycopg://user@host/db", "postgresql+psycopg"),
     ],
 )

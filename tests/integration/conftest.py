@@ -9,6 +9,8 @@ from click.testing import CliRunner
 from sqlalchemy import text
 
 from esmigrate import cli
+from esmigrate.commons import DEFAULT_NAMESPACE
+from esmigrate.internals import DBManager
 from esmigrate.internals.db_manager import LEGACY_BACKUP_TABLE, create_engine
 
 ES_URL = os.getenv("ESMIGRATE_TEST_ES_URL", "http://localhost:9200")
@@ -62,7 +64,7 @@ def es_index(es_url):
     """pytest fixture for a unique elasticsearch index name, deleted after the test"""
     name = f"esmigrate-it-{uuid.uuid4().hex[:12]}"
     yield name
-    httpx.delete(f"{es_url}/{name}", params={"ignore_unavailable": "true"}, timeout=30)
+    httpx.delete(f"{es_url}/{name}*", params={"ignore_unavailable": "true"}, timeout=30)
 
 
 @pytest.fixture
@@ -87,6 +89,27 @@ def profile(tmp_path, monkeypatch, es_url, db_url, schema_dir):
     monkeypatch.setattr("esmigrate.contexts.context_config.user_config_file_path", str(tmp_path / "user.json"))
     monkeypatch.setattr("esmigrate.contexts.context_config.local_config_file_path", str(tmp_path / "local.json"))
     return write
+
+
+@pytest.fixture
+def es(es_url):
+    """pytest fixture for a synchronous HTTP client against the integration elasticsearch"""
+    with httpx.Client(base_url=es_url, timeout=30) as client:
+        yield client
+
+
+@pytest.fixture
+def stored_rows(db_url):
+    """pytest fixture returning the recorded schema versions for a namespace"""
+
+    def fetch(namespace=DEFAULT_NAMESPACE):
+        async def query():
+            async with DBManager.connect(db_url, namespace=namespace) as db:
+                return await db.find_all_schema()
+
+        return asyncio.run(query())
+
+    return fetch
 
 
 @pytest.fixture
