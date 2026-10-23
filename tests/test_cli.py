@@ -243,8 +243,10 @@ def test_cli_upgrade_cmd_succeeds_for_valid_schema_file(runner, context, schema_
         ("1.0", True, "V1_0__create_twitter.exm"),
         ("1.1", True, "V1_1__index_tweet.exm"),
     ]
-    assert '"query": "PUT /twitter ' in rows[0].query_results
-    assert ES_HOST not in rows[0].query_results
+    query_results = rows[0].query_results
+    assert query_results is not None
+    assert '"query": "PUT /twitter ' in query_results
+    assert ES_HOST not in query_results
 
 
 def test_cli_upgrade_cmd_exits_when_requested_version_too_low(runner, context, schema_dir):
@@ -276,6 +278,7 @@ def test_cli_upgrade_cmd_fails_with_elasticsearch_http_error(runner, context, sc
     assert not second.called
     rows = stored_rows(context)
     assert [(row.version, row.success) for row in rows] == [("1.0", False)]
+    assert rows[0].query_results is not None
     assert "resource_already_exists_exception" in rows[0].query_results
 
 

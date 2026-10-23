@@ -290,8 +290,11 @@ async def test_db_manager_isolates_namespaces(db_url):
         await alpha.insert_new_schema(make_schema("1.0"))
         await alpha.insert_new_schema(make_schema("1.1"))
         await beta.insert_new_schema(make_schema("1.0", success=False))
-        assert (await beta.find_latest_schema()).installed_rank == 1
-        assert (await alpha.find_latest_schema()).version == "1.1"
+        beta_latest, alpha_latest = await beta.find_latest_schema(), await alpha.find_latest_schema()
+        assert beta_latest is not None
+        assert alpha_latest is not None
+        assert beta_latest.installed_rank == 1
+        assert alpha_latest.version == "1.1"
         assert [row.version for row in await beta.find_all_schema()] == ["1.0"]
         assert (await beta.find_schema_by_version("1.1")) is None
         await alpha.insert_new_schema(make_schema("1.2"))
@@ -322,8 +325,10 @@ async def test_db_manager_upgrades_legacy_table(tmp_path):
         ("default", "1.0", "V1_0__a.exm", True),
         ("default", "1.1", "V1_1__b.exm", False),
     ]
-    assert rows[0].installed_on.tzinfo == UTC
-    assert rows[0].installed_on.microsecond == 123456
+    installed_on = rows[0].installed_on
+    assert installed_on is not None
+    assert installed_on.tzinfo == UTC
+    assert installed_on.microsecond == 123456
     assert LEGACY_BACKUP_TABLE in table_names(path)
     async with DBManager.connect(f"sqlite:///{path}") as db:
         assert not db.upgraded_legacy_table

@@ -30,9 +30,9 @@ class ContextConfig:
         self.es_host = "http://localhost:9200"
         self.es_timeout: float | None = 60.0
         self.schema_db = "sqlite:///esmigrate.db"
-        self.profile = None
+        self.profile: str | None = None
         self.headers = {"Connection": "keep-alive"}
-        self.schema_dir = None
+        self.schema_dir: str | None = None
         self.schema_ext = ".exm"
         self.schema_namespace = DEFAULT_NAMESPACE
         self.schema_pattern = rf"^{os.getenv('SCHEMA_PATTERN', ContextConfig._default_pattern)}$"
@@ -71,8 +71,16 @@ class ContextConfig:
 
         if self.profile is None:
             raise UserProfileNotFoundError(f"Requested profile '{profile}' could not be loaded")
+        if not self.schema_dir:
+            raise InvalidConfigurationError(f"schema_dir is required in profile '{profile}'")
 
         return self
+
+    @property
+    def schema_path(self) -> str:
+        if not self.schema_dir:
+            raise InvalidConfigurationError("schema_dir is not configured")
+        return self.schema_dir
 
     def __repr__(self) -> str:
         return (
@@ -82,7 +90,7 @@ class ContextConfig:
             + f"elastic_headers: {json.dumps(self.headers)}\n"
             + f"elastic_timeout: {self.es_timeout}\n"
             + f"schema_version_db: {self.schema_db}\n"
-            + f"schema_file_directory: {self.schema_dir if self.schema_dir else os.getcwd()}\n"
+            + f"schema_file_directory: {self.schema_dir}\n"
             + f"schema_file_extension: {self.schema_ext}\n"
             + f"schema_namespace: {self.schema_namespace}\n"
             + f"schema_filename_pattern: {self.schema_pattern}\n"

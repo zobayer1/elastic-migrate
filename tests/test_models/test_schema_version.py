@@ -5,11 +5,12 @@ from sqlalchemy.dialects import mysql, postgresql, sqlite
 from sqlalchemy.schema import CreateTable
 
 from esmigrate.commons import DEFAULT_NAMESPACE, ScriptData
+from esmigrate.internals.db_manager import SCHEMA_TABLE
 from esmigrate.models import SchemaVersion
 
 
 def create_table_sql(dialect):
-    return str(CreateTable(SchemaVersion.__table__).compile(dialect=dialect))
+    return str(CreateTable(SCHEMA_TABLE).compile(dialect=dialect))
 
 
 @pytest.mark.parametrize("dialect", [sqlite.dialect(), postgresql.dialect(), mysql.dialect()])
@@ -39,6 +40,7 @@ def test_schema_version_defaults_to_default_namespace_and_utc_time():
     """Test fails if a new SchemaVersion is not in the default namespace with a UTC-aware install time"""
     scmver = SchemaVersion("1.0")
     assert scmver.namespace == DEFAULT_NAMESPACE
+    assert scmver.installed_on is not None
     assert scmver.installed_on.tzinfo == UTC
 
 

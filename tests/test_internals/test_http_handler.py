@@ -64,6 +64,7 @@ async def test_http_handler_applies_configured_timeout(context):
     """Test fails if the profile timeout is not applied to the client"""
     context.es_timeout = 12.5
     async with HTTPHandler(context) as handler:
+        assert handler._client is not None
         assert handler._client.timeout == httpx.Timeout(12.5)
 
 
@@ -71,6 +72,7 @@ async def test_http_handler_allows_disabled_timeout(context):
     """Test fails if a null timeout does not disable client timeouts"""
     context.es_timeout = None
     async with HTTPHandler(context) as handler:
+        assert handler._client is not None
         assert handler._client.timeout == httpx.Timeout(None)
 
 
@@ -106,6 +108,7 @@ async def test_http_handler_closes_client_on_exit(context):
     """Test fails if the client is not closed when the async context manager exits, including on errors"""
     handler = await HTTPHandler(context).__aenter__()
     client = handler._client
+    assert client is not None
     await handler.__aexit__(RuntimeError, RuntimeError("boom"), None)
     assert client.is_closed
     assert handler._client is None

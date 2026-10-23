@@ -37,9 +37,20 @@ def test_process_exit_status_matches_profile_not_found(tmp_path, monkeypatch):
 def test_process_exit_status_matches_invalid_configuration(tmp_path, monkeypatch):
     """Test fails if the real process exit status differs from Errors.ERR_INVALID_CONFIGURATION"""
     config = tmp_path / "config.json"
-    config.write_text(json.dumps({"profiles": [{"broken": {"elastic_timeout": -1}}]}))
+    config.write_text(json.dumps({"profiles": [{"broken": {"schema_dir": "s", "elastic_timeout": -1}}]}))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
     monkeypatch.setenv("ESMIGRATE_CONFIG", str(config))
     result = run_cli(tmp_path, "--profile", "broken", "config")
     assert result.returncode == Errors.ERR_INVALID_CONFIGURATION
     assert "elastic_timeout" in result.stdout
+
+
+def test_process_exits_when_schema_dir_is_missing(tmp_path, monkeypatch):
+    """Test fails if a profile without schema_dir does not exit with Errors.ERR_INVALID_CONFIGURATION"""
+    config = tmp_path / "config.json"
+    config.write_text(json.dumps({"profiles": [{"noschema": {"schema_db": "sqlite:///x.db"}}]}))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    monkeypatch.setenv("ESMIGRATE_CONFIG", str(config))
+    result = run_cli(tmp_path, "--profile", "noschema", "init")
+    assert result.returncode == Errors.ERR_INVALID_CONFIGURATION
+    assert "schema_dir is required in profile 'noschema'" in result.stdout

@@ -146,7 +146,7 @@ async def upgrade_schema(cfg: ContextConfig, db: DBManager, requested: tuple[int
         return Errors.ERR_DB_IN_ERROR_STATE
     latest_db_version = parse_version(latest_db_entry.version) if latest_db_entry else (0, 0)
     try:
-        schema_entries = GlobLoader(cfg).scan_dir(cfg.schema_dir)
+        schema_entries = GlobLoader(cfg).scan_dir(cfg.schema_path)
     except NotADirectoryError as err:
         return fail(err, Errors.ERR_INVALID_SCHEMA_DIRECTORY)
     except (InvalidSchemaPatternError, InvalidSchemaFileError) as err:

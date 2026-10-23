@@ -25,7 +25,8 @@ uv run pytest tests/test_internals/test_script_parser.py   # single file
 uv run pytest tests/test_cli.py::test_cli_upgrade_cmd_fails_with_value_error   # single test
 uv run ruff check --fix .                             # lint (incl. import sorting, pyupgrade)
 uv run ruff format .                                  # format
-uv run pre-commit run --all-files                     # ruff check/format + whitespace/EOF fixers
+uv run pyright                                        # type check esmigrate + tests (standard mode)
+uv run pre-commit run --all-files                     # ruff check/format, whitespace/EOF fixers, pyright
 docker compose up -d --wait                           # ES 8.19, PostgreSQL 17, MySQL 8.4 for integration tests
 uv run pytest -m integration                          # integration tests (all three DBs + real ES), no coverage floor
 docker compose down                                   # stop services (data is ephemeral)
@@ -41,7 +42,7 @@ uv lock --upgrade                                     # manual dependency update
 
 Flow of `esmigrate -p <profile> upgrade` (all orchestration lives in `esmigrate/cli.py`):
 
-1. **`contexts.ContextConfig`** — `main()` loads the profile into `ctx.obj`; subcommands receive it via `@click.pass_obj`. Config files are read in order: user config dir (`platformdirs`), `./config.json`, then `$ESMIGRATE_CONFIG`; later files overwrite earlier ones. Profile fields: `elastic_host`, `elastic_headers`, `elastic_timeout` (default 60s, `null` disables), `schema_db`, `schema_dir`, `schema_ext`, `schema_namespace` (default `default`). Invalid values raise `InvalidConfigurationError`. Filename regex comes from `$SCHEMA_PATTERN` (named groups `version`, `sequence`, `name`, `extension`). Default profile is `test` (#108 renames it).
+1. **`contexts.ContextConfig`** — `main()` loads the profile into `ctx.obj`; subcommands receive it via `@click.pass_obj`. Config files are read in order: user config dir (`platformdirs`), `./config.json`, then `$ESMIGRATE_CONFIG`; later files overwrite earlier ones. Profile fields: `elastic_host`, `elastic_headers`, `elastic_timeout` (default 60s, `null` disables), `schema_db`, `schema_dir` (**required**, no fallback to the working directory), `schema_ext`, `schema_namespace` (default `default`). Missing or invalid values raise `InvalidConfigurationError` (exit 11) at profile load. Filename regex comes from `$SCHEMA_PATTERN` (named groups `version`, `sequence`, `name`, `extension`). Default profile is `test` (#108 renames it).
 2. **`internals.GlobLoader.scan_dir`** (sync, local disk) — globs `schema_dir` for `*<schema_ext>`, validates names (`V1_10__name.exm` → version `"1.10"`, `version_key` `(1, 10)`), returns `commons.ScriptData` sorted by `version_key`, with `path` relative to `schema_dir`.
 3. **`internals.ScriptParser.get_commands`** — Kibana-console-like script → `commons.Command`s: a `VERB path` line (GET/PUT/POST/DELETE) plus optional JSON/NDJSON body. Emits host-relative paths (`/twitter/_doc`); absolute and protocol-relative URLs are rejected.
 4. **`internals.HTTPHandler`** — `async with HTTPHandler(ctx)` wraps one `httpx.AsyncClient` (base URL = `elastic_host`, profile headers, timeout). Non-2xx → `ElasticsearchHTTPError` (carries `.response`); transport errors/timeouts → `ElasticsearchConnError`. Plain HTTP by design — no elasticsearch-py client.
@@ -59,6 +60,7 @@ Key behaviors:
 
 - Python 3.11+ idioms, enforced by ruff (`E W F I UP B SIM C4 PT RUF ANN2`, line length 120): no encoding headers, no `(object)` bases, `X | None`, builtin generics, `typing.Self`, `collections.abc` types, `raise ... from err` inside `except`.
 - Return type hints are required on all functions in `esmigrate/` (`ANN2`); tests are exempt.
+- pyright (standard mode, `[tool.pyright]`) must report 0 errors for `esmigrate/` and `tests/`. Narrow optionals with `assert x is not None` / `isinstance` in tests; use `SCHEMA_TABLE` (typed `Table`) instead of `SchemaVersion.__table__`. Use `-> AsyncGenerator[T, None]` (not `AsyncIterator`) for `@asynccontextmanager`.
 - Private attributes use a leading underscore (`self._ctx`); short-lived locals and loop vars are often underscore-prefixed (`_path`, `_ver`, `_file`). f-strings throughout.
 - Subpackages re-export their public API through `__init__.py` with an explicit `__all__`; import from the package (`from esmigrate.internals import ScriptParser`), not the submodule.
 - Custom exceptions live in `esmigrate/exceptions/__init__.py`: subclass `RuntimeError`, one-line docstring `"""Raised when ..."""` plus `pass` (or a small `__init__` when they carry data, like `ElasticsearchHTTPError.response`), kept alphabetical and listed in `__all__`.
@@ -86,6 +88,6 @@ Key behaviors:
 
 ## Current state
 
-- Done on `modernize`: #253 (CI/bot cleanup), #263 (Apache-2.0), #256 (SQLAlchemy 2), #254 (pyproject + uv), #255 (ruff, 3.11+ style), #257 (integer version ordering), #258 (async httpx + async DB, CLI rewrite), #59 (schema namespaces, UTC timestamps, explicit v1 table upgrade), #264 (positive exit codes).
+- Done on `modernize`: #253 (CI/bot cleanup), #263 (Apache-2.0), #256 (SQLAlchemy 2), #254 (pyproject + uv), #255 (ruff, 3.11+ style), #257 (integer version ordering), #258 (async httpx + async DB, CLI rewrite), #59 (schema namespaces, UTC timestamps, explicit v1 table upgrade), #264 (positive exit codes), #265 (pyright).
 - Remaining in milestone `v2.0.0`: #259 (Docker: ES 8 + PostgreSQL + MySQL integration tests), #260 (ES 8 TLS/auth, fixes #109 host validation), #261 (GitHub Actions on 3.11/3.14), #108 (default profile `default`), #64 (stdlib logging), #262 (docs incl. "Migrating from v1").
 - Coverage is 100% with `fail_under = 100`.

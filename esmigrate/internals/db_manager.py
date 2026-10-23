@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Any, Self
 
-from sqlalchemy import URL, ColumnElement, Connection, delete, insert, inspect, make_url, select, text
+from sqlalchemy import URL, ColumnElement, Connection, Table, delete, insert, inspect, make_url, select, text
 from sqlalchemy.exc import ArgumentError, InvalidRequestError, NoSuchModuleError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
@@ -27,6 +27,7 @@ DRIVER_EXTRAS = {
 }
 
 LEGACY_BACKUP_TABLE = "esm_schema_version_v1_backup"
+SCHEMA_TABLE: Table = Base.metadata.tables[SchemaVersion.__tablename__]
 
 
 def to_async_url(db_url: str) -> URL:
@@ -55,15 +56,15 @@ def create_engine(db_url: str, echo: bool = False) -> AsyncEngine:
 
 def is_legacy_table(conn: Connection) -> bool:
     inspector = inspect(conn)
-    if not inspector.has_table(SchemaVersion.__tablename__):
+    if not inspector.has_table(SCHEMA_TABLE.name):
         return False
-    return "namespace" not in {column["name"] for column in inspector.get_columns(SchemaVersion.__tablename__)}
+    return "namespace" not in {column["name"] for column in inspector.get_columns(SCHEMA_TABLE.name)}
 
 
 def upgrade_legacy_table(conn: Connection) -> None:
     if inspect(conn).has_table(LEGACY_BACKUP_TABLE):
         raise SchemaVersionSqlDbError(f"Backup table {LEGACY_BACKUP_TABLE} already exists, remove it before upgrading")
-    table = SchemaVersion.__table__
+    table = SCHEMA_TABLE
     conn.execute(text(f"CREATE TABLE {LEGACY_BACKUP_TABLE} AS SELECT * FROM {table.name}"))
     rows = conn.execute(text(f"SELECT * FROM {LEGACY_BACKUP_TABLE}")).mappings().all()
     conn.execute(text(f"DROP TABLE {table.name}"))
@@ -72,8 +73,8 @@ def upgrade_legacy_table(conn: Connection) -> None:
         conn.execute(insert(table), [upgrade_legacy_row(row) for row in rows])
 
 
-def upgrade_legacy_row(row: Mapping[str, Any]) -> dict[str, Any]:
-    values = {column.name: row[column.name] for column in SchemaVersion.__table__.columns if column.name in row}
+def upgrade_legacy_row(row: Mapping[Any, Any]) -> dict[str, Any]:
+    values = {column.name: row[column.name] for column in SCHEMA_TABLE.columns if column.name in row}
     values["namespace"] = DEFAULT_NAMESPACE
     if values.get("script"):
         values["script"] = re.split(r"[\\/]", values["script"])[-1]
@@ -126,7 +127,7 @@ class DBManager:
     async def schema_version_exists(self) -> bool:
         async with self._engine.connect() as conn:
             tables = await conn.run_sync(lambda sync_conn: inspect(sync_conn).get_table_names())
-        return SchemaVersion.__tablename__ in tables
+        return SCHEMA_TABLE.name in tables
 
     async def insert_new_schema(self, scmver: SchemaVersion) -> None:
         async with self._sessionmaker() as session:
@@ -137,7 +138,7 @@ class DBManager:
                 scmver_latest = await self._find_latest_schema(session, self.namespace)
                 if scmver_latest and not scmver_latest.success:
                     raise SchemaVersionSqlDbError(f"Failed previous version: {scmver_latest.version}")
-                scmver.installed_rank = scmver_latest.installed_rank + 1 if scmver_latest else 1
+                scmver.installed_rank = (scmver_latest.installed_rank or 0) + 1 if scmver_latest else 1
                 session.add(scmver)
                 await session.commit()
             except SQLAlchemyError as err:

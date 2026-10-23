@@ -26,14 +26,12 @@ class ScriptParser:
         stripped_lines = [line.strip() for line in script_text.split("\n") if len(line.strip()) > 0]
         if not stripped_lines:
             raise InvalidCommandScriptError("Script does not contain any command")
-        occurs = [idx for idx, line in enumerate(stripped_lines) if self._pattern.match(line)]
-        if len(occurs) == 0 or occurs[0] != 0:
+        matches = [(idx, m) for idx, line in enumerate(stripped_lines) if (m := self._pattern.match(line))]
+        if not matches or matches[0][0] != 0:
             raise InvalidCommandScriptError(f"Unexpected command found: {stripped_lines[0].split()[0]}")
 
-        occurs.append(len(stripped_lines))
-        for idx in range(len(occurs) - 1):
-            cmdline = occurs[idx]
-            m = self._pattern.match(stripped_lines[cmdline])
+        occurs = [idx for idx, _ in matches] + [len(stripped_lines)]
+        for idx, (cmdline, m) in enumerate(matches):
             verb, path = m.group(1).strip(), m.group(2).strip()
 
             if verb not in http_verbs:
