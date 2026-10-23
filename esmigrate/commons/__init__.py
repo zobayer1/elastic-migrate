@@ -9,6 +9,7 @@ from esmigrate.commons.helpers import (
     is_valid_json,
     is_valid_ndjson,
     parse_file_path,
+    parse_version,
 )
 from esmigrate.commons.script_data import ScriptData
 
@@ -43,6 +44,7 @@ __all__ = [
     "is_valid_ndjson",
     "local_config_file_path",
     "parse_file_path",
+    "parse_version",
     "query_results_string",
     "title",
     "user_config_file_path",

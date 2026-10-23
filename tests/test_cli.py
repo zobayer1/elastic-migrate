@@ -3,7 +3,7 @@ from click.testing import CliRunner
 from requests import HTTPError, Response
 
 from esmigrate import cli
-from esmigrate.commons import ScriptData
+from esmigrate.commons import Command, ScriptData
 from esmigrate.contexts import ContextConfig
 from esmigrate.exceptions import (
     ElasticsearchConnError,
@@ -144,10 +144,11 @@ def test_cli_init_cmd_succeeds_when_schema_exists(runner, mocker, context, succe
     assert result.exit_code == 0
 
 
-def test_cli_upgrade_cmd_fails_with_value_error(runner, mocker, context):
+@pytest.mark.parametrize("schema_version", ["invalid", "1.2.3", "1.x"])
+def test_cli_upgrade_cmd_fails_with_value_error(runner, mocker, context, schema_version):
     """Test fails if `esmigrate upgrade` fails to check invalid schema version parameter"""
     mocker.patch("esmigrate.cli.ContextConfig.load_for", return_value=context)
-    result = runner.invoke(cli.main, ["--profile", context.profile, "upgrade", "--schema-version", "invalid"])
+    result = runner.invoke(cli.main, ["--profile", context.profile, "upgrade", "--schema-version", schema_version])
     assert result.exit_code == Errors.ERR_INVALID_SCMVER
 
 
@@ -328,3 +329,54 @@ def test_cli_reset_cmd_succeeds(runner, mocker, context):
     mocker.patch("esmigrate.internals.db_manager.DBManager.delete_all_schema", return_value=None)
     result = runner.invoke(cli.main, ["--profile", context.profile, "reset"])
     assert result.exit_code == 0
+
+
+def make_script_data(version, sequence):
+    return ScriptData(
+        version, sequence, f"step_{version}_{sequence}", "exm", f"V{version}_{sequence}.exm", "GET twitter"
+    )
+
+
+def mock_upgrade_run(mocker, context, latest_schema, script_entries, http_response):
+    mocker.patch("esmigrate.cli.ContextConfig.load_for", return_value=context)
+    mocker.patch("esmigrate.internals.db_manager.DBManager.find_latest_schema", return_value=latest_schema)
+    mocker.patch("esmigrate.internals.db_manager.DBManager.insert_new_schema", return_value=None)
+    mocker.patch("esmigrate.internals.glob_loader.GlobLoader.scan_dir", return_value=script_entries)
+    mocker.patch(
+        "esmigrate.internals.script_parser.ScriptParser.get_commands",
+        side_effect=lambda _: [Command("GET", "http://localhost:9200/twitter")],
+    )
+    mocker.patch("esmigrate.internals.http_handler.HTTPHandler.make_requests", return_value=http_response)
+
+
+def test_cli_upgrade_cmd_applies_double_digit_sequence_after_single_digit(runner, mocker, context, http_response):
+    """Test fails if `esmigrate upgrade` treats version 1.10 as older than an applied 1.9"""
+    applied = SchemaVersion("1.9")
+    applied.success = True
+    applied.installed_rank = 1
+    mock_upgrade_run(mocker, context, applied, [make_script_data(1, 9), make_script_data(1, 10)], http_response)
+    result = runner.invoke(cli.main, ["--profile", context.profile, "upgrade"])
+    assert result.exit_code == 0
+    assert "Processing schema step_1_9.exm" not in result.output
+    assert "Processing schema step_1_10.exm" in result.output
+    assert "Schema database upgraded to 1.10" in result.output
+
+
+def test_cli_upgrade_cmd_stops_at_double_digit_requested_version(runner, mocker, context, http_response):
+    """Test fails if `esmigrate upgrade --schema-version 1.10` does not stop at 1.10"""
+    entries = [make_script_data(1, 9), make_script_data(1, 10), make_script_data(1, 11)]
+    mock_upgrade_run(mocker, context, None, entries, http_response)
+    result = runner.invoke(cli.main, ["--profile", context.profile, "upgrade", "--schema-version", "1.10"])
+    assert result.exit_code == 0
+    assert "Processing schema step_1_9.exm" in result.output
+    assert "Processing schema step_1_10.exm" in result.output
+    assert "Processing schema step_1_11.exm" not in result.output
+    assert "Schema database upgraded to 1.10" in result.output
+
+
+def test_cli_upgrade_cmd_treats_zero_version_as_explicit_target(runner, mocker, context, http_response):
+    """Test fails if `esmigrate upgrade --schema-version 0` is treated as 'latest'"""
+    mock_upgrade_run(mocker, context, None, [make_script_data(1, 0)], http_response)
+    result = runner.invoke(cli.main, ["--profile", context.profile, "upgrade", "--schema-version", "0"])
+    assert result.exit_code == 0
+    assert "Processing schema" not in result.output

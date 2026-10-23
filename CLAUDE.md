@@ -81,4 +81,4 @@ Verified on 2026-10-23 with Python 3.14 and latest unpinned deps (SQLAlchemy 2.1
 - SQLAlchemy 2.x deprecation failures fixed in #256 (2.0-style `DeclarativeBase`, `Mapped`, `select()`); tests pass on 3.11 and 3.14.
 - Legacy tooling: Travis CI, Codecov and pyup removed in #253; setup.py/tox/requirements.txt replaced by `pyproject.toml` + uv in #254; black/flake8 replaced by ruff in #255.
 - Elasticsearch-era assumptions: default host `http://localhost:9200` with no TLS/auth config (ES 8+ enables security by default); test fixtures use mapping types (`PUT twitter/_mapping/doc`), removed in ES 7/8.
-- Known version-ordering bug: `ScriptData.version_base`/`version_rank` are regex-captured strings, so `GlobLoader` sorts lexicographically (`"10" < "9"`), and `cli.upgrade` compares versions as floats (`"1.10"` → `1.1` < `1.9`). Breaks once version or sequence reaches 10.
+- Versions are compared as integer `(base, sequence)` tuples (`ScriptData.version_key`, `commons.parse_version`); the old string-sort / float-compare bug was fixed in #257.

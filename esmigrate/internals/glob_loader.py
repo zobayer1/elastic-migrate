@@ -44,5 +44,5 @@ class GlobLoader:
                 ScriptData(version=_ver, sequence=_seq, name=_name, extension=_ext, path=_path, content=_content)
             )
 
-        sorted_items = sorted(file_items, key=lambda k: (k.version_base, k.version_rank))
+        sorted_items = sorted(file_items, key=lambda k: k.version_key)
         return sorted_items

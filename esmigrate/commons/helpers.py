@@ -1,5 +1,6 @@
 import json
 import os
+import re
 
 
 def is_valid_json(content: str) -> bool:
@@ -24,3 +25,10 @@ def parse_file_path(path: str) -> tuple:
     extension = os.path.splitext(base)[1]
     filename = base[: -len(extension) or None]
     return prefix, filename, extension
+
+
+def parse_version(text: str) -> tuple[int, int]:
+    m = re.fullmatch(r"(\d+)(?:\.(\d+))?", text.strip())
+    if m is None:
+        raise ValueError(f"Invalid version: {text}")
+    return int(m.group(1)), int(m.group(2) or 0)

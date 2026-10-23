@@ -4,7 +4,7 @@ import time
 import click
 from requests.exceptions import HTTPError
 
-from esmigrate.commons import appname, query_results_string, title
+from esmigrate.commons import appname, parse_version, query_results_string, title
 from esmigrate.contexts import ContextConfig
 from esmigrate.exceptions import (
     ElasticsearchConnError,
@@ -71,7 +71,7 @@ def config(cfg: ContextConfig) -> None:
 @click.pass_obj
 def upgrade(cfg: ContextConfig, schema_version: str = "latest") -> None:
     try:
-        requested_version = None if schema_version == "latest" else float(schema_version)
+        requested_version = None if schema_version == "latest" else parse_version(schema_version)
     except ValueError:
         click.echo(f"ValueError: Invalid schema-version value: {schema_version}")
         sys.exit(Errors.ERR_INVALID_SCMVER)
@@ -81,7 +81,7 @@ def upgrade(cfg: ContextConfig, schema_version: str = "latest") -> None:
         if latest_db_entry and not latest_db_entry.success:
             click.echo(f"Error: Schema database contains an error for version {latest_db_entry.version}")
             sys.exit(Errors.ERR_DB_IN_ERROR_STATE)
-        latest_db_version = float(latest_db_entry.version) if latest_db_entry else 0.0
+        latest_db_version = parse_version(latest_db_entry.version) if latest_db_entry else (0, 0)
     except InvalidDBConnectionError as err:
         click.echo(f"InvalidDBConnectionError: {err!s}")
         sys.exit(Errors.ERR_DB_CONNECTION_FAILED)
@@ -92,8 +92,8 @@ def upgrade(cfg: ContextConfig, schema_version: str = "latest") -> None:
         if file_count == 0:
             click.echo("No schema file found, nothing to do")
             sys.exit(0)
-        latest_file_version = float(schema_entries[-1].version)
-        if not requested_version:
+        latest_file_version = schema_entries[-1].version_key
+        if requested_version is None:
             requested_version = latest_file_version
     except NotADirectoryError as err:
         click.echo(f"NotADirectoryError: {err!s}")
@@ -107,9 +107,9 @@ def upgrade(cfg: ContextConfig, schema_version: str = "latest") -> None:
     script_parser = ScriptParser(cfg)
     http_handler = HTTPHandler(cfg)
     installed_rank = latest_db_entry.installed_rank if latest_db_entry else 0
-    latest = latest_db_version
+    latest = latest_db_entry.version if latest_db_entry else "0.0"
     for scm_entry in filter(
-        lambda entry: latest_db_version < float(entry.version) <= requested_version,
+        lambda entry: latest_db_version < entry.version_key <= requested_version,
         schema_entries,
     ):
         click.echo(f"Processing schema {scm_entry.description}")
@@ -148,7 +148,7 @@ def upgrade(cfg: ContextConfig, schema_version: str = "latest") -> None:
         scmver.query_results = ";".join(query_results)
         try:
             db_manager.insert_new_schema(scmver)
-            latest = float(scmver.version)
+            latest = scmver.version
         except SchemaVersionSqlDbError as err:
             click.echo(f"SchemaVersionSqlDbError: {err!s}")
             sys.exit(Errors.ERR_DB_IN_ERROR_STATE)
