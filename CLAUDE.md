@@ -12,7 +12,7 @@ ElasticMigrate (`esmigrate` CLI, package name `elastic-migrate`) is a Flyway-sty
 - **Maximum test coverage.** This module is used in enterprise, government-level applications. Every change ships with tests covering all new/changed branches, including error paths and exit codes; never lower coverage.
 - **Plan before large changes.** For anything beyond a small fix, first write a plan and create/update the GitHub issue(s); implement only after that.
 - Intermediate commits on `modernize` may leave tests broken; the branch must be green before the final PR.
-- **Commits:** author `Zobayer Hasan <zobayer1@gmail.com>`; end every message with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Commit messages only — no trailer or AI attribution in issue/PR bodies or comments. Show the proposed commit message to the user and wait for approval before committing. Reference issues with `Closes #N` / `Refs #N`.
+- **Commits:** author `Zobayer Hasan <zobayer1@gmail.com>`; end every message with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` and nothing else (no `Claude-Session` links). Commit messages only — no trailer or AI attribution in issue/PR bodies or comments. Show the proposed commit message to the user and wait for approval before committing. Reference issues with `Closes #N` / `Refs #N`.
 
 ## Commands
 

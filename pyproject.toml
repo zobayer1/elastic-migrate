@@ -62,6 +62,7 @@ dev = [
     "pytest-mock>=3.14",
     "respx>=0.22",
     "ruff>=0.17.2",
+    "trustme>=1.2",
 ]
 
 [tool.hatch.version]
@@ -102,6 +103,8 @@ markers = ["integration: needs the docker compose services (run with `pytest -m 
 filterwarnings = [
     "error::DeprecationWarning",
     "error::PendingDeprecationWarning",
+    "error::ResourceWarning",
+    "error::pytest.PytestUnraisableExceptionWarning",
 ]
 
 [tool.coverage.run]

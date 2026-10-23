@@ -167,6 +167,11 @@ class ContextConfig:
             raise InvalidConfigurationError(
                 "elastic_client_key and elastic_client_key_password need elastic_client_cert"
             )
+        has_header_auth = any(key.lower() == "authorization" for key in self.headers)
+        if has_header_auth and (self.es_username is not None or self.es_api_key is not None):
+            raise InvalidConfigurationError(
+                "An Authorization header in elastic_headers conflicts with elastic auth fields"
+            )
         if self.es_ca_certs and not self.es_verify_certs:
             raise InvalidConfigurationError("elastic_ca_certs has no effect when elastic_verify_certs is false")
 

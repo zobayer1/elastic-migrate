@@ -4,6 +4,7 @@ import sqlite3
 import httpx
 import pytest
 from click.testing import CliRunner
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from esmigrate import cli
 from esmigrate.contexts import ContextConfig
@@ -304,6 +305,17 @@ def test_cli_upgrade_cmd_fails_with_elasticsearch_conn_error(runner, context, sc
     assert stored_rows(context) == []
 
 
+def test_cli_upgrade_cmd_fails_with_unusable_certificates(runner, context, schema_dir, tmp_path):
+    """Test fails if an unreadable CA bundle is not reported as a configuration error before any request"""
+    write_schema(schema_dir, "V1_0__create_twitter.exm")
+    (tmp_path / "ca.pem").write_text("not a certificate")
+    context.es_ca_certs = str(tmp_path / "ca.pem")
+    result = invoke(runner, "upgrade")
+    assert result.exit_code == Errors.ERR_INVALID_CONFIGURATION
+    assert "Cannot load TLS certificates" in result.output
+    assert stored_rows(context) == []
+
+
 def test_cli_upgrade_cmd_fails_with_database_error(runner, context, schema_dir, respx_mock, mocker):
     """Test fails if `esmigrate upgrade` does not report database errors during insert"""
     write_schema(schema_dir, "V1_0__create_twitter.exm")
@@ -319,11 +331,11 @@ def test_cli_upgrade_cmd_closes_client_and_engine_on_failure(runner, context, sc
     write_schema(schema_dir, "V1_0__create_twitter.exm")
     respx_mock.get(f"{ES_HOST}/twitter").mock(side_effect=httpx.ConnectError("refused"))
     aclose = mocker.spy(httpx.AsyncClient, "aclose")
-    dispose = mocker.patch("sqlalchemy.ext.asyncio.AsyncEngine.dispose")
+    dispose = mocker.spy(AsyncEngine, "dispose")
     result = invoke(runner, "upgrade")
     assert result.exit_code == Errors.ERR_ES_CONNERROR
     assert aclose.call_count == 1
-    dispose.assert_awaited_once()
+    assert dispose.call_count == 1
 
 
 def test_cli_upgrade_cmd_applies_double_digit_sequence_after_single_digit(runner, context, schema_dir, respx_mock):

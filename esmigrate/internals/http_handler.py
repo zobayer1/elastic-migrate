@@ -1,3 +1,4 @@
+import ssl
 from types import TracebackType
 from typing import Self
 
@@ -10,7 +11,32 @@ from esmigrate.exceptions import (
     ElasticsearchConnError,
     ElasticsearchHTTPError,
     InvalidCommandVerbError,
+    InvalidConfigurationError,
 )
+
+
+def build_ssl_context(ctx: ContextConfig) -> ssl.SSLContext:
+    try:
+        context = ssl.create_default_context(cafile=ctx.es_ca_certs)
+        if not ctx.es_verify_certs:
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
+        if ctx.es_client_cert:
+            context.load_cert_chain(ctx.es_client_cert, ctx.es_client_key, ctx.es_client_key_password)
+    except (ssl.SSLError, OSError) as err:
+        raise InvalidConfigurationError(f"Cannot load TLS certificates: {err}") from err
+    return context
+
+
+def find_tls_error(err: BaseException) -> ssl.SSLError | None:
+    seen: set[int] = set()
+    current: BaseException | None = err
+    while current is not None and id(current) not in seen:
+        if isinstance(current, ssl.SSLError):
+            return current
+        seen.add(id(current))
+        current = current.__cause__ or current.__context__
+    return None
 
 
 class HTTPHandler:
@@ -19,10 +45,18 @@ class HTTPHandler:
         self._client: httpx.AsyncClient | None = None
 
     async def __aenter__(self) -> Self:
+        headers = dict(self._ctx.headers)
+        if self._ctx.es_api_key:
+            headers["Authorization"] = f"ApiKey {self._ctx.es_api_key}"
+        auth = None
+        if self._ctx.es_username is not None and self._ctx.es_password is not None:
+            auth = httpx.BasicAuth(self._ctx.es_username, self._ctx.es_password)
         self._client = httpx.AsyncClient(
             base_url=self._ctx.es_host,
-            headers=self._ctx.headers,
+            headers=headers,
+            auth=auth,
             timeout=self._ctx.es_timeout,
+            verify=build_ssl_context(self._ctx),
         )
         return self
 
@@ -51,6 +85,12 @@ class HTTPHandler:
         except httpx.HTTPStatusError as err:
             raise ElasticsearchHTTPError(err.response) from err
         except httpx.TransportError as err:
+            tls_error = find_tls_error(err)
+            if tls_error is not None:
+                message = (
+                    f"TLS error: {tls_error}, check elastic_ca_certs, elastic_verify_certs and client certificates"
+                )
+                raise ElasticsearchConnError(message) from err
             raise ElasticsearchConnError(f"{type(err).__name__}: {err}") from err
 
         return response

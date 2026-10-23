@@ -143,6 +143,8 @@ async def run_upgrade(cfg: ContextConfig, schema_version: str) -> int:
             return await upgrade_schema(cfg, db, requested)
     except tuple(DB_ERRORS) as err:
         return fail(err, DB_ERRORS[type(err)])
+    except InvalidConfigurationError as err:
+        return fail(err, Errors.ERR_INVALID_CONFIGURATION)
 
 
 async def upgrade_schema(cfg: ContextConfig, db: DBManager, requested: tuple[int, int] | None) -> int:

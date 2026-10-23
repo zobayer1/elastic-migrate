@@ -237,22 +237,35 @@ def test_context_rejects_invalid_security_settings(fs, fields, message):
 def test_context_masks_secrets(fs):
     """Test fails if passwords, API keys or Authorization headers are printed by repr"""
     fs.create_file("/certs/client.pem")
-    write_profile(
+    write_profiles(
         fs,
-        schema_dir="s",
-        elastic_api_key="api-key-value",
-        elastic_client_cert="/certs/client.pem",
-        elastic_client_key_password="key-password-value",
-        elastic_headers={"Authorization": "Basic dXNlcjpwYXNz", "X-Tenant": "gov"},
+        local_config_file_path,
+        {"test": {"schema_dir": "s", "elastic_api_key": "api-key-value", "elastic_headers": {"X-Tenant": "gov"}}},
+        {
+            "headers": {
+                "schema_dir": "s",
+                "elastic_client_cert": "/certs/client.pem",
+                "elastic_client_key_password": "key-password-value",
+                "elastic_headers": {"Authorization": "Basic dXNlcjpwYXNz"},
+            }
+        },
     )
-    text = repr(ContextConfig().load_for("test"))
+    texts = repr(ContextConfig().load_for("test")) + repr(ContextConfig().load_for("headers"))
     for secret in ("api-key-value", "key-password-value", "dXNlcjpwYXNz"):
-        assert secret not in text
-    assert "elastic_api_key: ****" in text
-    assert "elastic_client_key_password: ****" in text
-    assert '"Authorization": "****"' in text
-    assert '"X-Tenant": "gov"' in text
-    assert "elastic_password: None" in text
+        assert secret not in texts
+    assert "elastic_api_key: ****" in texts
+    assert "elastic_client_key_password: ****" in texts
+    assert '"Authorization": "****"' in texts
+    assert '"X-Tenant": "gov"' in texts
+    assert "elastic_password: None" in texts
+
+
+@pytest.mark.parametrize("auth", [{"elastic_api_key": "k"}, {"elastic_username": "u", "elastic_password": "p"}])
+def test_context_rejects_authorization_header_with_auth_fields(fs, auth):
+    """Test fails if an Authorization header is combined with elastic auth fields"""
+    write_profile(fs, schema_dir="s", elastic_headers={"authorization": "Basic x"}, **auth)
+    with pytest.raises(InvalidConfigurationError, match="conflicts with elastic auth fields"):
+        ContextConfig().load_for("test")
 
 
 def test_context_ignores_profiles_list_missing(fs):

@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from esmigrate.exceptions import (
     InvalidDBConnectionError,
@@ -148,19 +149,19 @@ async def test_db_manager_reports_refused_server_connection():
 
 async def test_db_manager_disposes_engine_on_exit(db_url, mocker):
     """Test fails if connect does not dispose the engine when the block exits"""
-    dispose = mocker.patch("sqlalchemy.ext.asyncio.AsyncEngine.dispose")
+    dispose = mocker.spy(AsyncEngine, "dispose")
     async with DBManager.connect(db_url):
         pass
-    dispose.assert_awaited_once()
+    assert dispose.call_count == 1
 
 
 async def test_db_manager_disposes_engine_on_error(db_url, mocker):
     """Test fails if connect does not dispose the engine when the block raises"""
-    dispose = mocker.patch("sqlalchemy.ext.asyncio.AsyncEngine.dispose")
+    dispose = mocker.spy(AsyncEngine, "dispose")
     with pytest.raises(RuntimeError):
         async with DBManager.connect(db_url):
             raise RuntimeError("boom")
-    dispose.assert_awaited_once()
+    assert dispose.call_count == 1
 
 
 async def test_db_manager_creates_table(db_manager):
