@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, delete, inspect, select
 from sqlalchemy.exc import SQLAlchemyError, ArgumentError, UnboundExecutionError
 from sqlalchemy.orm import sessionmaker
 
@@ -34,17 +34,17 @@ class DBManager(object):
             raise SchemaVersionSqlDbError(str(err))
 
     def find_schema_by_version(self, version: str):
-        return self.session.query(SchemaVersion).get(version)
+        return self.session.get(SchemaVersion, version)
 
     def find_latest_schema(self):
-        return self.session.query(SchemaVersion).order_by(SchemaVersion.installed_rank.desc()).first()
+        return self.session.scalars(select(SchemaVersion).order_by(SchemaVersion.installed_rank.desc())).first()
 
     def find_all_schema(self):
-        return self.session.query(SchemaVersion).order_by(SchemaVersion.installed_rank).all()
+        return self.session.scalars(select(SchemaVersion).order_by(SchemaVersion.installed_rank)).all()
 
     def delete_all_failed_schema(self):
         try:
-            self.session.query(SchemaVersion).filter(SchemaVersion.success.is_(False)).delete()
+            self.session.execute(delete(SchemaVersion).where(SchemaVersion.success.is_(False)))
             self.session.commit()
         except SQLAlchemyError as err:  # pragma: no cover
             self.session.rollback()
@@ -52,7 +52,7 @@ class DBManager(object):
 
     def delete_all_schema(self, cutoff_rank: int = 0):
         try:
-            self.session.query(SchemaVersion).filter(SchemaVersion.installed_rank >= cutoff_rank).delete()
+            self.session.execute(delete(SchemaVersion).where(SchemaVersion.installed_rank >= cutoff_rank))
             self.session.commit()
         except SQLAlchemyError as err:  # pragma: no cover
             self.session.rollback()

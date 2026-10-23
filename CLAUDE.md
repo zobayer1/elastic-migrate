@@ -11,6 +11,7 @@ ElasticMigrate (`esmigrate` CLI, package name `elastic-migrate`) is a Flyway-sty
 - **Minimal comments in source code.** The code is simple; tests do the explaining. Add a comment only when something is genuinely non-obvious. Explanations, design notes and user guides belong in `docs/`.
 - **Maximum test coverage.** This module is used in enterprise, government-level applications. Every change ships with tests covering all new/changed branches, including error paths and exit codes; never lower coverage.
 - **Plan before large changes.** For anything beyond a small fix, first write a plan and create/update the GitHub issue(s); implement only after that.
+- Intermediate commits on `modernize` may leave tests broken; the branch must be green before the final PR.
 - **Commits:** no `Co-Authored-By` or other AI attribution trailers. Show the proposed commit message to the user and wait for approval before committing. Reference issues with `Closes #N` / `Refs #N`.
 
 ## Commands
@@ -75,7 +76,7 @@ Key behaviors:
 ## Current state (pre-modernization)
 
 Verified on 2026-10-23 with Python 3.14 and latest unpinned deps (SQLAlchemy 2.1, click 8.5, pytest 9):
-- **Test collection fails** because of the warnings-as-errors config: `models/base.py` imports `declarative_base` from `sqlalchemy.ext.declarative` (moved to `sqlalchemy.orm` in 2.0), and `DBManager.find_schema_by_version` uses legacy `Query.get()`. With `-W default`, all 70 tests pass.
+- SQLAlchemy 2.x deprecation failures fixed in #256 (2.0-style `DeclarativeBase`, `Mapped`, `select()`); tests pass on 3.11 and 3.14.
 - Legacy tooling (Travis CI, Codecov and pyup were removed in #253): `setup.py` + `setup_requires`; `requirements.txt` is a full pinned freeze mixing runtime and dev tools; black pinned to 20.8b1 in pre-commit; `importlib_metadata` shim for Python < 3.8; tox/classifiers target 3.6–3.9.
 - Elasticsearch-era assumptions: default host `http://localhost:9200` with no TLS/auth config (ES 8+ enables security by default); test fixtures use mapping types (`PUT twitter/_mapping/doc`), removed in ES 7/8.
 - Known version-ordering bug: `ScriptData.version_base`/`version_rank` are regex-captured strings, so `GlobLoader` sorts lexicographically (`"10" < "9"`), and `cli.upgrade` compares versions as floats (`"1.10"` → `1.1` < `1.9`). Breaks once version or sequence reaches 10.

@@ -2,7 +2,7 @@
 import getpass
 from datetime import datetime
 
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, LargeBinary
+from sqlalchemy.orm import Mapped, mapped_column
 
 from esmigrate.commons import ScriptData
 from esmigrate.models.base import Base
@@ -11,19 +11,19 @@ from esmigrate.models.base import Base
 class SchemaVersion(Base):
     __tablename__ = "esm_schema_version"
 
-    version = Column(String, primary_key=True)
-    version_base = Column(Integer)
-    version_rank = Column(Integer)
-    installed_rank = Column(Integer, unique=True)
-    description = Column(String)
-    type = Column(String)
-    script = Column(String)
-    checksum = Column(LargeBinary)
-    installed_by = Column(String)
-    installed_on = Column(DateTime)
-    execution_time = Column(Integer)
-    success = Column(Boolean)
-    query_results = Column(String)
+    version: Mapped[str] = mapped_column(primary_key=True)
+    version_base: Mapped[int | None]
+    version_rank: Mapped[int | None]
+    installed_rank: Mapped[int | None] = mapped_column(unique=True)
+    description: Mapped[str | None]
+    type: Mapped[str | None]
+    script: Mapped[str | None]
+    checksum: Mapped[bytes | None]
+    installed_by: Mapped[str | None]
+    installed_on: Mapped[datetime | None]
+    execution_time: Mapped[int | None]
+    success: Mapped[bool | None]
+    query_results: Mapped[str | None]
 
     def __init__(self, version: str):
         self.version = version

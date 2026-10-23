@@ -22,7 +22,7 @@ install_dependencies = [
     "click",
     "click-log",
     "requests",
-    "sqlalchemy",
+    "sqlalchemy>=2.0",
     "validator-collection",
 ]
 
