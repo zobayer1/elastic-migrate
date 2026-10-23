@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import json
 import os
 
@@ -12,15 +11,11 @@ def is_valid_json(content: str) -> bool:
 
 
 def is_valid_ndjson(content: str) -> bool:
-    for line in content.strip().split("\n"):
-        if not is_valid_json(line):
-            return False
-    return True
+    return all(is_valid_json(line) for line in content.strip().split("\n"))
 
 
 def construct_path(base: str, *paths: str) -> str:
-    path_components = [base] + list(paths)
-    return "/".join(p.strip("/") for p in path_components)
+    return "/".join(p.strip("/") for p in (base, *paths))
 
 
 def parse_file_path(path: str) -> tuple:

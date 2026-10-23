@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import pytest
 
 from esmigrate.exceptions import InvalidDBConnectionError, SchemaVersionSqlDbError
@@ -13,7 +12,7 @@ def db_manager():
     return _db_man
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def db_with_success_row(db_manager):
     """pytest fixture for providing populated table with a single `success=true` entry"""
     scmver = SchemaVersion("1.0")
@@ -24,7 +23,7 @@ def db_with_success_row(db_manager):
     db_manager.delete_all_schema()
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def db_with_failed_row(db_manager):
     """pytest fixture for providing populated table with a single `success=false` entry"""
     scmver = SchemaVersion("1.0")

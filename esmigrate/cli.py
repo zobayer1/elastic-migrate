@@ -1,26 +1,25 @@
-# -*- coding: utf-8 -*-
 import sys
 import time
 
 import click
 from requests.exceptions import HTTPError
 
-from esmigrate.commons import appname, title, query_results_string
+from esmigrate.commons import appname, query_results_string, title
 from esmigrate.contexts import ContextConfig
 from esmigrate.exceptions import (
-    InvalidDBConnectionError,
-    UserProfileNotFoundError,
+    ElasticsearchConnError,
     Errors,
-    InvalidSchemaPatternError,
-    InvalidSchemaFileError,
+    InvalidCommandBodyError,
+    InvalidCommandPathError,
     InvalidCommandScriptError,
     InvalidCommandVerbError,
-    InvalidCommandPathError,
-    InvalidCommandBodyError,
+    InvalidDBConnectionError,
+    InvalidSchemaFileError,
+    InvalidSchemaPatternError,
     SchemaVersionSqlDbError,
-    ElasticsearchConnError,
+    UserProfileNotFoundError,
 )
-from esmigrate.internals import get_db_manager, GlobLoader, ScriptParser, HTTPHandler
+from esmigrate.internals import GlobLoader, HTTPHandler, ScriptParser, get_db_manager
 from esmigrate.models import SchemaVersion
 
 
@@ -29,7 +28,7 @@ from esmigrate.models import SchemaVersion
 @click.version_option(message="v%(version)s", package_name=appname, help="Show the version and exit")
 @click.option("-p", "--profile", default="test", help="Set configuration profile")
 @click.pass_context
-def main(ctx, profile: str = "test"):
+def main(ctx: click.Context, profile: str = "test") -> None:
     if ctx.invoked_subcommand is None:
         click.echo(click.style(title, fg="green"))
     else:
@@ -38,14 +37,14 @@ def main(ctx, profile: str = "test"):
             ctx.obj = ContextConfig().load_for(profile)
             click.echo(f"Profile loaded: {profile}")
         except UserProfileNotFoundError as err:
-            click.echo(f"UserProfileNotFoundError: {str(err)}")
+            click.echo(f"UserProfileNotFoundError: {err!s}")
             sys.exit(Errors.ERR_PROFILE_NOT_FOUND)
 
 
 @main.command(help="Initialize schema version database")
 @click.help_option(help="Show help index and exit")
 @click.pass_obj
-def init(cfg):
+def init(cfg: ContextConfig) -> None:
     click.echo("Initializing schema version database...")
     try:
         db_manager = get_db_manager(cfg.schema_db)
@@ -55,22 +54,22 @@ def init(cfg):
         else:
             click.echo("Schema version database initialized")
     except InvalidDBConnectionError as err:
-        click.echo(f"InvalidDBConnectionError: {str(err)}")
+        click.echo(f"InvalidDBConnectionError: {err!s}")
         sys.exit(Errors.ERR_DB_CONNECTION_FAILED)
 
 
 @main.command(help="Show configuration")
 @click.help_option(help="Show help index and exit")
 @click.pass_obj
-def config(cfg):
-    click.echo(f"{repr(cfg)}")
+def config(cfg: ContextConfig) -> None:
+    click.echo(f"{cfg!r}")
 
 
 @main.command(help="Upgrade to latest or specified schema version")
 @click.help_option(help="Show help index and exit")
 @click.option("-s", "--schema-version", default="latest", help="Target schema version, e.g. '1.2' or 'latest'")
 @click.pass_obj
-def upgrade(cfg, schema_version="latest"):
+def upgrade(cfg: ContextConfig, schema_version: str = "latest") -> None:
     try:
         requested_version = None if schema_version == "latest" else float(schema_version)
     except ValueError:
@@ -84,7 +83,7 @@ def upgrade(cfg, schema_version="latest"):
             sys.exit(Errors.ERR_DB_IN_ERROR_STATE)
         latest_db_version = float(latest_db_entry.version) if latest_db_entry else 0.0
     except InvalidDBConnectionError as err:
-        click.echo(f"InvalidDBConnectionError: {str(err)}")
+        click.echo(f"InvalidDBConnectionError: {err!s}")
         sys.exit(Errors.ERR_DB_CONNECTION_FAILED)
     try:
         glob_loader = GlobLoader(cfg)
@@ -97,10 +96,10 @@ def upgrade(cfg, schema_version="latest"):
         if not requested_version:
             requested_version = latest_file_version
     except NotADirectoryError as err:
-        click.echo(f"NotADirectoryError: {str(err)}")
+        click.echo(f"NotADirectoryError: {err!s}")
         sys.exit(Errors.ERR_INVALID_SCHEMA_DIRECTORY)
     except (InvalidSchemaPatternError, InvalidSchemaFileError) as err:
-        click.echo(f"Error: {str(err)}")
+        click.echo(f"Error: {err!s}")
         sys.exit(Errors.ERR_INVALID_SCHEMA_FILE)
     if requested_version <= latest_db_version or latest_file_version <= latest_db_version:
         click.echo("Schema version in database is ahead of requested version, nothing to do")
@@ -114,13 +113,13 @@ def upgrade(cfg, schema_version="latest"):
         schema_entries,
     ):
         click.echo(f"Processing schema {scm_entry.description}")
-        commands = list()
-        query_results = list()
+        commands = []
+        query_results = []
         installed_rank += 1
         error_state = None
         tic = time.perf_counter()
         try:
-            commands = [command for command in script_parser.get_commands(scm_entry.content)]
+            commands = list(script_parser.get_commands(scm_entry.content))
         except (
             InvalidCommandScriptError,
             InvalidCommandVerbError,
@@ -128,18 +127,18 @@ def upgrade(cfg, schema_version="latest"):
             InvalidCommandBodyError,
         ) as err:
             error_state = (Errors.ERR_INVALID_SCHEMA_COMMAND, err)
-            click.echo(f"Error: {str(err)}")
+            click.echo(f"Error: {err!s}")
         for command in commands:
             try:
                 response = http_handler.make_requests(command)
                 query_results.append(query_results_string(command, response))
             except ElasticsearchConnError as err:
-                click.echo(f"ElasticsearchConnError: {str(err)}")
+                click.echo(f"ElasticsearchConnError: {err!s}")
                 sys.exit(Errors.ERR_ES_CONNERROR)
             except HTTPError as err:
                 query_results.append(query_results_string(command, err.response))
                 error_state = (Errors.ERR_ES_HTTPERROR, err)
-                click.echo(f"ElasticsearchHTTPError: {str(err)}")
+                click.echo(f"ElasticsearchHTTPError: {err!s}")
                 break
         toc = time.perf_counter()
         scmver = SchemaVersion.from_script_data(scm_entry)
@@ -151,7 +150,7 @@ def upgrade(cfg, schema_version="latest"):
             db_manager.insert_new_schema(scmver)
             latest = float(scmver.version)
         except SchemaVersionSqlDbError as err:
-            click.echo(f"SchemaVersionSqlDbError: {str(err)}")
+            click.echo(f"SchemaVersionSqlDbError: {err!s}")
             sys.exit(Errors.ERR_DB_IN_ERROR_STATE)
         if error_state:
             click.echo(f"Error occurred: {error_state}")
@@ -163,7 +162,7 @@ def upgrade(cfg, schema_version="latest"):
 
 @main.command(help="Revert to last successful schema version")
 @click.pass_obj
-def rollback(cfg):
+def rollback(cfg: ContextConfig) -> None:
     try:
         db_manager = get_db_manager(cfg.schema_db)
         latest_db_entry = db_manager.find_latest_schema()
@@ -174,23 +173,23 @@ def rollback(cfg):
         else:
             click.echo("Schema database does not have any error entry")
     except SchemaVersionSqlDbError as err:
-        click.echo(f"SchemaVersionSqlDbError: {str(err)}")
+        click.echo(f"SchemaVersionSqlDbError: {err!s}")
         sys.exit(Errors.ERR_DB_IN_ERROR_STATE)
     except InvalidDBConnectionError as err:
-        click.echo(f"InvalidDBConnectionError: {str(err)}")
+        click.echo(f"InvalidDBConnectionError: {err!s}")
         sys.exit(Errors.ERR_DB_CONNECTION_FAILED)
 
 
 @main.command(help="Reset schema versions lookup")
 @click.pass_obj
-def reset(cfg):
+def reset(cfg: ContextConfig) -> None:
     try:
         db_manager = get_db_manager(cfg.schema_db)
         db_manager.delete_all_schema()
         click.echo("Schema database successfully reset")
     except SchemaVersionSqlDbError as err:
-        click.echo(f"SchemaVersionSqlDbError: {str(err)}")
+        click.echo(f"SchemaVersionSqlDbError: {err!s}")
         sys.exit(Errors.ERR_DB_IN_ERROR_STATE)
     except InvalidDBConnectionError as err:
-        click.echo(f"InvalidDBConnectionError: {str(err)}")
+        click.echo(f"InvalidDBConnectionError: {err!s}")
         sys.exit(Errors.ERR_DB_CONNECTION_FAILED)

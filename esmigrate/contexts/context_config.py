@@ -1,7 +1,7 @@
-# -*- coding: utf-8 -*-
 import json
 import os
 from json.decoder import JSONDecodeError
+from typing import Self
 
 from validator_collection import checkers
 
@@ -12,12 +12,12 @@ from esmigrate.exceptions import (
 )
 
 
-class ContextConfig(object):
-    _named_groups = ["version", "sequence", "name", "extension"]
+class ContextConfig:
+    _named_groups = ("version", "sequence", "name", "extension")
     _default_pattern = "V(?P<version>[\\d]+)_(?P<sequence>[\\d]+)__(?P<name>[\\w]+)\\.(?P<extension>[\\w]+)"
     _default_config_filename = "config.json"
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.es_host = "http://localhost:9200"
         self.schema_db = "sqlite:///esmigrate.db"
         self.profile = None
@@ -28,13 +28,13 @@ class ContextConfig(object):
         if not all(p in self.schema_pattern for p in ContextConfig._named_groups):
             raise InvalidSchemaPatternError(f"SCHEMA_PATTERN must have named groups for {ContextConfig._named_groups}")
 
-    def load_for(self, profile: str = "test"):
+    def load_for(self, profile: str = "test") -> Self:
         profile = str(profile).strip()
         env_config_path = os.getenv("ESMIGRATE_CONFIG")
         for _path in [user_config_file_path, local_config_file_path, env_config_path]:
             if _path and os.path.isfile(str(_path)):
                 try:
-                    with open(_path, "r", encoding="utf-8") as _file:
+                    with open(_path, encoding="utf-8") as _file:
                         json_config_data = json.loads(_file.read())
                         json_profiles = json_config_data.get("profiles")
 
@@ -52,7 +52,7 @@ class ContextConfig(object):
 
                                 break
 
-                except (OSError, IOError, JSONDecodeError):
+                except (OSError, JSONDecodeError):
                     pass
 
         if self.profile is None:
@@ -60,7 +60,7 @@ class ContextConfig(object):
 
         return self
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             "Configurations:\n"
             + f"profile: {self.profile}\n"

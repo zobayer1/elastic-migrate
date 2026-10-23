@@ -1,35 +1,35 @@
-# -*- coding: utf-8 -*-
 import re
+from collections.abc import Iterator
 from urllib.parse import urlparse
 
 from esmigrate.commons import (
-    Command,
-    is_valid_json,
     JSON_HEADER,
-    is_valid_ndjson,
     NDJSON_HEADER,
+    Command,
     http_verbs,
+    is_valid_json,
+    is_valid_ndjson,
 )
 from esmigrate.commons.helpers import construct_path
 from esmigrate.contexts import ContextConfig
 from esmigrate.exceptions import (
+    ContextObjectNotSetError,
+    InvalidCommandBodyError,
+    InvalidCommandPathError,
     InvalidCommandScriptError,
     InvalidCommandVerbError,
-    ContextObjectNotSetError,
-    InvalidCommandPathError,
-    InvalidCommandBodyError,
 )
 
 
-class ScriptParser(object):
-    def __init__(self, ctx: ContextConfig = None):
+class ScriptParser:
+    def __init__(self, ctx: ContextConfig | None = None) -> None:
         self._ctx = ctx
         self._pattern = re.compile(rf"^({'|'.join(http_verbs)})\s+(.*)$", re.M | re.I)
 
-    def init_ctx(self, ctx: ContextConfig):
+    def init_ctx(self, ctx: ContextConfig) -> None:
         self._ctx = ctx
 
-    def get_commands(self, script_text: str):
+    def get_commands(self, script_text: str) -> Iterator[Command]:
         if self._ctx is None:
             raise ContextObjectNotSetError("Context was not set")
 

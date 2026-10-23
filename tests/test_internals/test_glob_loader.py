@@ -1,8 +1,7 @@
-# -*- coding: utf-8 -*-
 import pytest
 
 from esmigrate.contexts import ContextConfig
-from esmigrate.exceptions import ContextObjectNotSetError, InvalidSchemaPatternError, InvalidSchemaFileError
+from esmigrate.exceptions import ContextObjectNotSetError, InvalidSchemaFileError, InvalidSchemaPatternError
 from esmigrate.internals import GlobLoader
 
 

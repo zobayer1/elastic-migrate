@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 import pytest
-from requests.exceptions import HTTPError, ConnectionError
+from requests.exceptions import ConnectionError, HTTPError
 
 from esmigrate.commons import Command
 from esmigrate.contexts import ContextConfig

@@ -1,21 +1,20 @@
-# -*- coding: utf-8 -*-
 import glob
 import os
 import re
 
-from esmigrate.commons import parse_file_path, ScriptData
+from esmigrate.commons import ScriptData, parse_file_path
 from esmigrate.contexts import ContextConfig
-from esmigrate.exceptions import ContextObjectNotSetError, InvalidSchemaPatternError, InvalidSchemaFileError
+from esmigrate.exceptions import ContextObjectNotSetError, InvalidSchemaFileError, InvalidSchemaPatternError
 
 
-class GlobLoader(object):
-    def __init__(self, ctx: ContextConfig = None):
+class GlobLoader:
+    def __init__(self, ctx: ContextConfig | None = None) -> None:
         self._ctx = ctx
 
-    def init_ctx(self, ctx: ContextConfig):
+    def init_ctx(self, ctx: ContextConfig) -> None:
         self._ctx = ctx
 
-    def scan_dir(self, schema_dir: str):
+    def scan_dir(self, schema_dir: str) -> list[ScriptData]:
         if self._ctx is None:
             raise ContextObjectNotSetError("Context was not set")
 
@@ -28,7 +27,7 @@ class GlobLoader(object):
 
         file_items = []
         for _path in glob.glob(os.path.join(schema_dir, f"*{schema_ext}")):
-            prefix, filename, extension = parse_file_path(_path)
+            _, filename, extension = parse_file_path(_path)
             m = rex.match(filename + extension)
             if m:
                 _ver, _seq, _name, _ext = m.groups()
@@ -36,10 +35,10 @@ class GlobLoader(object):
                 raise InvalidSchemaPatternError(f"Illegal file name: {_path}, does not match configured pattern")
 
             try:
-                with open(_path, "r") as schema_file:
+                with open(_path) as schema_file:
                     _content = schema_file.read()
             except Exception as err:
-                raise InvalidSchemaFileError(f"Error reading file: {_path}, {str(err)}")
+                raise InvalidSchemaFileError(f"Error reading file: {_path}, {err!s}") from err
 
             file_items.append(
                 ScriptData(version=_ver, sequence=_seq, name=_name, extension=_ext, path=_path, content=_content)

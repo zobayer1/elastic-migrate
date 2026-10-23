@@ -1,8 +1,7 @@
-# -*- coding: utf-8 -*-
 from requests.exceptions import ConnectionError
 
 
-class Errors(object):
+class Errors:
     # Profile errors
     ERR_PROFILE_NOT_FOUND = -101
 
@@ -92,6 +91,7 @@ class ElasticsearchConnError(ConnectionError):
 __all__ = [
     "ContextObjectNotSetError",
     "ElasticsearchConnError",
+    "Errors",
     "InvalidCommandBodyError",
     "InvalidCommandPathError",
     "InvalidCommandScriptError",
@@ -101,5 +101,4 @@ __all__ = [
     "InvalidSchemaPatternError",
     "SchemaVersionSqlDbError",
     "UserProfileNotFoundError",
-    "Errors",
 ]

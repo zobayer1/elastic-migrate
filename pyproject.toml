@@ -49,6 +49,7 @@ dev = [
     "pytest-cov>=6.0",
     "pytest-mock>=3.14",
     "requests-mock>=1.12",
+    "ruff>=0.17.2",
 ]
 
 [tool.hatch.version]
@@ -59,6 +60,19 @@ include = ["esmigrate", "tests", "README.md", "LICENSE"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["esmigrate"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B", "SIM", "C4", "PT", "RUF", "ANN2"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ANN"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["esmigrate"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

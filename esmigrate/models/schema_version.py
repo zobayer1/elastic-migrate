@@ -1,6 +1,6 @@
-# -*- coding: utf-8 -*-
 import getpass
 from datetime import datetime
+from typing import Self
 
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -25,14 +25,14 @@ class SchemaVersion(Base):
     success: Mapped[bool | None]
     query_results: Mapped[str | None]
 
-    def __init__(self, version: str):
+    def __init__(self, version: str) -> None:
         self.version = version
         self.installed_by = getpass.getuser()
         self.installed_on = datetime.now()
         self.type = "NOSQL"
 
     @classmethod
-    def from_script_data(cls, script_data: ScriptData):
+    def from_script_data(cls, script_data: ScriptData) -> Self:
         scmver = cls(script_data.version)
         scmver.version_base = script_data.version_base
         scmver.version_rank = script_data.version_rank

@@ -1,6 +1,7 @@
-# -*- coding: utf-8 -*-
+from collections.abc import Sequence
+
 from sqlalchemy import create_engine, delete, inspect, select
-from sqlalchemy.exc import SQLAlchemyError, ArgumentError, UnboundExecutionError
+from sqlalchemy.exc import ArgumentError, SQLAlchemyError, UnboundExecutionError
 from sqlalchemy.orm import sessionmaker
 
 from esmigrate.exceptions import InvalidDBConnectionError, SchemaVersionSqlDbError
@@ -8,19 +9,19 @@ from esmigrate.models import SchemaVersion
 from esmigrate.models.base import Base
 
 
-class DBManager(object):
-    def __init__(self, db_url: str, echo: bool = False):
+class DBManager:
+    def __init__(self, db_url: str, echo: bool = False) -> None:
         try:
             self.engine = create_engine(db_url, echo=echo)
             self.session = sessionmaker(bind=self.engine)()
             Base.metadata.create_all(bind=self.engine)
         except (ArgumentError, UnboundExecutionError) as err:
-            raise InvalidDBConnectionError(str(err))
+            raise InvalidDBConnectionError(str(err)) from err
 
-    def schema_version_exists(self):
+    def schema_version_exists(self) -> bool:
         return SchemaVersion.__tablename__ in inspect(self.engine).get_table_names()
 
-    def insert_new_schema(self, scmver: SchemaVersion):
+    def insert_new_schema(self, scmver: SchemaVersion) -> None:
         try:
             scmver_latest = self.find_latest_schema()
             if scmver_latest and not scmver_latest.success:
@@ -31,29 +32,29 @@ class DBManager(object):
             self.session.commit()
         except SQLAlchemyError as err:
             self.session.rollback()
-            raise SchemaVersionSqlDbError(str(err))
+            raise SchemaVersionSqlDbError(str(err)) from err
 
-    def find_schema_by_version(self, version: str):
+    def find_schema_by_version(self, version: str) -> SchemaVersion | None:
         return self.session.get(SchemaVersion, version)
 
-    def find_latest_schema(self):
+    def find_latest_schema(self) -> SchemaVersion | None:
         return self.session.scalars(select(SchemaVersion).order_by(SchemaVersion.installed_rank.desc())).first()
 
-    def find_all_schema(self):
+    def find_all_schema(self) -> Sequence[SchemaVersion]:
         return self.session.scalars(select(SchemaVersion).order_by(SchemaVersion.installed_rank)).all()
 
-    def delete_all_failed_schema(self):
+    def delete_all_failed_schema(self) -> None:
         try:
             self.session.execute(delete(SchemaVersion).where(SchemaVersion.success.is_(False)))
             self.session.commit()
         except SQLAlchemyError as err:  # pragma: no cover
             self.session.rollback()
-            raise SchemaVersionSqlDbError(str(err))
+            raise SchemaVersionSqlDbError(str(err)) from err
 
-    def delete_all_schema(self, cutoff_rank: int = 0):
+    def delete_all_schema(self, cutoff_rank: int = 0) -> None:
         try:
             self.session.execute(delete(SchemaVersion).where(SchemaVersion.installed_rank >= cutoff_rank))
             self.session.commit()
         except SQLAlchemyError as err:  # pragma: no cover
             self.session.rollback()
-            raise SchemaVersionSqlDbError(str(err))
+            raise SchemaVersionSqlDbError(str(err)) from err

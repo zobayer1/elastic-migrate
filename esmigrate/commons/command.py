@@ -1,41 +1,38 @@
-# -*- coding: utf-8 -*-
-
-
-class Command(object):
-    def __init__(self, verb: str, path: str, body: str = None, head: dict = None):
+class Command:
+    def __init__(self, verb: str, path: str, body: str | None = None, head: dict | None = None) -> None:
         self.verb = verb
         self.path = path
         self.body = body
         self.head = head if head else {}
 
     @property
-    def verb(self):
+    def verb(self) -> str:
         return self._verb
 
     @verb.setter
-    def verb(self, value: str):
+    def verb(self, value: str) -> None:
         self._verb = value
 
     @property
-    def path(self):
+    def path(self) -> str:
         return self._path
 
     @path.setter
-    def path(self, value: str):
+    def path(self, value: str) -> None:
         self._path = value
 
     @property
-    def body(self):
+    def body(self) -> str | None:
         return self._body
 
     @body.setter
-    def body(self, value: str):
+    def body(self, value: str | None) -> None:
         self._body = value
 
     @property
-    def head(self):
+    def head(self) -> dict:
         return self._head
 
     @head.setter
-    def head(self, value: dict):
+    def head(self, value: dict) -> None:
         self._head = value

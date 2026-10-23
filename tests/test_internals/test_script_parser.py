@@ -1,13 +1,12 @@
-# -*- coding: utf-8 -*-
 import pytest
 
 from esmigrate.contexts import ContextConfig
 from esmigrate.exceptions import (
-    InvalidCommandScriptError,
     ContextObjectNotSetError,
-    InvalidCommandVerbError,
-    InvalidCommandPathError,
     InvalidCommandBodyError,
+    InvalidCommandPathError,
+    InvalidCommandScriptError,
+    InvalidCommandVerbError,
 )
 from esmigrate.internals import ScriptParser
 
@@ -20,7 +19,7 @@ def script_parser():
     return _parser
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def parameter(request):
     """pytest fixture for allowing indirect pytest.mark.parametrize"""
     return request.param
@@ -88,7 +87,7 @@ def test_script_parser_raises_invalid_command_body(script_parser, parameter):
 )
 def test_script_parser_with_single_command(script_parser, parameter):
     """Test fails if get_commands cannot process script with single valid command"""
-    commands = [command for command in script_parser.get_commands(parameter)]
+    commands = list(script_parser.get_commands(parameter))
     assert len(commands) == 1
 
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import pytest
 
 from esmigrate.commons import local_config_file_path, user_config_file_path

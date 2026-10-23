@@ -1,21 +1,20 @@
-# -*- coding: utf-8 -*-
 import requests
-from requests.exceptions import HTTPError, ConnectionError
+from requests.exceptions import ConnectionError, HTTPError
 
 from esmigrate.commons import Command, http_verbs
 from esmigrate.contexts import ContextConfig
-from esmigrate.exceptions import ContextObjectNotSetError, InvalidCommandVerbError, ElasticsearchConnError
+from esmigrate.exceptions import ContextObjectNotSetError, ElasticsearchConnError, InvalidCommandVerbError
 
 
-class HTTPHandler(object):
-    def __init__(self, ctx: ContextConfig = None):
+class HTTPHandler:
+    def __init__(self, ctx: ContextConfig | None = None) -> None:
         self._ctx = ctx
         self._session = requests.session()
 
-    def init_ctx(self, ctx: ContextConfig):
+    def init_ctx(self, ctx: ContextConfig) -> None:
         self._ctx = ctx
 
-    def make_requests(self, command: Command):
+    def make_requests(self, command: Command) -> requests.Response:
         if self._ctx is None:
             raise ContextObjectNotSetError("Context was not set")
 
@@ -31,6 +30,6 @@ class HTTPHandler(object):
         except HTTPError:
             raise
         except ConnectionError as err:
-            raise ElasticsearchConnError(err)
+            raise ElasticsearchConnError(err) from err
 
         return response

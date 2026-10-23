@@ -1,21 +1,20 @@
-# -*- coding: utf-8 -*-
 import pytest
 from click.testing import CliRunner
-from requests import Response, HTTPError
+from requests import HTTPError, Response
 
 from esmigrate import cli
 from esmigrate.commons import ScriptData
 from esmigrate.contexts import ContextConfig
 from esmigrate.exceptions import (
+    ElasticsearchConnError,
     Errors,
+    InvalidCommandScriptError,
     InvalidDBConnectionError,
     InvalidSchemaFileError,
-    InvalidCommandScriptError,
     SchemaVersionSqlDbError,
-    ElasticsearchConnError,
 )
-from esmigrate.models import SchemaVersion
 from esmigrate.internals import ScriptParser
+from esmigrate.models import SchemaVersion
 
 
 @pytest.fixture(scope="module")
@@ -230,7 +229,7 @@ def test_cli_upgrade_cmd_exits_for_empty_schema_directory(runner, mocker, contex
     """Test fails if `esmigrate upgrade` does not succeed when scan_dir returns empty list"""
     mocker.patch("esmigrate.cli.ContextConfig.load_for", return_value=context)
     mocker.patch("esmigrate.internals.db_manager.DBManager.find_latest_schema", return_value=None)
-    mocker.patch("esmigrate.internals.glob_loader.GlobLoader.scan_dir", return_value=list())
+    mocker.patch("esmigrate.internals.glob_loader.GlobLoader.scan_dir", return_value=[])
     result = runner.invoke(cli.main, ["--profile", context.profile, "upgrade", "--schema-version", "latest"])
     assert result.exit_code == 0
 
