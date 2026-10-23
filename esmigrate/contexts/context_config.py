@@ -5,7 +5,7 @@ from json.decoder import JSONDecodeError
 from typing import Any, Self, cast
 from urllib.parse import urlsplit
 
-from esmigrate.commons import DEFAULT_NAMESPACE, local_config_file_path, user_config_file_path
+from esmigrate.commons import DEFAULT_NAMESPACE, DEFAULT_PROFILE, local_config_file_path, user_config_file_path
 from esmigrate.exceptions import (
     InvalidConfigurationError,
     InvalidSchemaPatternError,
@@ -111,7 +111,7 @@ class ContextConfig:
         if not all(p in self.schema_pattern for p in ContextConfig._named_groups):
             raise InvalidSchemaPatternError(f"SCHEMA_PATTERN must have named groups for {ContextConfig._named_groups}")
 
-    def load_for(self, profile: str = "test") -> Self:
+    def load_for(self, profile: str = DEFAULT_PROFILE) -> Self:
         profile = str(profile).strip()
         merged: dict[str, Any] = {}
         env_config_path = os.getenv("ESMIGRATE_CONFIG")

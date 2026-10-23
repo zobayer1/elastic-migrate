@@ -7,7 +7,7 @@ from typing import Any, NoReturn
 
 import click
 
-from esmigrate.commons import ScriptData, appname, parse_version, query_results_string, title
+from esmigrate.commons import DEFAULT_PROFILE, ScriptData, appname, parse_version, query_results_string, title
 from esmigrate.contexts import ContextConfig
 from esmigrate.exceptions import (
     ElasticsearchConnError,
@@ -59,9 +59,9 @@ def connect_db(cfg: ContextConfig, upgrade: bool = False) -> AbstractAsyncContex
 @click.group(invoke_without_command=True)
 @click.help_option(help="Show help index and exit")
 @click.version_option(message="v%(version)s", package_name=appname, help="Show the version and exit")
-@click.option("-p", "--profile", default="test", help="Set configuration profile")
+@click.option("-p", "--profile", default=DEFAULT_PROFILE, show_default=True, help="Set configuration profile")
 @click.pass_context
-def main(ctx: click.Context, profile: str = "test") -> None:
+def main(ctx: click.Context, profile: str = DEFAULT_PROFILE) -> None:
     if ctx.invoked_subcommand is None:
         click.echo(click.style(title, fg="green"))
         return

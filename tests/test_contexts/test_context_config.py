@@ -281,3 +281,11 @@ def test_context_skips_config_files_without_json_object(fs, contents):
     fs.create_file(user_config_file_path, contents=contents)
     write_profile(fs, schema_dir="s")
     assert ContextConfig().load_for("test").schema_dir == "s"
+
+
+def test_context_loads_default_profile_without_name(fs):
+    """Test fails if load_for without a profile name does not load the `default` profile"""
+    write_profiles(fs, local_config_file_path, {"test": {"schema_dir": "t"}}, {"default": {"schema_dir": "d"}})
+    context = ContextConfig().load_for()
+    assert context.profile == "default"
+    assert context.schema_dir == "d"

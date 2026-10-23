@@ -97,6 +97,18 @@ def test_cli_with_version_argument_succeeds(runner):
     assert result.output.startswith("v")
 
 
+def test_cli_uses_default_profile_when_none_given(runner, context):
+    """Test fails if commands without --profile do not load the `default` profile"""
+    result = runner.invoke(cli.main, ["config"])
+    assert result.exit_code == 0
+    assert "Loading profile: default..." in result.output
+
+
+def test_cli_help_shows_default_profile(runner):
+    """Test fails if `esmigrate --help` does not document the default profile"""
+    assert "[default: default]" in runner.invoke(cli.main, ["--help"]).output
+
+
 def test_cli_config_command_fails_to_load_context_profile(runner):
     """Test fails if `esmigrate --profile {profile} {command}` does not return error"""
     result = runner.invoke(cli.main, ["--profile", "invalid-profile", "config"])
