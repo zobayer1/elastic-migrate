@@ -1,5 +1,5 @@
 import re
-from collections.abc import AsyncIterator, Mapping, Sequence
+from collections.abc import AsyncGenerator, Mapping, Sequence
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Any, Self
@@ -98,14 +98,14 @@ class DBManager:
     @asynccontextmanager
     async def connect(
         cls, db_url: str, namespace: str = DEFAULT_NAMESPACE, upgrade: bool = False, echo: bool = False
-    ) -> AsyncIterator[Self]:
+    ) -> AsyncGenerator[Self, None]:
         engine = create_engine(db_url, echo)
         try:
             try:
                 async with engine.connect() as conn:
                     legacy = await conn.run_sync(is_legacy_table)
-            except SQLAlchemyError as err:
-                raise InvalidDBConnectionError(str(err)) from err
+            except (SQLAlchemyError, OSError) as err:
+                raise InvalidDBConnectionError(f"{type(err).__name__}: {err}") from err
             if legacy and not upgrade:
                 raise LegacySchemaTableError("Schema version table uses the v1 layout, run `esmigrate init` to upgrade")
             if legacy:

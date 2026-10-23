@@ -309,6 +309,8 @@ postgres = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "aiomysql" },
+    { name = "asyncpg" },
     { name = "pre-commit" },
     { name = "pyfakefs" },
     { name = "pytest" },
@@ -334,6 +336,8 @@ provides-extras = ["mysql", "postgres"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "aiomysql", specifier = ">=0.2" },
+    { name = "asyncpg", specifier = ">=0.30" },
     { name = "pre-commit", specifier = ">=4.0" },
     { name = "pyfakefs", specifier = ">=5.7" },
     { name = "pytest", specifier = ">=8.3" },

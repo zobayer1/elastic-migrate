@@ -1,0 +1,100 @@
+import asyncio
+import json
+import os
+import uuid
+
+import httpx
+import pytest
+from click.testing import CliRunner
+from sqlalchemy import text
+
+from esmigrate import cli
+from esmigrate.internals.db_manager import LEGACY_BACKUP_TABLE, create_engine
+
+ES_URL = os.getenv("ESMIGRATE_TEST_ES_URL", "http://localhost:9200")
+DB_URLS = {
+    "postgresql": os.getenv("ESMIGRATE_TEST_PG_URL", "postgresql://esmigrate:esmigrate@localhost:5432/esmigrate"),
+    "mysql": os.getenv("ESMIGRATE_TEST_MYSQL_URL", "mysql://esmigrate:esmigrate@localhost:3306/esmigrate"),
+}
+PROFILE = "integration"
+
+
+def pytest_collection_modifyitems(items):
+    for item in items:
+        if "tests/integration/" in item.nodeid:
+            item.add_marker(pytest.mark.integration)
+
+
+async def drop_tables(db_url):
+    engine = create_engine(db_url)
+    try:
+        async with engine.begin() as conn:
+            for table in ("esm_schema_version", LEGACY_BACKUP_TABLE):
+                await conn.execute(text(f"DROP TABLE IF EXISTS {table}"))
+    finally:
+        await engine.dispose()
+
+
+@pytest.fixture(scope="session")
+def es_url():
+    """pytest fixture for the elasticsearch URL, failing fast when the compose service is not running"""
+    try:
+        httpx.get(ES_URL, timeout=5).raise_for_status()
+    except httpx.HTTPError as err:
+        pytest.fail(f"Elasticsearch not reachable at {ES_URL} ({err}), run `docker compose up -d --wait`")
+    return ES_URL
+
+
+@pytest.fixture(params=["sqlite", "postgresql", "mysql"])
+def db_url(request, tmp_path):
+    """pytest fixture for an empty schema database on each supported backend"""
+    url = f"sqlite:///{tmp_path / 'esmigrate.db'}" if request.param == "sqlite" else DB_URLS[request.param]
+    try:
+        asyncio.run(drop_tables(url))
+    except Exception as err:
+        pytest.fail(f"{request.param} not reachable at {url} ({err}), run `docker compose up -d --wait`")
+    yield url
+    asyncio.run(drop_tables(url))
+
+
+@pytest.fixture
+def es_index(es_url):
+    """pytest fixture for a unique elasticsearch index name, deleted after the test"""
+    name = f"esmigrate-it-{uuid.uuid4().hex[:12]}"
+    yield name
+    httpx.delete(f"{es_url}/{name}", params={"ignore_unavailable": "true"}, timeout=30)
+
+
+@pytest.fixture
+def schema_dir(tmp_path):
+    """pytest fixture for an empty schema directory"""
+    path = tmp_path / "schema_dir"
+    path.mkdir()
+    return path
+
+
+@pytest.fixture
+def profile(tmp_path, monkeypatch, es_url, db_url, schema_dir):
+    """pytest fixture writing a real config.json profile and isolating other config locations"""
+    data = {"elastic_host": es_url, "schema_db": db_url, "schema_dir": str(schema_dir)}
+
+    def write(**overrides):
+        config = tmp_path / "config.json"
+        config.write_text(json.dumps({"profiles": [{PROFILE: {**data, **overrides}}]}))
+        return config
+
+    monkeypatch.setenv("ESMIGRATE_CONFIG", str(write()))
+    monkeypatch.setattr("esmigrate.contexts.context_config.user_config_file_path", str(tmp_path / "user.json"))
+    monkeypatch.setattr("esmigrate.contexts.context_config.local_config_file_path", str(tmp_path / "local.json"))
+    return write
+
+
+@pytest.fixture
+def esmigrate(profile):
+    """pytest fixture running the real CLI against the integration profile"""
+    runner = CliRunner()
+
+    def run(*args):
+        return runner.invoke(cli.main, ["--profile", PROFILE, *args])
+
+    return run

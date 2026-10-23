@@ -26,10 +26,14 @@ uv run pytest tests/test_cli.py::test_cli_upgrade_cmd_fails_with_value_error   #
 uv run ruff check --fix .                             # lint (incl. import sorting, pyupgrade)
 uv run ruff format .                                  # format
 uv run pre-commit run --all-files                     # ruff check/format + whitespace/EOF fixers
+docker compose up -d --wait                           # ES 8.19, PostgreSQL 17, MySQL 8.4 for integration tests
+uv run pytest -m integration                          # integration tests (all three DBs + real ES), no coverage floor
+docker compose down                                   # stop services (data is ephemeral)
 uv build                                              # wheel + sdist
 uv lock --upgrade                                     # manual dependency update (no bots)
 ```
 
+- `uv run pytest` excludes integration tests (`addopts = -m "not integration"`). Integration tests fail, never skip, when a service is down. Ports can be moved with `ESMIGRATE_ES_PORT` / `ESMIGRATE_PG_PORT` / `ESMIGRATE_MYSQL_PORT`; tests read `ESMIGRATE_TEST_ES_URL` / `ESMIGRATE_TEST_PG_URL` / `ESMIGRATE_TEST_MYSQL_URL`. Compose credentials (`esmigrate`/`esmigrate`) are local test-only values.
 - All config lives in `pyproject.toml`: build (hatchling + hatch-vcs), ruff, pytest (`DeprecationWarning`/`PendingDeprecationWarning` are errors), coverage (`fail_under` is a floor — raise it, never lower it). Only pass `--cov` for full runs, otherwise single-test runs trip the coverage floor.
 - Version comes from git tags via hatch-vcs and is read at runtime with `importlib.metadata`, so the package must be installed (`uv sync` does this).
 
@@ -64,6 +68,7 @@ Key behaviors:
 
 - Tests mirror the package layout: `tests/test_<subpackage>/test_<module>.py`, plus `tests/test_cli.py`.
 - No live Elasticsearch needed for unit tests: `respx` (`respx_mock` fixture) fakes ES, real SQLite files in `tmp_path` back DB tests (in-memory SQLite does not work with async engines), `pyfakefs` (`fs`) for config/schema-file tests that need no DB, `pytest-mock` (`mocker`) only to inject failures, `monkeypatch` for env vars.
+- Integration tests live in `tests/integration/` (auto-marked `integration`) and use the real CLI with a real `config.json` via `ESMIGRATE_CONFIG`. The `db_url` fixture parametrizes every test over SQLite, PostgreSQL and MySQL; `es_index` gives a unique index deleted afterwards. `asyncpg`/`aiomysql` are in the dev group so every dev env can reach all backends.
 - Async tests are plain `async def` (`asyncio_mode = "auto"`). CLI tests must stay sync `def` because commands call `asyncio.run`; seed/inspect the DB there with `asyncio.run(...)`.
 - Fixtures have a docstring (`"""pytest fixture for ..."""`). Parametrized tests often use an indirect `parameter` fixture (`@pytest.mark.parametrize("parameter", [...], indirect=["parameter"])`).
 - Every test has a one-line docstring of the form `"""Test fails if ..."""`.
@@ -84,4 +89,3 @@ Key behaviors:
 - Done on `modernize`: #253 (CI/bot cleanup), #263 (Apache-2.0), #256 (SQLAlchemy 2), #254 (pyproject + uv), #255 (ruff, 3.11+ style), #257 (integer version ordering), #258 (async httpx + async DB, CLI rewrite), #59 (schema namespaces, UTC timestamps, explicit v1 table upgrade), #264 (positive exit codes).
 - Remaining in milestone `v2.0.0`: #259 (Docker: ES 8 + PostgreSQL + MySQL integration tests), #260 (ES 8 TLS/auth, fixes #109 host validation), #261 (GitHub Actions on 3.11/3.14), #108 (default profile `default`), #64 (stdlib logging), #262 (docs incl. "Migrating from v1").
 - Coverage is 100% with `fail_under = 100`.
-- Test fixture data still uses ES mapping types (`PUT twitter/_mapping/doc`), removed in ES 7/8 — fixed in #259.

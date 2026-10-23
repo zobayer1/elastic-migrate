@@ -139,6 +139,13 @@ async def test_db_manager_reports_unreachable_database(tmp_path):
             pass
 
 
+async def test_db_manager_reports_refused_server_connection():
+    """Test fails if a refused PostgreSQL connection (raised as OSError by asyncpg) escapes unwrapped"""
+    with pytest.raises(InvalidDBConnectionError, match="ConnectionRefusedError"):
+        async with DBManager.connect("postgresql://esmigrate@127.0.0.1:1/esmigrate"):
+            pass
+
+
 async def test_db_manager_disposes_engine_on_exit(db_url, mocker):
     """Test fails if connect does not dispose the engine when the block exits"""
     dispose = mocker.patch("sqlalchemy.ext.asyncio.AsyncEngine.dispose")

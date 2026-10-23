@@ -52,6 +52,8 @@ mysql = [
 
 [dependency-groups]
 dev = [
+    "aiomysql>=0.2",
+    "asyncpg>=0.30",
     "pre-commit>=4.0",
     "pyfakefs>=5.7",
     "pytest>=8.3",
@@ -88,6 +90,8 @@ known-first-party = ["esmigrate"]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+addopts = ["-m", "not integration"]
+markers = ["integration: needs the docker compose services (run with `pytest -m integration`)"]
 filterwarnings = [
     "error::DeprecationWarning",
     "error::PendingDeprecationWarning",
