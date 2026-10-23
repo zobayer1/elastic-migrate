@@ -1,4 +1,6 @@
+import logging
 import ssl
+import time
 from types import TracebackType
 from typing import Self
 
@@ -13,6 +15,8 @@ from esmigrate.exceptions import (
     InvalidCommandVerbError,
     InvalidConfigurationError,
 )
+
+log = logging.getLogger(__name__)
 
 
 def build_ssl_context(ctx: ContextConfig) -> ssl.SSLContext:
@@ -77,9 +81,16 @@ class HTTPHandler:
         if command.verb not in http_verbs:
             raise InvalidCommandVerbError(f"Unexpected verb found: {command.verb}")
 
+        sent = len(command.body.encode()) if command.body else 0
+        started = time.perf_counter()
         try:
             response = await self._client.request(
                 command.verb, command.path, content=command.body, headers=command.head
+            )
+            elapsed = int((time.perf_counter() - started) * 1000)
+            log.debug(
+                f"{command.verb} {command.path} ({sent} bytes) -> {response.status_code} "
+                f"({len(response.content)} bytes) in {elapsed} ms"
             )
             response.raise_for_status()
         except httpx.HTTPStatusError as err:

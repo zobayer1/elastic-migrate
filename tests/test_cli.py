@@ -109,6 +109,56 @@ def test_cli_help_shows_default_profile(runner):
     assert "[default: default]" in runner.invoke(cli.main, ["--help"]).output
 
 
+def test_cli_writes_status_to_stderr_and_data_to_stdout(runner, context):
+    """Test fails if status messages pollute stdout or the config output leaves stdout"""
+    result = invoke(runner, "config")
+    assert result.exit_code == 0
+    assert "Configurations:" in result.stdout
+    assert "Loading profile" not in result.stdout
+    assert "Loading profile: test..." in result.stderr
+
+
+def test_cli_does_not_duplicate_log_lines_across_invocations(runner, context):
+    """Test fails if repeated invocations in one process print each status line more than once"""
+    invoke(runner, "config")
+    assert invoke(runner, "config").stderr.count("Loading profile") == 1
+
+
+def test_cli_rejects_verbose_with_quiet(runner, context):
+    """Test fails if --verbose and --quiet are accepted together"""
+    result = runner.invoke(cli.main, ["-v", "-q", "--profile", "test", "config"])
+    assert result.exit_code == 2
+    assert "cannot be used together" in result.output
+
+
+def test_cli_verbose_logs_each_request(runner, context, schema_dir, respx_mock):
+    """Test fails if --verbose does not log verb, path, sizes, status and duration without the request body"""
+    write_schema(schema_dir, "V1_0__create_twitter.exm", 'PUT twitter\n{"secret": "do-not-log"}')
+    respx_mock.put(f"{ES_HOST}/twitter").respond(200, json={"acknowledged": True})
+    verbose = runner.invoke(cli.main, ["--verbose", "--profile", "test", "upgrade"])
+    assert verbose.exit_code == 0, verbose.output
+    assert "PUT /twitter (" in verbose.stderr
+    assert "-> 200 (" in verbose.stderr
+    assert " ms" in verbose.stderr
+    assert "do-not-log" not in verbose.output
+    write_schema(schema_dir, "V1_1__read_twitter.exm", "GET twitter")
+    respx_mock.get(f"{ES_HOST}/twitter").respond(200)
+    default = invoke(runner, "upgrade")
+    assert "Processing schema read_twitter.exm" in default.output
+    assert "-> 200" not in default.output
+
+
+def test_cli_quiet_shows_only_errors(runner, context, schema_dir, respx_mock):
+    """Test fails if --quiet prints status messages or hides errors"""
+    write_schema(schema_dir, "V1_0__create_twitter.exm")
+    respx_mock.get(f"{ES_HOST}/twitter").mock(side_effect=httpx.ConnectError("refused"))
+    result = runner.invoke(cli.main, ["--quiet", "--profile", "test", "upgrade"])
+    assert result.exit_code == Errors.ERR_ES_CONNERROR
+    assert "Processing schema" not in result.output
+    assert "Loading profile" not in result.output
+    assert "ERROR: ElasticsearchConnError: ConnectError: refused" in result.output
+
+
 def test_cli_config_command_fails_to_load_context_profile(runner):
     """Test fails if `esmigrate --profile {profile} {command}` does not return error"""
     result = runner.invoke(cli.main, ["--profile", "invalid-profile", "config"])

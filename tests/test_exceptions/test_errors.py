@@ -42,7 +42,8 @@ def test_process_exit_status_matches_invalid_configuration(tmp_path, monkeypatch
     monkeypatch.setenv("ESMIGRATE_CONFIG", str(config))
     result = run_cli(tmp_path, "--profile", "broken", "config")
     assert result.returncode == Errors.ERR_INVALID_CONFIGURATION
-    assert "elastic_timeout" in result.stdout
+    assert "ERROR: InvalidConfigurationError: elastic_timeout" in result.stderr
+    assert result.stdout == ""
 
 
 def test_process_exits_when_schema_dir_is_missing(tmp_path, monkeypatch):
@@ -53,4 +54,5 @@ def test_process_exits_when_schema_dir_is_missing(tmp_path, monkeypatch):
     monkeypatch.setenv("ESMIGRATE_CONFIG", str(config))
     result = run_cli(tmp_path, "--profile", "noschema", "init")
     assert result.returncode == Errors.ERR_INVALID_CONFIGURATION
-    assert "schema_dir is required in profile 'noschema'" in result.stdout
+    assert "schema_dir is required in profile 'noschema'" in result.stderr
+    assert result.stdout == ""

@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import sys
 import time
 from collections.abc import Coroutine
@@ -8,6 +9,7 @@ from typing import Any, NoReturn
 import click
 
 from esmigrate.commons import DEFAULT_PROFILE, ScriptData, appname, parse_version, query_results_string, title
+from esmigrate.commons.log_setup import configure_console
 from esmigrate.contexts import ContextConfig
 from esmigrate.exceptions import (
     ElasticsearchConnError,
@@ -29,6 +31,8 @@ from esmigrate.internals import DBManager, GlobLoader, HTTPHandler, ScriptParser
 from esmigrate.internals.db_manager import LEGACY_BACKUP_TABLE
 from esmigrate.models import SchemaVersion
 
+log = logging.getLogger(__name__)
+
 DB_ERRORS: dict[type[Exception], Errors] = {
     InvalidDBConnectionError: Errors.ERR_DB_CONNECTION_FAILED,
     LegacySchemaTableError: Errors.ERR_DB_LEGACY_TABLE,
@@ -44,7 +48,7 @@ SCRIPT_ERRORS = (
 
 
 def fail(err: Exception, code: int) -> int:
-    click.echo(f"{type(err).__name__}: {err}")
+    log.error(f"{type(err).__name__}: {err}")
     return code
 
 
@@ -60,24 +64,28 @@ def connect_db(cfg: ContextConfig, upgrade: bool = False) -> AbstractAsyncContex
 @click.help_option(help="Show help index and exit")
 @click.version_option(message="v%(version)s", package_name=appname, help="Show the version and exit")
 @click.option("-p", "--profile", default=DEFAULT_PROFILE, show_default=True, help="Set configuration profile")
+@click.option("-v", "--verbose", is_flag=True, help="Show debug output, including every request")
+@click.option("-q", "--quiet", is_flag=True, help="Show warnings and errors only")
 @click.pass_context
-def main(ctx: click.Context, profile: str = DEFAULT_PROFILE) -> None:
+def main(ctx: click.Context, profile: str = DEFAULT_PROFILE, verbose: bool = False, quiet: bool = False) -> None:
+    if verbose and quiet:
+        raise click.UsageError("--verbose and --quiet cannot be used together")
+    configure_console(logging.DEBUG if verbose else logging.WARNING if quiet else logging.INFO)
     if ctx.invoked_subcommand is None:
         click.echo(click.style(title, fg="green"))
         return
-    click.echo(f"Loading profile: {profile}...")
+    log.info(f"Loading profile: {profile}...")
     try:
         ctx.obj = ContextConfig().load_for(profile)
     except UserProfileNotFoundError as err:
         sys.exit(fail(err, Errors.ERR_PROFILE_NOT_FOUND))
     except InvalidConfigurationError as err:
         sys.exit(fail(err, Errors.ERR_INVALID_CONFIGURATION))
-    click.echo(f"Profile loaded: {profile}")
+    log.info(f"Profile loaded: {profile}")
     if not ctx.obj.es_verify_certs:
-        click.echo(
-            "WARNING: TLS certificate verification is disabled (elastic_verify_certs: false), "
-            "connections to Elasticsearch are not authenticated",
-            err=True,
+        log.warning(
+            "TLS certificate verification is disabled (elastic_verify_certs: false), "
+            "connections to Elasticsearch are not authenticated"
         )
 
 
@@ -118,18 +126,18 @@ def reset(cfg: ContextConfig) -> None:
 
 
 async def run_init(cfg: ContextConfig) -> int:
-    click.echo("Initializing schema version database...")
+    log.info("Initializing schema version database...")
     try:
         async with connect_db(cfg, upgrade=True) as db:
             if db.upgraded_legacy_table:
-                click.echo(f"Upgraded v1 schema version table, previous table kept as {LEGACY_BACKUP_TABLE}")
+                log.info(f"Upgraded v1 schema version table, previous table kept as {LEGACY_BACKUP_TABLE}")
             latest = await db.find_latest_schema()
     except tuple(DB_ERRORS) as err:
         return fail(err, DB_ERRORS[type(err)])
     if latest:
-        click.echo(f"Schema version database already exists with latest version V{latest.version}")
+        log.info(f"Schema version database already exists with latest version V{latest.version}")
     else:
-        click.echo("Schema version database initialized")
+        log.info("Schema version database initialized")
     return 0
 
 
@@ -150,7 +158,7 @@ async def run_upgrade(cfg: ContextConfig, schema_version: str) -> int:
 async def upgrade_schema(cfg: ContextConfig, db: DBManager, requested: tuple[int, int] | None) -> int:
     latest_db_entry = await db.find_latest_schema()
     if latest_db_entry and not latest_db_entry.success:
-        click.echo(f"Error: Schema database contains an error for version {latest_db_entry.version}")
+        log.error(f"Schema database contains an error for version {latest_db_entry.version}")
         return Errors.ERR_DB_IN_ERROR_STATE
     latest_db_version = parse_version(latest_db_entry.version) if latest_db_entry else (0, 0)
     try:
@@ -160,12 +168,12 @@ async def upgrade_schema(cfg: ContextConfig, db: DBManager, requested: tuple[int
     except (InvalidSchemaPatternError, InvalidSchemaFileError) as err:
         return fail(err, Errors.ERR_INVALID_SCHEMA_FILE)
     if not schema_entries:
-        click.echo("No schema file found, nothing to do")
+        log.info("No schema file found, nothing to do")
         return 0
     target = schema_entries[-1].version_key if requested is None else requested
     pending = [entry for entry in schema_entries if latest_db_version < entry.version_key <= target]
     if not pending:
-        click.echo("Schema version in database is ahead of requested version, nothing to do")
+        log.info("Schema version in database is ahead of requested version, nothing to do")
         return 0
     script_parser = ScriptParser()
     async with HTTPHandler(cfg) as http_handler:
@@ -173,12 +181,12 @@ async def upgrade_schema(cfg: ContextConfig, db: DBManager, requested: tuple[int
             code = await apply_schema(db, http_handler, script_parser, entry)
             if code:
                 return code
-    click.echo(f"Schema database upgraded to {pending[-1].version}")
+    log.info(f"Schema database upgraded to {pending[-1].version}")
     return 0
 
 
 async def apply_schema(db: DBManager, http_handler: HTTPHandler, script_parser: ScriptParser, entry: ScriptData) -> int:
-    click.echo(f"Processing schema {entry.description}")
+    log.info(f"Processing schema {entry.description}")
     query_results: list[str] = []
     error_code = 0
     tic = time.perf_counter()
@@ -203,7 +211,7 @@ async def apply_schema(db: DBManager, http_handler: HTTPHandler, script_parser: 
     scmver.query_results = ";".join(query_results)
     await db.insert_new_schema(scmver)
     if error_code == 0:
-        click.echo(f"Schema {entry.description} executed successfully")
+        log.info(f"Schema {entry.description} executed successfully")
     return error_code
 
 
@@ -212,11 +220,11 @@ async def run_rollback(cfg: ContextConfig) -> int:
         async with connect_db(cfg) as db:
             latest = await db.find_latest_schema()
             if latest and not latest.success:
-                click.echo(f"Schema database has error entry for version {latest.version}")
+                log.info(f"Schema database has error entry for version {latest.version}")
                 await db.delete_all_failed_schema()
-                click.echo("Rollback successful")
+                log.info("Rollback successful")
             else:
-                click.echo("Schema database does not have any error entry")
+                log.info("Schema database does not have any error entry")
     except tuple(DB_ERRORS) as err:
         return fail(err, DB_ERRORS[type(err)])
     return 0
@@ -228,5 +236,5 @@ async def run_reset(cfg: ContextConfig) -> int:
             await db.delete_all_schema()
     except tuple(DB_ERRORS) as err:
         return fail(err, DB_ERRORS[type(err)])
-    click.echo("Schema database successfully reset")
+    log.info("Schema database successfully reset")
     return 0
