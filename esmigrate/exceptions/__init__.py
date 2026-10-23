@@ -1,9 +1,10 @@
-from requests.exceptions import ConnectionError
+from httpx import Response
 
 
 class Errors:
     # Profile errors
     ERR_PROFILE_NOT_FOUND = -101
+    ERR_INVALID_CONFIGURATION = -102
 
     # Database errors
     ERR_DB_CONNECTION_FAILED = -201
@@ -53,6 +54,12 @@ class InvalidCommandVerbError(RuntimeError):
     pass
 
 
+class InvalidConfigurationError(RuntimeError):
+    """Raised when a profile field has an invalid value"""
+
+    pass
+
+
 class InvalidDBConnectionError(RuntimeError):
     """Raised when database connection URL is invalid"""
 
@@ -89,20 +96,31 @@ class UserProfileNotFoundError(RuntimeError):
     pass
 
 
-class ElasticsearchConnError(ConnectionError):
-    """Raised when connection error occurs from elasticsearch server"""
+class ElasticsearchConnError(RuntimeError):
+    """Raised when elasticsearch cannot be reached or does not respond in time"""
 
     pass
+
+
+class ElasticsearchHTTPError(RuntimeError):
+    """Raised when elasticsearch responds with a non-success HTTP status"""
+
+    def __init__(self, response: Response) -> None:
+        request = response.request
+        super().__init__(f"{response.status_code} {response.reason_phrase} for {request.method} {request.url.path}")
+        self.response = response
 
 
 __all__ = [
     "ContextObjectNotSetError",
     "ElasticsearchConnError",
+    "ElasticsearchHTTPError",
     "Errors",
     "InvalidCommandBodyError",
     "InvalidCommandPathError",
     "InvalidCommandScriptError",
     "InvalidCommandVerbError",
+    "InvalidConfigurationError",
     "InvalidDBConnectionError",
     "InvalidSchemaFileError",
     "InvalidSchemaPatternError",

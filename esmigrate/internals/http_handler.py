@@ -1,35 +1,56 @@
-import requests
-from requests.exceptions import ConnectionError, HTTPError
+from types import TracebackType
+from typing import Self
+
+import httpx
 
 from esmigrate.commons import Command, http_verbs
 from esmigrate.contexts import ContextConfig
-from esmigrate.exceptions import ContextObjectNotSetError, ElasticsearchConnError, InvalidCommandVerbError
+from esmigrate.exceptions import (
+    ContextObjectNotSetError,
+    ElasticsearchConnError,
+    ElasticsearchHTTPError,
+    InvalidCommandVerbError,
+)
 
 
 class HTTPHandler:
-    def __init__(self, ctx: ContextConfig | None = None) -> None:
+    def __init__(self, ctx: ContextConfig) -> None:
         self._ctx = ctx
-        self._session = requests.session()
+        self._client: httpx.AsyncClient | None = None
 
-    def init_ctx(self, ctx: ContextConfig) -> None:
-        self._ctx = ctx
+    async def __aenter__(self) -> Self:
+        self._client = httpx.AsyncClient(
+            base_url=self._ctx.es_host,
+            headers=self._ctx.headers,
+            timeout=self._ctx.es_timeout,
+        )
+        return self
 
-    def make_requests(self, command: Command) -> requests.Response:
-        if self._ctx is None:
-            raise ContextObjectNotSetError("Context was not set")
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        if self._client is not None:
+            await self._client.aclose()
+            self._client = None
+
+    async def make_requests(self, command: Command) -> httpx.Response:
+        if self._client is None:
+            raise ContextObjectNotSetError("HTTP client is not open, use `async with HTTPHandler(ctx)`")
 
         if command.verb not in http_verbs:
             raise InvalidCommandVerbError(f"Unexpected verb found: {command.verb}")
 
-        for k, v in self._ctx.headers.items():
-            command.head[k] = v
-
         try:
-            response = self._session.request(command.verb, url=command.path, data=command.body, headers=command.head)
+            response = await self._client.request(
+                command.verb, command.path, content=command.body, headers=command.head
+            )
             response.raise_for_status()
-        except HTTPError:
-            raise
-        except ConnectionError as err:
-            raise ElasticsearchConnError(err) from err
+        except httpx.HTTPStatusError as err:
+            raise ElasticsearchHTTPError(err.response) from err
+        except httpx.TransportError as err:
+            raise ElasticsearchConnError(f"{type(err).__name__}: {err}") from err
 
         return response

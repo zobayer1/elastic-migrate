@@ -7,9 +7,18 @@ from validator_collection import checkers
 
 from esmigrate.commons import DEFAULT_NAMESPACE, local_config_file_path, user_config_file_path
 from esmigrate.exceptions import (
+    InvalidConfigurationError,
     InvalidSchemaPatternError,
     UserProfileNotFoundError,
 )
+
+
+def parse_timeout(value: object) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int | float) or value <= 0:
+        raise InvalidConfigurationError(f"elastic_timeout must be a positive number of seconds or null, got {value!r}")
+    return float(value)
 
 
 class ContextConfig:
@@ -19,6 +28,7 @@ class ContextConfig:
 
     def __init__(self) -> None:
         self.es_host = "http://localhost:9200"
+        self.es_timeout: float | None = 60.0
         self.schema_db = "sqlite:///esmigrate.db"
         self.profile = None
         self.headers = {"Connection": "keep-alive"}
@@ -49,6 +59,8 @@ class ContextConfig:
                                 self.schema_dir = json_profile_data.get("schema_dir", self.schema_dir)
                                 self.schema_ext = json_profile_data.get("schema_ext", self.schema_ext)
                                 self.schema_namespace = json_profile_data.get("schema_namespace", self.schema_namespace)
+                                if "elastic_timeout" in json_profile_data:
+                                    self.es_timeout = parse_timeout(json_profile_data["elastic_timeout"])
                                 if checkers.is_url(json_profile_data.get("elastic_host"), allow_special_ips=True):
                                     self.es_host = json_profile_data.get("elastic_host", self.es_host)
 
@@ -68,6 +80,7 @@ class ContextConfig:
             + f"profile: {self.profile}\n"
             + f"elastic_host: {self.es_host}\n"
             + f"elastic_headers: {json.dumps(self.headers)}\n"
+            + f"elastic_timeout: {self.es_timeout}\n"
             + f"schema_version_db: {self.schema_db}\n"
             + f"schema_file_directory: {self.schema_dir if self.schema_dir else os.getcwd()}\n"
             + f"schema_file_extension: {self.schema_ext}\n"

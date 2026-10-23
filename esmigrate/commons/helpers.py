@@ -15,10 +15,6 @@ def is_valid_ndjson(content: str) -> bool:
     return all(is_valid_json(line) for line in content.strip().split("\n"))
 
 
-def construct_path(base: str, *paths: str) -> str:
-    return "/".join(p.strip("/") for p in (base, *paths))
-
-
 def parse_file_path(path: str) -> tuple:
     base = os.path.basename(path)
     prefix = path[: -len(base) or None]

@@ -29,8 +29,8 @@ classifiers = [
 dependencies = [
     "aiosqlite>=0.21",
     "click>=8.1",
+    "httpx>=0.28",
     "platformdirs>=4.0",
-    "requests>=2.32",
     "sqlalchemy[asyncio]>=2.0",
     "validator-collection>=1.5",
 ]
@@ -58,7 +58,7 @@ dev = [
     "pytest-asyncio>=1.0",
     "pytest-cov>=6.0",
     "pytest-mock>=3.14",
-    "requests-mock>=1.12",
+    "respx>=0.22",
     "ruff>=0.17.2",
 ]
 

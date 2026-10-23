@@ -3,6 +3,7 @@ import pytest
 from esmigrate.commons import local_config_file_path, user_config_file_path
 from esmigrate.contexts import ContextConfig
 from esmigrate.exceptions import (
+    InvalidConfigurationError,
     InvalidSchemaPatternError,
     UserProfileNotFoundError,
 )
@@ -51,3 +52,25 @@ def test_context_loads_schema_namespace(fs):
     """Test fails if schema_namespace is not read from the profile"""
     fs.create_file(local_config_file_path, contents="""{"profiles":[{"test":{"schema_namespace": "billing"}}]}""")
     assert ContextConfig().load_for("test").schema_namespace == "billing"
+
+
+def test_context_defaults_elastic_timeout():
+    """Test fails if the default elasticsearch timeout is not 60 seconds"""
+    context = ContextConfig()
+    assert context.es_timeout == 60.0
+    assert "elastic_timeout: 60.0" in repr(context)
+
+
+@pytest.mark.parametrize(("value", "expected"), [("5", 5.0), ("2.5", 2.5), ("null", None)])
+def test_context_loads_elastic_timeout(fs, value, expected):
+    """Test fails if elastic_timeout is not read as seconds, with null disabling the timeout"""
+    fs.create_file(local_config_file_path, contents=f'{{"profiles":[{{"test":{{"elastic_timeout": {value}}}}}]}}')
+    assert ContextConfig().load_for("test").es_timeout == expected
+
+
+@pytest.mark.parametrize("value", ["0", "-1", '"60"', "true"])
+def test_context_rejects_invalid_elastic_timeout(fs, value):
+    """Test fails if a non-positive or non-numeric elastic_timeout is accepted"""
+    fs.create_file(local_config_file_path, contents=f'{{"profiles":[{{"test":{{"elastic_timeout": {value}}}}}]}}')
+    with pytest.raises(InvalidConfigurationError, match="elastic_timeout"):
+        ContextConfig().load_for("test")

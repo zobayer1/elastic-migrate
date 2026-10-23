@@ -10,10 +10,7 @@ from esmigrate.commons import (
     is_valid_json,
     is_valid_ndjson,
 )
-from esmigrate.commons.helpers import construct_path
-from esmigrate.contexts import ContextConfig
 from esmigrate.exceptions import (
-    ContextObjectNotSetError,
     InvalidCommandBodyError,
     InvalidCommandPathError,
     InvalidCommandScriptError,
@@ -22,18 +19,13 @@ from esmigrate.exceptions import (
 
 
 class ScriptParser:
-    def __init__(self, ctx: ContextConfig | None = None) -> None:
-        self._ctx = ctx
+    def __init__(self) -> None:
         self._pattern = re.compile(rf"^({'|'.join(http_verbs)})\s+(.*)$", re.M | re.I)
 
-    def init_ctx(self, ctx: ContextConfig) -> None:
-        self._ctx = ctx
-
     def get_commands(self, script_text: str) -> Iterator[Command]:
-        if self._ctx is None:
-            raise ContextObjectNotSetError("Context was not set")
-
         stripped_lines = [line.strip() for line in script_text.split("\n") if len(line.strip()) > 0]
+        if not stripped_lines:
+            raise InvalidCommandScriptError("Script does not contain any command")
         occurs = [idx for idx, line in enumerate(stripped_lines) if self._pattern.match(line)]
         if len(occurs) == 0 or occurs[0] != 0:
             raise InvalidCommandScriptError(f"Unexpected command found: {stripped_lines[0].split()[0]}")
@@ -51,7 +43,7 @@ class ScriptParser:
             if parsed_path.scheme or parsed_path.netloc:
                 raise InvalidCommandPathError(f"Unexpected URL scheme found: {path}")
 
-            path = construct_path(self._ctx.es_host, path)
+            path = "/" + path.lstrip("/")
             cmdnext = occurs[idx + 1]
 
             if cmdline + 1 >= cmdnext:

@@ -1,6 +1,6 @@
 import json
 
-from requests import Response
+from httpx import Response
 
 from .command import Command
 
