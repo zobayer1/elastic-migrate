@@ -1,3 +1,4 @@
+import base64
 import uuid
 
 import pytest
@@ -116,3 +117,16 @@ def test_mutual_tls_without_client_certificate_is_rejected(esmigrate, profile, c
     result = esmigrate("upgrade")
     assert result.exit_code == Errors.ERR_ES_CONNERROR, result.output
     assert "TLS error" in result.output
+
+
+def test_audit_log_contains_no_secrets_or_bodies(esmigrate, profile, certs, migration, tmp_path):
+    """Test fails if the audit log of an authenticated run contains credentials or request bodies"""
+    log_file = tmp_path / "audit.log"
+    profile(**password_auth(certs, log_file=str(log_file)))
+    result = esmigrate("upgrade")
+    assert result.exit_code == 0, result.output
+    text = log_file.read_text()
+    assert f"PUT /{migration} (" in text
+    assert f"PUT /{migration}/_doc/1?refresh=true (" in text
+    for secret in (ES_PASSWORD, base64.b64encode(f"elastic:{ES_PASSWORD}".encode()).decode(), "alice", "hello"):
+        assert secret not in text

@@ -5,7 +5,11 @@ from json.decoder import JSONDecodeError
 from typing import Any, Self, cast
 from urllib.parse import urlsplit
 
+from sqlalchemy import make_url
+from sqlalchemy.exc import ArgumentError
+
 from esmigrate.commons import DEFAULT_NAMESPACE, DEFAULT_PROFILE, local_config_file_path, user_config_file_path
+from esmigrate.commons.log_setup import DEFAULT_LOG_BACKUP_COUNT, DEFAULT_LOG_MAX_BYTES, LOG_ROTATIONS
 from esmigrate.exceptions import (
     InvalidConfigurationError,
     InvalidSchemaPatternError,
@@ -76,6 +80,20 @@ def optional_file(data: dict[str, Any], field: str) -> str | None:
     return path
 
 
+def parse_int(data: dict[str, Any], field: str, default: int, minimum: int) -> int:
+    value = data.get(field, default)
+    if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+        raise InvalidConfigurationError(f"{field} must be an integer of at least {minimum}, got {value!r}")
+    return value
+
+
+def mask_db_url(db_url: str) -> str:
+    try:
+        return make_url(db_url).render_as_string(hide_password=True)
+    except ArgumentError:
+        return db_url
+
+
 def parse_headers(value: object) -> dict[str, str]:
     if not isinstance(value, dict):
         raise InvalidConfigurationError("elastic_headers must be an object of string values")
@@ -102,6 +120,10 @@ class ContextConfig:
         self.es_client_key: str | None = None
         self.es_client_key_password: str | None = None
         self.schema_db = "sqlite:///esmigrate.db"
+        self.log_file: str | None = None
+        self.log_rotation = "size"
+        self.log_max_bytes = DEFAULT_LOG_MAX_BYTES
+        self.log_backup_count = DEFAULT_LOG_BACKUP_COUNT
         self.profile: str | None = None
         self.headers = {"Connection": "keep-alive"}
         self.schema_dir: str | None = None
@@ -151,6 +173,16 @@ class ContextConfig:
         self.schema_ext = optional_str(data, "schema_ext") or self.schema_ext
         self.schema_namespace = optional_str(data, "schema_namespace") or self.schema_namespace
         self._apply_security(data)
+        self._apply_logging(data)
+
+    def _apply_logging(self, data: dict[str, Any]) -> None:
+        self.log_file = optional_str(data, "log_file")
+        rotation = data.get("log_rotation", "size")
+        if rotation not in LOG_ROTATIONS:
+            raise InvalidConfigurationError(f"log_rotation must be one of {', '.join(LOG_ROTATIONS)}, got {rotation!r}")
+        self.log_rotation = rotation
+        self.log_max_bytes = parse_int(data, "log_max_bytes", DEFAULT_LOG_MAX_BYTES, 1)
+        self.log_backup_count = parse_int(data, "log_backup_count", DEFAULT_LOG_BACKUP_COUNT, 0)
 
     def _apply_security(self, data: dict[str, Any]) -> None:
         self.es_username = optional_str(data, "elastic_username")
@@ -208,9 +240,13 @@ class ContextConfig:
             + f"elastic_client_cert: {self.es_client_cert}\n"
             + f"elastic_client_key: {self.es_client_key}\n"
             + f"elastic_client_key_password: {secret(self.es_client_key_password)}\n"
-            + f"schema_version_db: {self.schema_db}\n"
+            + f"schema_version_db: {mask_db_url(self.schema_db)}\n"
             + f"schema_file_directory: {self.schema_dir}\n"
             + f"schema_file_extension: {self.schema_ext}\n"
             + f"schema_namespace: {self.schema_namespace}\n"
             + f"schema_filename_pattern: {self.schema_pattern}\n"
+            + f"log_file: {self.log_file}\n"
+            + f"log_rotation: {self.log_rotation}\n"
+            + f"log_max_bytes: {self.log_max_bytes}\n"
+            + f"log_backup_count: {self.log_backup_count}\n"
         )

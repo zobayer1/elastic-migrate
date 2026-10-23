@@ -4,6 +4,7 @@ import pytest
 
 from esmigrate.commons import local_config_file_path, user_config_file_path
 from esmigrate.contexts import ContextConfig
+from esmigrate.contexts.context_config import mask_db_url
 from esmigrate.exceptions import (
     InvalidConfigurationError,
     InvalidSchemaPatternError,
@@ -289,3 +290,57 @@ def test_context_loads_default_profile_without_name(fs):
     context = ContextConfig().load_for()
     assert context.profile == "default"
     assert context.schema_dir == "d"
+
+
+def test_context_loads_logging_fields(fs):
+    """Test fails if log file and rotation settings are not loaded"""
+    write_profile(fs, schema_dir="s", log_file="logs/esmigrate.log", log_rotation="external", log_max_bytes=1024)
+    context = ContextConfig().load_for("test")
+    assert (context.log_file, context.log_rotation) == ("logs/esmigrate.log", "external")
+    assert (context.log_max_bytes, context.log_backup_count) == (1024, 5)
+
+
+def test_context_defaults_logging_fields():
+    """Test fails if logging defaults are not no file, size rotation, 10 MiB and 5 backups"""
+    context = ContextConfig()
+    assert (context.log_file, context.log_rotation) == (None, "size")
+    assert (context.log_max_bytes, context.log_backup_count) == (10 * 1024 * 1024, 5)
+
+
+@pytest.mark.parametrize(
+    ("fields", "message"),
+    [
+        ({"log_rotation": "daily"}, "log_rotation must be one of size, external"),
+        ({"log_max_bytes": 0}, "log_max_bytes must be an integer of at least 1"),
+        ({"log_max_bytes": "10MB"}, "log_max_bytes must be an integer"),
+        ({"log_backup_count": -1}, "log_backup_count must be an integer of at least 0"),
+        ({"log_backup_count": True}, "log_backup_count must be an integer"),
+        ({"log_file": 5}, "log_file must be a string"),
+    ],
+)
+def test_context_rejects_invalid_logging_fields(fs, fields, message):
+    """Test fails if invalid log settings are accepted"""
+    write_profile(fs, schema_dir="s", **fields)
+    with pytest.raises(InvalidConfigurationError, match=message):
+        ContextConfig().load_for("test")
+
+
+@pytest.mark.parametrize(
+    ("db_url", "expected"),
+    [
+        ("postgresql://migrator:s3cr3t@db.example.com/esmigrate", "postgresql://migrator:***@db.example.com/esmigrate"),
+        ("sqlite:///esmigrate.db", "sqlite:///esmigrate.db"),
+        ("not a url", "not a url"),
+    ],
+)
+def test_mask_db_url_hides_password(db_url, expected):
+    """Test fails if a database password is shown or a URL without one is changed"""
+    assert mask_db_url(db_url) == expected
+
+
+def test_context_repr_masks_database_password(fs):
+    """Test fails if esmigrate config prints the schema database password"""
+    write_profile(fs, schema_dir="s", schema_db="postgresql://migrator:s3cr3t@db/esmigrate")
+    text = repr(ContextConfig().load_for("test"))
+    assert "s3cr3t" not in text
+    assert "schema_version_db: postgresql://migrator:***@db/esmigrate" in text

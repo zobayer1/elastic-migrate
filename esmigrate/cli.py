@@ -1,5 +1,7 @@
 import asyncio
+import getpass
 import logging
+import socket
 import sys
 import time
 from collections.abc import Coroutine
@@ -8,9 +10,10 @@ from typing import Any, NoReturn
 
 import click
 
-from esmigrate.commons import DEFAULT_PROFILE, ScriptData, appname, parse_version, query_results_string, title
-from esmigrate.commons.log_setup import configure_console
+from esmigrate.commons import DEFAULT_PROFILE, ScriptData, appname, parse_version, query_results_string, title, version
+from esmigrate.commons.log_setup import configure_console, configure_file
 from esmigrate.contexts import ContextConfig
+from esmigrate.contexts.context_config import mask_db_url
 from esmigrate.exceptions import (
     ElasticsearchConnError,
     ElasticsearchHTTPError,
@@ -53,7 +56,9 @@ def fail(err: Exception, code: int) -> int:
 
 
 def run(coro: Coroutine[Any, Any, int]) -> NoReturn:
-    sys.exit(asyncio.run(coro))
+    code = asyncio.run(coro)
+    log.debug(f"Finished {click.get_current_context().info_name} with exit code {code}")
+    sys.exit(code)
 
 
 def connect_db(cfg: ContextConfig, upgrade: bool = False) -> AbstractAsyncContextManager[DBManager]:
@@ -66,11 +71,24 @@ def connect_db(cfg: ContextConfig, upgrade: bool = False) -> AbstractAsyncContex
 @click.option("-p", "--profile", default=DEFAULT_PROFILE, show_default=True, help="Set configuration profile")
 @click.option("-v", "--verbose", is_flag=True, help="Show debug output, including every request")
 @click.option("-q", "--quiet", is_flag=True, help="Show warnings and errors only")
+@click.option(
+    "--log-file", type=click.Path(dir_okay=False), help="Write a debug log file, overriding the profile log_file"
+)
 @click.pass_context
-def main(ctx: click.Context, profile: str = DEFAULT_PROFILE, verbose: bool = False, quiet: bool = False) -> None:
+def main(
+    ctx: click.Context,
+    profile: str = DEFAULT_PROFILE,
+    verbose: bool = False,
+    quiet: bool = False,
+    log_file: str | None = None,
+) -> None:
     if verbose and quiet:
         raise click.UsageError("--verbose and --quiet cannot be used together")
     configure_console(logging.DEBUG if verbose else logging.WARNING if quiet else logging.INFO)
+    try:
+        configure_file(log_file)
+    except InvalidConfigurationError as err:
+        sys.exit(fail(err, Errors.ERR_INVALID_CONFIGURATION))
     if ctx.invoked_subcommand is None:
         click.echo(click.style(title, fg="green"))
         return
@@ -81,7 +99,17 @@ def main(ctx: click.Context, profile: str = DEFAULT_PROFILE, verbose: bool = Fal
         sys.exit(fail(err, Errors.ERR_PROFILE_NOT_FOUND))
     except InvalidConfigurationError as err:
         sys.exit(fail(err, Errors.ERR_INVALID_CONFIGURATION))
+    cfg: ContextConfig = ctx.obj
+    try:
+        configure_file(log_file or cfg.log_file, cfg.log_rotation, cfg.log_max_bytes, cfg.log_backup_count)
+    except InvalidConfigurationError as err:
+        sys.exit(fail(err, Errors.ERR_INVALID_CONFIGURATION))
     log.info(f"Profile loaded: {profile}")
+    log.debug(
+        f"esmigrate {version} {ctx.invoked_subcommand}: profile={profile} namespace={cfg.schema_namespace} "
+        f"elastic_host={cfg.es_host} schema_db={mask_db_url(cfg.schema_db)} user={getpass.getuser()} "
+        f"host={socket.gethostname()}"
+    )
     if not ctx.obj.es_verify_certs:
         log.warning(
             "TLS certificate verification is disabled (elastic_verify_certs: false), "
@@ -142,6 +170,7 @@ async def run_init(cfg: ContextConfig) -> int:
 
 
 async def run_upgrade(cfg: ContextConfig, schema_version: str) -> int:
+    log.debug(f"Upgrade target: {schema_version}")
     try:
         requested = None if schema_version == "latest" else parse_version(schema_version)
     except ValueError as err:
@@ -187,6 +216,7 @@ async def upgrade_schema(cfg: ContextConfig, db: DBManager, requested: tuple[int
 
 async def apply_schema(db: DBManager, http_handler: HTTPHandler, script_parser: ScriptParser, entry: ScriptData) -> int:
     log.info(f"Processing schema {entry.description}")
+    log.debug(f"Schema {entry.version}: script={entry.path} checksum={entry.checksum.hex()}")
     query_results: list[str] = []
     error_code = 0
     tic = time.perf_counter()
@@ -205,6 +235,8 @@ async def apply_schema(db: DBManager, http_handler: HTTPHandler, script_parser: 
             error_code = fail(err, Errors.ERR_ES_HTTPERROR)
             break
         query_results.append(query_results_string(command, response))
+    duration = int((time.perf_counter() - tic) * 1000)
+    log.debug(f"Schema {entry.version} {'succeeded' if error_code == 0 else 'failed'} in {duration} ms")
     scmver = SchemaVersion.from_script_data(entry)
     scmver.success = error_code == 0
     scmver.execution_time = int(time.perf_counter() - tic)

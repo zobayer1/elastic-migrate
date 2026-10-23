@@ -159,6 +159,59 @@ def test_cli_quiet_shows_only_errors(runner, context, schema_dir, respx_mock):
     assert "ERROR: ElasticsearchConnError: ConnectError: refused" in result.output
 
 
+def test_cli_log_file_records_audit_trail(runner, context, schema_dir, respx_mock, tmp_path):
+    """Test fails if --log-file does not record run start, scripts, requests and exit code even with --quiet"""
+    write_schema(schema_dir, "V1_0__create_twitter.exm")
+    respx_mock.get(f"{ES_HOST}/twitter").respond(200)
+    log_file = tmp_path / "esmigrate.log"
+    result = runner.invoke(cli.main, ["-q", "--log-file", str(log_file), "--profile", "test", "upgrade"])
+    assert result.exit_code == 0, result.output
+    text = log_file.read_text()
+    assert "upgrade: profile=test namespace=default" in text
+    assert "Schema 1.0: script=V1_0__create_twitter.exm checksum=" in text
+    assert "GET /twitter (0 bytes) -> 200" in text
+    assert "Schema 1.0 succeeded in" in text
+    assert "Finished upgrade with exit code 0" in text
+
+
+def test_cli_uses_profile_log_file_unless_overridden(runner, context, tmp_path):
+    """Test fails if the profile log_file is ignored or --log-file does not override it"""
+    context.log_file = str(tmp_path / "profile.log")
+    invoke(runner, "config")
+    assert "config: profile=test" in (tmp_path / "profile.log").read_text()
+    runner.invoke(cli.main, ["--log-file", str(tmp_path / "flag.log"), "--profile", "test", "config"])
+    assert "config: profile=test" in (tmp_path / "flag.log").read_text()
+    assert (tmp_path / "profile.log").read_text().count("config: profile=test") == 1
+
+
+def test_cli_does_not_leak_log_file_into_next_invocation(runner, context, tmp_path):
+    """Test fails if a log file from one invocation keeps receiving records from the next"""
+    runner.invoke(cli.main, ["--log-file", str(tmp_path / "first.log"), "--profile", "test", "config"])
+    invoke(runner, "config")
+    assert (tmp_path / "first.log").read_text().count("Profile loaded") == 1
+
+
+@pytest.mark.parametrize("source", ["flag", "profile"])
+def test_cli_reports_unwritable_log_file(runner, context, tmp_path, source):
+    """Test fails if a log file in a missing directory is not reported with the configuration exit code"""
+    path = str(tmp_path / "missing" / "esmigrate.log")
+    args = ["--log-file", path] if source == "flag" else []
+    if source == "profile":
+        context.log_file = path
+    result = runner.invoke(cli.main, [*args, "--profile", "test", "config"])
+    assert result.exit_code == Errors.ERR_INVALID_CONFIGURATION
+    assert "Cannot open log file" in result.output
+
+
+def test_cli_audit_masks_database_password(runner, context, tmp_path):
+    """Test fails if the audit log records the schema database password"""
+    context.schema_db = "postgresql://migrator:s3cr3t@db.example.com/esmigrate"
+    runner.invoke(cli.main, ["--log-file", str(tmp_path / "esmigrate.log"), "--profile", "test", "config"])
+    text = (tmp_path / "esmigrate.log").read_text()
+    assert "s3cr3t" not in text
+    assert "schema_db=postgresql://migrator:***@db.example.com/esmigrate" in text
+
+
 def test_cli_config_command_fails_to_load_context_profile(runner):
     """Test fails if `esmigrate --profile {profile} {command}` does not return error"""
     result = runner.invoke(cli.main, ["--profile", "invalid-profile", "config"])
