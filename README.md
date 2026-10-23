@@ -3,7 +3,7 @@ ElasticMigrate
 [![Python](https://img.shields.io/badge/python-3.6%20%7C%203.7%20%7C%203.8%20%7C%203.9-blueviolet?logo=python&logoColor=green)](https://www.python.org)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/zobayer1/elastic-migrate/blob/main/LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/zobayer1/elastic-migrate/blob/main/LICENSE)
 
 ### Elasticsearch mapping migration tool
 ElasticMigrate is a continuous schema migration tool for Elasticsearch. It is a very simple CLI tool that requires very little to no configuration and provides a convenient way to update your Elasticsearch mappings while keeping in line with your version control system. ElasticMigrate takes a "Fail Fast" approach for failed schema migrations by preventing further migrations until all errors are resolved. It also keeps track of all your previous migrations and provides schema file validation.
@@ -82,4 +82,4 @@ After installation, run `esmigrate --help`, and `esmigrate {command} --help` for
 
 ## License
 
-See [LICENSE](LICENSE)
+Licensed under the [Apache License 2.0](LICENSE). Releases up to `v1.0.0-alpha.1` were published under the MIT License.

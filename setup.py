@@ -36,7 +36,7 @@ except FileNotFoundError:
 setup(
     name="elastic-migrate",
     url="https://github.com/zobayer1/elastic-migrate",
-    license="MIT",
+    license="Apache-2.0",
     author="Zobayer Hasan",
     author_email="zobayer1@gmail.com",
     description="Elasticsearch migration tool.",
@@ -58,7 +58,7 @@ setup(
         "Development Status :: 3 - Alpha",
         "Environment :: Console",
         "Intended Audience :: Developers",
-        "License :: OSI Approved :: MIT License",
+        "License :: OSI Approved :: Apache Software License",
         "Operating System :: POSIX",
         "Operating System :: MacOS",
         "Operating System :: Unix",
