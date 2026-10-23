@@ -37,16 +37,19 @@ uv lock --upgrade                                     # manual dependency update
 
 Flow of `esmigrate -p <profile> upgrade` (all orchestration lives in `esmigrate/cli.py`):
 
-1. **`contexts.ContextConfig`** — `main()` loads the profile into `ctx.obj`; every subcommand receives it via `@click.pass_obj`. Config files are read in order: user app config dir (`appdirs`), `./config.json`, then `$ESMIGRATE_CONFIG`; later files overwrite earlier ones (README claims cwd is read first — code disagrees). Filename regex comes from `$SCHEMA_PATTERN` and must contain named groups `version`, `sequence`, `name`, `extension`. Default profile is `test`.
-2. **`internals.GlobLoader.scan_dir`** — globs `schema_dir` for `*<schema_ext>` files, validates names against the pattern (e.g. `V1_2__name.exm` → version `"1.2"`), wraps each in `commons.ScriptData` (with SHA1 checksum), sorted by (version, sequence).
-3. **`internals.ScriptParser.get_commands`** — generator parsing a script into `commons.Command` objects. Kibana-console-like format: a line `VERB path` (GET/PUT/POST/DELETE, uppercase only; relative path, no scheme/host) followed by an optional body that must be valid JSON or NDJSON; Content-Type is chosen accordingly. Path is joined onto `es_host`.
-4. **`internals.HTTPHandler.make_requests`** — sends each command with a raw `requests` session (not the elasticsearch-py client), merging profile `elastic_headers` (the only way to pass auth today); raises `HTTPError` on non-2xx and wraps connection failures in `ElasticsearchConnError`.
-5. **`internals.DBManager`** (obtain via `get_db_manager(url)`, which caches one instance per URL in a module global) — persists `models.SchemaVersion` rows (table `esm_schema_version`, PK = version string, monotonically increasing `installed_rank`).
+1. **`contexts.ContextConfig`** — `main()` loads the profile into `ctx.obj`; subcommands receive it via `@click.pass_obj`. Config files are read in order: user config dir (`platformdirs`), `./config.json`, then `$ESMIGRATE_CONFIG`; later files overwrite earlier ones. Profile fields: `elastic_host`, `elastic_headers`, `elastic_timeout` (default 60s, `null` disables), `schema_db`, `schema_dir`, `schema_ext`, `schema_namespace` (default `default`). Invalid values raise `InvalidConfigurationError`. Filename regex comes from `$SCHEMA_PATTERN` (named groups `version`, `sequence`, `name`, `extension`). Default profile is `test` (#108 renames it).
+2. **`internals.GlobLoader.scan_dir`** (sync, local disk) — globs `schema_dir` for `*<schema_ext>`, validates names (`V1_10__name.exm` → version `"1.10"`, `version_key` `(1, 10)`), returns `commons.ScriptData` sorted by `version_key`, with `path` relative to `schema_dir`.
+3. **`internals.ScriptParser.get_commands`** — Kibana-console-like script → `commons.Command`s: a `VERB path` line (GET/PUT/POST/DELETE) plus optional JSON/NDJSON body. Emits host-relative paths (`/twitter/_doc`); absolute and protocol-relative URLs are rejected.
+4. **`internals.HTTPHandler`** — `async with HTTPHandler(ctx)` wraps one `httpx.AsyncClient` (base URL = `elastic_host`, profile headers, timeout). Non-2xx → `ElasticsearchHTTPError` (carries `.response`); transport errors/timeouts → `ElasticsearchConnError`. Plain HTTP by design — no elasticsearch-py client.
+5. **`internals.DBManager`** — `async with DBManager.connect(url, namespace=..., upgrade=False)` creates the table and always disposes the async engine. Bare URLs are mapped to async drivers (`sqlite`→aiosqlite, `postgresql`/`postgres`→asyncpg, `mysql`/`mariadb`→aiomysql); sync drivers are rejected. Every query is scoped to the namespace.
+6. **`models.SchemaVersion`** — table `esm_schema_version`, PK `(namespace, version)`, `installed_rank` unique per namespace, `installed_on` UTC via `models.types.UTCDateTime`. Portable across SQLite/PostgreSQL/MySQL; dialect differences use `with_variant`, never separate model classes.
 
 Key behaviors:
-- **Fail fast**: a failed script is still inserted with `success=False`; later `upgrade` runs (and `insert_new_schema`) refuse to proceed while the latest row is failed. `rollback` deletes failed rows; `reset` deletes all rows.
-- Each failure category maps to a negative exit code in `exceptions.Errors` (grouped by hundreds: -1xx profile, -2xx DB, -3xx schema files, -4xx params, -5xx HTTP). CLI commands catch domain exceptions, `click.echo(f"<ExceptionName>: {str(err)}")`, then `sys.exit(Errors.X)`.
-- `GlobLoader`, `ScriptParser`, `HTTPHandler` take the `ContextConfig` via constructor or `init_ctx()`, and raise `ContextObjectNotSetError` if used without one.
+- **Async boundary:** click commands are sync and call `sys.exit(asyncio.run(run_<command>(cfg)))`; async functions return exit codes instead of calling `sys.exit`, so `async with` cleanup always runs. Scripts and commands execute strictly sequentially.
+- **Fail fast:** a failed script is still inserted with `success=False`; later `upgrade` runs refuse while the latest row is failed. `rollback` deletes failed rows, `reset` deletes all rows (both per namespace). An unreachable ES aborts without recording a row.
+- **v1 tables:** a table without the `namespace` column raises `LegacySchemaTableError` (exit -203) for every command except `init`, which upgrades it explicitly and keeps `esm_schema_version_v1_backup`. No silent schema changes.
+- Failure categories map to negative exit codes in `exceptions.Errors` (-1xx profile/config, -2xx DB, -3xx schema files, -4xx params, -5xx HTTP); the CLI prints `<ExceptionName>: <message>` via `cli.fail()`.
+- Nothing stores the ES host: request paths in `query_results` are host-relative and `script` is relative to `schema_dir`.
 
 ## Coding style
 
@@ -54,31 +57,31 @@ Key behaviors:
 - Return type hints are required on all functions in `esmigrate/` (`ANN2`); tests are exempt.
 - Private attributes use a leading underscore (`self._ctx`); short-lived locals and loop vars are often underscore-prefixed (`_path`, `_ver`, `_file`). f-strings throughout.
 - Subpackages re-export their public API through `__init__.py` with an explicit `__all__`; import from the package (`from esmigrate.internals import ScriptParser`), not the submodule.
-- Custom exceptions live in `esmigrate/exceptions/__init__.py`: subclass `RuntimeError` (or `ConnectionError`), one-line docstring `"""Raised when ..."""` plus `pass`, kept alphabetical and listed in `__all__`.
+- Custom exceptions live in `esmigrate/exceptions/__init__.py`: subclass `RuntimeError`, one-line docstring `"""Raised when ..."""` plus `pass` (or a small `__init__` when they carry data, like `ElasticsearchHTTPError.response`), kept alphabetical and listed in `__all__`.
 - Comments are sparse (see Working rules).
 
 ## Testing conventions
 
 - Tests mirror the package layout: `tests/test_<subpackage>/test_<module>.py`, plus `tests/test_cli.py`.
-- No live Elasticsearch or DB needed: `requests-mock` (`requests_mock` fixture) for HTTP, `pyfakefs` (`fs` fixture) for files/config, `pytest-mock` (`mocker`) for patching, `monkeypatch` for env vars.
-- Fixtures are usually `scope="module"` with a docstring (`"""pytest fixture for ..."""`). Parametrized tests use an indirect `parameter` fixture (`@pytest.mark.parametrize("parameter", [...], indirect=["parameter"])`).
+- No live Elasticsearch needed for unit tests: `respx` (`respx_mock` fixture) fakes ES, real SQLite files in `tmp_path` back DB tests (in-memory SQLite does not work with async engines), `pyfakefs` (`fs`) for config/schema-file tests that need no DB, `pytest-mock` (`mocker`) only to inject failures, `monkeypatch` for env vars.
+- Async tests are plain `async def` (`asyncio_mode = "auto"`). CLI tests must stay sync `def` because commands call `asyncio.run`; seed/inspect the DB there with `asyncio.run(...)`.
+- Fixtures have a docstring (`"""pytest fixture for ..."""`). Parametrized tests often use an indirect `parameter` fixture (`@pytest.mark.parametrize("parameter", [...], indirect=["parameter"])`).
 - Every test has a one-line docstring of the form `"""Test fails if ..."""`.
-- CLI tests use `click.testing.CliRunner`, patch `esmigrate.cli.ContextConfig.load_for` to return a prebuilt context and `esmigrate.cli.get_db_manager` / `DBManager` methods, then assert `result.exit_code` against `Errors.*`.
+- CLI tests use `click.testing.CliRunner` and a `context` fixture that patches `ContextConfig.load_for` with a profile pointing at a temporary SQLite DB, a temporary `schema_dir` and a fake ES host; they run real commands end to end and assert `result.exit_code` against `Errors.*` plus the stored rows.
 - Git: short imperative commit subjects. Modernization work happens on the `modernize` branch.
 
 ## Modernization decisions
 
-- Keep talking to Elasticsearch over plain HTTP requests (no elasticsearch-py), but move to **async with `httpx`**. The DB layer also goes **async** (SQLAlchemy async engine, `aiosqlite` by default).
+- Plain HTTP to Elasticsearch via **async `httpx`** (no elasticsearch-py); **async SQLAlchemy** for the schema DB. SQLite is built in; PostgreSQL (`elastic-migrate[postgres]`, used by the enterprise deployments) and MySQL/MariaDB (`elastic-migrate[mysql]`) are first-class and must be tested.
 - **Python ≥ 3.11 only**; test matrix is exactly 3.11 and 3.14. Code follows 3.11+ idioms: no `# -*- coding: utf-8 -*-` headers, no explicit `(object)` bases, `X | None` and builtin generics in hints.
 - **uv** is the project manager (`uv sync`, `uv run`, `uv.lock`), with hatchling + hatch-vcs as build backend (#254).
-- Target **Elasticsearch 8**; integration tests run against ES 8 in Docker.
-- Work is tracked through **GitHub issues** (milestone `v2.0.0`, label `modernization`, issues #253–#262; `gh issue list -m v2.0.0`). Reference the issue in commit messages (`Closes #N`). PRs are restricted to collaborators; a PR is opened only once the whole renovation is done.
+- Target **Elasticsearch 8**; integration tests run against ES 8 plus PostgreSQL and MySQL in Docker (#259).
+- Work is tracked through **GitHub issues** (milestone `v2.0.0`, label `modernization`, `gh issue list -m v2.0.0`). Reference the issue in commit messages (`Closes #N`). PRs are restricted to collaborators; a PR is opened only once the whole renovation is done.
 - No automatic dependency updates (pyup removed, no Dependabot).
 
-## Current state (pre-modernization)
+## Current state
 
-Verified on 2026-10-23 with Python 3.14 and latest unpinned deps (SQLAlchemy 2.1, click 8.5, pytest 9):
-- SQLAlchemy 2.x deprecation failures fixed in #256 (2.0-style `DeclarativeBase`, `Mapped`, `select()`); tests pass on 3.11 and 3.14.
-- Legacy tooling: Travis CI, Codecov and pyup removed in #253; setup.py/tox/requirements.txt replaced by `pyproject.toml` + uv in #254; black/flake8 replaced by ruff in #255.
-- Elasticsearch-era assumptions: default host `http://localhost:9200` with no TLS/auth config (ES 8+ enables security by default); test fixtures use mapping types (`PUT twitter/_mapping/doc`), removed in ES 7/8.
-- Versions are compared as integer `(base, sequence)` tuples (`ScriptData.version_key`, `commons.parse_version`); the old string-sort / float-compare bug was fixed in #257.
+- Done on `modernize`: #253 (CI/bot cleanup), #263 (Apache-2.0), #256 (SQLAlchemy 2), #254 (pyproject + uv), #255 (ruff, 3.11+ style), #257 (integer version ordering), #258 (async httpx + async DB, CLI rewrite), #59 (schema namespaces, UTC timestamps, explicit v1 table upgrade).
+- Remaining in milestone `v2.0.0`: #259 (Docker: ES 8 + PostgreSQL + MySQL integration tests), #260 (ES 8 TLS/auth, fixes #109 host validation), #261 (GitHub Actions on 3.11/3.14), #108 (default profile `default`), #64 (stdlib logging), #262 (docs incl. "Migrating from v1").
+- Coverage is 100% with `fail_under = 100`.
+- Test fixture data still uses ES mapping types (`PUT twitter/_mapping/doc`), removed in ES 7/8 — fixed in #259.

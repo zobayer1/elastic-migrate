@@ -99,7 +99,7 @@ branch = true
 
 [tool.coverage.report]
 show_missing = true
-fail_under = 99
+fail_under = 100
 exclude_also = [
     "def __repr__",
     "def __del__",

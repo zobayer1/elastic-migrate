@@ -74,3 +74,13 @@ def test_context_rejects_invalid_elastic_timeout(fs, value):
     fs.create_file(local_config_file_path, contents=f'{{"profiles":[{{"test":{{"elastic_timeout": {value}}}}}]}}')
     with pytest.raises(InvalidConfigurationError, match="elastic_timeout"):
         ContextConfig().load_for("test")
+
+
+def test_context_finds_profile_among_other_profiles(fs):
+    """Test fails if the loader does not skip other profiles and files without the requested profile"""
+    fs.create_file(user_config_file_path, contents="""{"profiles":[{"other":{"schema_ext": ".nope"}}]}""")
+    fs.create_file(
+        local_config_file_path,
+        contents="""{"profiles":[{"other":{"schema_ext": ".nope"}},{"test":{"schema_ext": ".yes"}}]}""",
+    )
+    assert ContextConfig().load_for("test").schema_ext == ".yes"
