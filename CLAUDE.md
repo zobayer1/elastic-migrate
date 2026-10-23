@@ -64,10 +64,11 @@ Key behaviors:
 
 ## Coding style
 
-- Python 3.11+ idioms, enforced by ruff (`E W F I UP B SIM C4 PT RUF ANN2`, line length 120): no encoding headers, no `(object)` bases, `X | None`, builtin generics, `typing.Self`, `collections.abc` types, `raise ... from err` inside `except`.
+- Python 3.11+ idioms, enforced by ruff (`E W F I UP B SIM C4 PT RUF ANN2 TID252`, line length 120): no encoding headers, no `(object)` bases, `X | None`, builtin generics, `typing.Self`, `collections.abc` types, `raise ... from err` inside `except`.
 - Return type hints are required on all functions in `esmigrate/` (`ANN2`); tests are exempt.
 - pyright must report 0 errors: **strict** mode for `esmigrate/` (no unknown types — annotate empty collections, use `dict[str, str]`/`tuple[...]` not bare generics, `cast` JSON values after `isinstance`), standard mode for `tests/`. Narrow optionals with `assert x is not None` / `isinstance` in tests; use `SCHEMA_TABLE` (typed `Table`) instead of `SchemaVersion.__table__`. Use `-> AsyncGenerator[T, None]` (not `AsyncIterator`) for `@asynccontextmanager`.
 - Private attributes use a leading underscore (`self._ctx`); short-lived locals and loop vars are often underscore-prefixed (`_path`, `_ver`, `_file`). f-strings throughout.
+- Imports are always absolute and fully qualified (`from esmigrate.commons.command import Command`), never relative (`from .command import ...`); ruff `TID252` enforces this.
 - Subpackages re-export their public API through `__init__.py` with an explicit `__all__`; import from the package (`from esmigrate.internals import ScriptParser`), not the submodule.
 - Custom exceptions live in `esmigrate/exceptions/__init__.py`: subclass `RuntimeError`, one-line docstring `"""Raised when ..."""` plus `pass` (or a small `__init__` when they carry data, like `ElasticsearchHTTPError.response`), kept alphabetical and listed in `__all__`.
 - Comments are sparse (see Working rules).
