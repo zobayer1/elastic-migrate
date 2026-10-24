@@ -100,6 +100,19 @@ jobs:
       - if: always()
         run: docker compose down --volumes
 
+  docs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          enable-cache: true
+      - run: uv sync --locked --group docs
+      - run: uv run sphinx-build -W --keep-going -b html -d docs/_build/doctrees docs docs/_build/html
+
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
