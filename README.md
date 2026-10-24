@@ -1,84 +1,60 @@
 ElasticMigrate
 ==============
-[![Python](https://img.shields.io/badge/python-3.6%20%7C%203.7%20%7C%203.8%20%7C%203.9-blueviolet?logo=python&logoColor=green)](https://www.python.org)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
+[![CI](https://github.com/zobayer1/elastic-migrate/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/zobayer1/elastic-migrate/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/zobayer1/elastic-migrate/branch/main/graph/badge.svg)](https://codecov.io/gh/zobayer1/elastic-migrate)
+[![Docs](https://github.com/zobayer1/elastic-migrate/actions/workflows/pages.yml/badge.svg?branch=main)](https://zobayer.net/elastic-migrate/)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/zobayer1/elastic-migrate/blob/main/LICENSE)
 
-### Elasticsearch mapping migration tool
-ElasticMigrate is a continuous schema migration tool for Elasticsearch. It is a very simple CLI tool that requires very little to no configuration and provides a convenient way to update your Elasticsearch mappings while keeping in line with your version control system. ElasticMigrate takes a "Fail Fast" approach for failed schema migrations by preventing further migrations until all errors are resolved. It also keeps track of all your previous migrations and provides schema file validation.
+### Schema migrations for Elasticsearch
 
-## Environment
-ElasticMigrate has been tested on the following systems:
+ElasticMigrate (`esmigrate`) applies versioned schema scripts to Elasticsearch and records every run in a SQL schema
+version table, in the spirit of Flyway. Scripts run strictly in order, a failed script stops further migrations until it
+is resolved, concurrent runs are locked out, and every run can leave an audit trail.
 
-| Supported OS | Python Versions     |
-|--------------|---------------------|
-| Windows      | 3.6, 3.7, 3.8, 3.9  |
-| MacOS        | 3.6, 3.7, 3.8, 3.9  |
-| Linux        | 3.6, 3.7, 3.8, 3.9  |
+- Elasticsearch 8 over HTTP(S), with TLS, mutual TLS, basic authentication or API keys.
+- Schema version history in SQLite, PostgreSQL or MySQL, in a dedicated schema and namespace if needed.
+- Predictable exit codes for CI pipelines and scheduled jobs.
 
-## Configuration
-ElasticMigrate can read configuration file `config.json` from three possible locations, in the following order:
+**Documentation:** [zobayer.net/elastic-migrate](https://zobayer.net/elastic-migrate/)
+([quickstart](https://zobayer.net/elastic-migrate/quickstart.html),
+[migrating from v1](https://zobayer.net/elastic-migrate/migrating-from-v1.html))
 
-1. From current working directory.
-2. From user's app config directory. For example, in Linux: `~/.config/elastic-migrate/config.json`.
-3. From environment variable `ESMIGRATE_CONFIG`.
+## Installation
 
-If same profile fields are defined in multiple files, the latter overwrites the previous fields.
+ElasticMigrate requires Python 3.11 or newer. Signed releases are published on
+[GitHub Releases](https://github.com/zobayer1/elastic-migrate/releases); see
+[Downloads](https://zobayer.net/elastic-migrate/downloads.html) for verification steps.
 
-One or more configuration profiles:
+    python -m pip install "./elastic_migrate-2.0.0-py3-none-any.whl[postgres]"
+
+Use the `postgres` or `mysql` extra for those databases; SQLite needs no extra.
+
+## Quickstart
+
+`config.json`:
 
     {
       "profiles": [
         {
-          "my-profile": {
-            "schema_db": "sqlite:///esmigrate.db",
+          "default": {
             "elastic_host": "http://localhost:9200",
-            "elastic_headers": {"Content-Type": "application/json"},
-            "schema_ext": ".esm",
-            "schema_dir": "./schema_dir"
+            "schema_db": "sqlite:///esmigrate.db",
+            "schema_dir": "./migrations"
           }
         }
       ]
     }
 
-**schema_db:** Database connection string, must be compatible with SQLAlchemy connection URL formats.
-**elastic_host:** Elasticsearch host URL.
-**elastic_headers:** (Optional) Additional HTTP headers can be passed to be sent to Elasticsearch.
-**schema_ext:** Schema file extension.
-**schema_dir:** Schema directory path.
+`migrations/V1_0__create_tweets_index.esm`:
 
-Example schema filenames:
+    PUT /tweets
+    {"mappings": {"properties": {"user": {"type": "keyword"}, "message": {"type": "text"}}}}
 
-    V1_1__create_index_mapping_for_twitter.esm
-    V1_2__create_new_doc_in_twitter.esm
-    V1_3__update_existing_doc_in_twitter.esm
-    V1_4__delete_all_doc_in_twitter.esm
-    V1_5__delete_index_twitter.esm
+Run it:
 
-Default regex for parsing filenames:
-
-    V(?P<version>[\\d]+)_(?P<sequence>[\\d]+)__(?P<name>[\\w]+)\\.(?P<extension>[\\w]+)
-
-Regex pattern can be overridden by setting environment variable `SCHEMA_PATTERN`. The pattern must contain capture groups: `version`, `sequence`, `name`, `extension`. Do not include `r` notation with the regex pattern.
-
-## Installation
-
-### From the source:
-
-    unzip elastic-migrate_{tags}.tar.gz
-    cd elastic-migrate_{tags}
-    pip install -e .
-
-### From the wheel package:
-
-    pip install elastic_migrate-{tags}.whl
-
-It is recommended to use a virtualenv.
-
-## Usage
-
-After installation, run `esmigrate --help`, and `esmigrate {command} --help` for help menu.
+    esmigrate init
+    esmigrate upgrade
 
 ## License
 

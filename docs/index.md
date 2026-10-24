@@ -23,3 +23,13 @@ databases
 locking
 logging
 ```
+
+```{toctree}
+:maxdepth: 1
+:caption: Project
+
+migrating-from-v1
+downloads
+changelog
+development
+```

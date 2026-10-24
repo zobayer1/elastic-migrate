@@ -156,3 +156,4 @@ scripts/
 
 # Sphinx build output
 docs/_build/
+docs/_generated/
