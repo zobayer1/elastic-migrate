@@ -6,10 +6,21 @@ from typing import Any, Self
 
 from sqlalchemy import URL, ColumnElement, Connection, Table, delete, insert, inspect, make_url, select, text
 from sqlalchemy.exc import ArgumentError, InvalidRequestError, NoSuchModuleError, SQLAlchemyError
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from esmigrate.commons import DEFAULT_NAMESPACE
 from esmigrate.exceptions import InvalidDBConnectionError, LegacySchemaTableError, SchemaVersionSqlDbError
+from esmigrate.internals.migration_lock import (
+    acquire_mysql_lock,
+    acquire_postgresql_lock,
+    acquire_sqlite_lock,
+    force_release_sqlite_lock,
+    mysql_lock_name,
+    postgresql_lock_key,
+    release_mysql_lock,
+    release_postgresql_lock,
+    release_sqlite_lock,
+)
 from esmigrate.models import SchemaVersion
 from esmigrate.models.base import Base
 
@@ -151,6 +162,48 @@ class DBManager:
             yield cls(engine, namespace, upgraded=legacy, schema=schema)
         finally:
             await base_engine.dispose()
+
+    @asynccontextmanager
+    async def lock(self, timeout: float = 0) -> AsyncGenerator[None, None]:
+        dialect = self._engine.dialect.name
+        if dialect == "sqlite":
+            await acquire_sqlite_lock(self._engine, self.namespace, timeout)
+            try:
+                yield
+            finally:
+                await release_sqlite_lock(self._engine, self.namespace)
+            return
+        if dialect not in ("postgresql", "mysql"):
+            raise InvalidDBConnectionError(f"Migration locks are not supported for {dialect}")
+        async with self._engine.connect() as raw_conn:
+            conn = await raw_conn.execution_options(isolation_level="AUTOCOMMIT")
+            identity = await self._lock_identity(conn)
+            if dialect == "postgresql":
+                key = postgresql_lock_key(identity)
+                await acquire_postgresql_lock(conn, key, timeout)
+                try:
+                    yield
+                finally:
+                    await release_postgresql_lock(conn, key)
+            else:
+                name = mysql_lock_name(identity)
+                await acquire_mysql_lock(conn, name, timeout)
+                try:
+                    yield
+                finally:
+                    await release_mysql_lock(conn, name)
+
+    async def _lock_identity(self, conn: AsyncConnection) -> str:
+        database = self._engine.url.database or ""
+        schema = self.schema
+        if schema is None and conn.dialect.name == "postgresql":
+            schema = str((await conn.execute(text("SELECT current_schema()"))).scalar())
+        return f"{database}:{schema or database}:{self.namespace}"
+
+    async def force_unlock(self) -> bool | None:
+        if self._engine.dialect.name != "sqlite":
+            return None
+        return await force_release_sqlite_lock(self._engine, self.namespace)
 
     async def schema_version_exists(self) -> bool:
         async with self._engine.connect() as conn:

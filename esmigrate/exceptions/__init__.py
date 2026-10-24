@@ -12,6 +12,7 @@ class Errors(IntEnum):
     ERR_DB_CONNECTION_FAILED = 20
     ERR_DB_IN_ERROR_STATE = 21
     ERR_DB_LEGACY_TABLE = 22
+    ERR_DB_LOCKED = 23
 
     # Directory errors
     ERR_INVALID_SCHEMA_DIRECTORY = 30
@@ -86,6 +87,12 @@ class LegacySchemaTableError(RuntimeError):
     pass
 
 
+class MigrationLockedError(RuntimeError):
+    """Raised when another esmigrate run holds the migration lock for the namespace"""
+
+    pass
+
+
 class SchemaVersionSqlDbError(RuntimeError):
     """Raised when schema version entity is invalid or conflicting"""
 
@@ -127,6 +134,7 @@ __all__ = [
     "InvalidSchemaFileError",
     "InvalidSchemaPatternError",
     "LegacySchemaTableError",
+    "MigrationLockedError",
     "SchemaVersionSqlDbError",
     "UserProfileNotFoundError",
 ]
