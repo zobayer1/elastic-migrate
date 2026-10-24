@@ -12,6 +12,11 @@ repos:
     -   id: trailing-whitespace
 -   repo: local
     hooks:
+    -   id: shellcheck
+        name: shellcheck
+        entry: uvx --from shellcheck-py==0.11.0.1 shellcheck
+        language: system
+        types: [shell]
     -   id: pyright
         name: pyright
         entry: uv run pyright

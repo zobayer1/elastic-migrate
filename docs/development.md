@@ -40,6 +40,39 @@ uv run --group docs sphinx-build -W --keep-going -b html -d docs/_build/doctrees
 Pages are MyST Markdown in `docs/`. Every `config.json` example in a `json` code block is loaded by the test suite, so
 examples must stay valid. The site is deployed to GitHub Pages from `main`.
 
+## Releases
+
+Releases are built by GitHub Actions and signed locally by the maintainer; the signing key never leaves the
+maintainer's machine. Builds are reproducible: the build backend is pinned with hashes in `build-constraints.txt`, and
+`SOURCE_DATE_EPOCH` is set to the tagged commit's time.
+
+1. Update `docs/changelog.md` with the version and date, merge to `main` and wait for CI to pass.
+2. Create a signed tag on `main` and push it:
+
+   ```bash
+   git tag -s v2.0.0 -m "ElasticMigrate 2.0.0"
+   git push origin v2.0.0
+   ```
+
+3. The Release workflow runs the tests, builds the wheel and source archive, writes `SHA256SUMS`, attests build
+   provenance and creates a draft release.
+4. Verify, reproduce and sign the draft, first as a dry run:
+
+   ```bash
+   scripts/sign-release.sh --dry-run v2.0.0
+   scripts/sign-release.sh v2.0.0
+   ```
+
+   The script checks that the release is a draft, that the tag is signed by a trusted release key, the checksums and
+   attestations, and that a local rebuild from the tag is byte-identical. It then signs every file, uploads the
+   signatures and publishes the release, which refreshes the Downloads page.
+
+To update the pinned build backend:
+
+```bash
+printf 'hatchling\nhatch-vcs\n' | uv pip compile - --universal --generate-hashes --python-version 3.11 --no-header -o build-constraints.txt
+```
+
 ## Continuous integration
 
 GitHub Actions runs linting, type checking, unit and integration tests on Python 3.11 and 3.14, a package build check
