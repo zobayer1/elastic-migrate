@@ -1,12 +1,13 @@
 import asyncio
+import functools
 import getpass
 import logging
 import socket
 import sys
 import time
-from collections.abc import AsyncGenerator, Coroutine
+from collections.abc import AsyncGenerator, Callable, Coroutine
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
-from typing import Any, NoReturn
+from typing import Any, Concatenate, NoReturn, ParamSpec, TypeVar
 
 import click
 
@@ -36,6 +37,11 @@ from esmigrate.internals.db_manager import LEGACY_BACKUP_TABLE
 from esmigrate.models import SchemaVersion
 
 log = logging.getLogger(__name__)
+
+P = ParamSpec("P")
+R = TypeVar("R")
+PROFILE_KEY = "esmigrate.profile"
+LOG_FILE_KEY = "esmigrate.log_file"
 
 DB_ERRORS: dict[type[Exception], Errors] = {
     InvalidDBConnectionError: Errors.ERR_DB_CONNECTION_FAILED,
@@ -105,45 +111,59 @@ def main(
         configure_file(log_file)
     except InvalidConfigurationError as err:
         sys.exit(fail(err, Errors.ERR_INVALID_CONFIGURATION))
+    ctx.meta[PROFILE_KEY] = profile
+    ctx.meta[LOG_FILE_KEY] = log_file
     if ctx.invoked_subcommand is None:
         click.echo(click.style(title, fg="green"))
-        return
+
+
+def load_config(ctx: click.Context) -> ContextConfig:
+    profile: str = ctx.meta[PROFILE_KEY]
+    log_file: str | None = ctx.meta[LOG_FILE_KEY]
     log.info(f"Loading profile: {profile}...")
     try:
-        ctx.obj = ContextConfig().load_for(profile)
+        cfg = ContextConfig().load_for(profile)
     except UserProfileNotFoundError as err:
         sys.exit(fail(err, Errors.ERR_PROFILE_NOT_FOUND))
     except InvalidConfigurationError as err:
         sys.exit(fail(err, Errors.ERR_INVALID_CONFIGURATION))
-    cfg: ContextConfig = ctx.obj
     try:
         configure_file(log_file or cfg.log_file, cfg.log_rotation, cfg.log_max_bytes, cfg.log_backup_count)
     except InvalidConfigurationError as err:
         sys.exit(fail(err, Errors.ERR_INVALID_CONFIGURATION))
     log.info(f"Profile loaded: {profile}")
     log.debug(
-        f"esmigrate {version} {ctx.invoked_subcommand}: profile={profile} namespace={cfg.schema_namespace} "
+        f"esmigrate {version} {ctx.info_name}: profile={profile} namespace={cfg.schema_namespace} "
         f"elastic_host={cfg.es_host} schema_db={mask_db_url(cfg.schema_db)} schema_db_schema={cfg.schema_db_schema} "
         f"user={getpass.getuser()} "
         f"host={socket.gethostname()}"
     )
-    if not ctx.obj.es_verify_certs:
+    if not cfg.es_verify_certs:
         log.warning(
             "TLS certificate verification is disabled (elastic_verify_certs: false), "
             "connections to Elasticsearch are not authenticated"
         )
+    return cfg
+
+
+def pass_config(command: Callable[Concatenate[ContextConfig, P], R]) -> Callable[P, R]:
+    @functools.wraps(command)
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        return command(load_config(click.get_current_context()), *args, **kwargs)
+
+    return wrapper
 
 
 @main.command(help="Initialize schema version database, upgrading a v1 table if present")
 @click.help_option(help="Show help index and exit")
-@click.pass_obj
+@pass_config
 def init(cfg: ContextConfig) -> None:
     run(run_init(cfg))
 
 
 @main.command(help="Show configuration")
 @click.help_option(help="Show help index and exit")
-@click.pass_obj
+@pass_config
 def config(cfg: ContextConfig) -> None:
     click.echo(f"{cfg!r}")
 
@@ -151,21 +171,21 @@ def config(cfg: ContextConfig) -> None:
 @main.command(help="Upgrade to latest or specified schema version")
 @click.help_option(help="Show help index and exit")
 @click.option("-s", "--schema-version", default="latest", help="Target schema version, e.g. '1.2' or 'latest'")
-@click.pass_obj
+@pass_config
 def upgrade(cfg: ContextConfig, schema_version: str = "latest") -> None:
     run(run_upgrade(cfg, schema_version))
 
 
 @main.command(help="Revert to last successful schema version")
 @click.help_option(help="Show help index and exit")
-@click.pass_obj
+@pass_config
 def rollback(cfg: ContextConfig) -> None:
     run(run_rollback(cfg))
 
 
 @main.command(help="Reset schema versions lookup")
 @click.help_option(help="Show help index and exit")
-@click.pass_obj
+@pass_config
 def reset(cfg: ContextConfig) -> None:
     run(run_reset(cfg))
 
@@ -173,7 +193,7 @@ def reset(cfg: ContextConfig) -> None:
 @main.command(help="Remove a stuck SQLite migration lock left by a crashed run")
 @click.help_option(help="Show help index and exit")
 @click.option("-y", "--yes", is_flag=True, help="Do not ask for confirmation")
-@click.pass_obj
+@pass_config
 def unlock(cfg: ContextConfig, yes: bool = False) -> None:
     if not yes and not click.confirm(f"Remove the migration lock for namespace {cfg.schema_namespace}?"):
         log.info("Unlock cancelled")

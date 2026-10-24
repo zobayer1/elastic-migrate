@@ -228,6 +228,15 @@ def test_cli_audit_masks_database_password(runner, context, tmp_path):
     assert "schema_db=postgresql://migrator:***@db.example.com/esmigrate" in text
 
 
+@pytest.mark.parametrize("command", ["init", "config", "upgrade", "rollback", "reset", "unlock"])
+def test_cli_subcommand_help_works_without_profile(runner, command):
+    """Test fails if `esmigrate <command> --help` needs a loadable profile"""
+    result = runner.invoke(cli.main, ["--profile", "no-such-profile", command, "--help"])
+    assert result.exit_code == 0, result.output
+    assert f"Usage: main {command} [OPTIONS]" in result.output
+    assert "Loading profile" not in result.output
+
+
 def test_cli_config_command_fails_to_load_context_profile(runner):
     """Test fails if `esmigrate --profile {profile} {command}` does not return error"""
     result = runner.invoke(cli.main, ["--profile", "invalid-profile", "config"])
