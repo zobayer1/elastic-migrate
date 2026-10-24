@@ -1,6 +1,6 @@
-# -*- coding: utf-8 -*-
 import json
 import os
+import re
 
 
 def is_valid_json(content: str) -> bool:
@@ -12,20 +12,19 @@ def is_valid_json(content: str) -> bool:
 
 
 def is_valid_ndjson(content: str) -> bool:
-    for line in content.strip().split("\n"):
-        if not is_valid_json(line):
-            return False
-    return True
+    return all(is_valid_json(line) for line in content.strip().split("\n"))
 
 
-def construct_path(base: str, *paths: str) -> str:
-    path_components = [base] + list(paths)
-    return "/".join(p.strip("/") for p in path_components)
-
-
-def parse_file_path(path: str) -> tuple:
+def parse_file_path(path: str) -> tuple[str, str, str]:
     base = os.path.basename(path)
     prefix = path[: -len(base) or None]
     extension = os.path.splitext(base)[1]
     filename = base[: -len(extension) or None]
     return prefix, filename, extension
+
+
+def parse_version(text: str) -> tuple[int, int]:
+    m = re.fullmatch(r"(\d+)(?:\.(\d+))?", text.strip())
+    if m is None:
+        raise ValueError(f"Invalid version: {text}")
+    return int(m.group(1)), int(m.group(2) or 0)

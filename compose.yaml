@@ -1,0 +1,128 @@
+services:
+  elasticsearch:
+    image: elasticsearch:8.19.23
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      action.destructive_requires_name: "false"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - 127.0.0.1:${ESMIGRATE_ES_PORT:-9200}:9200
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=1s'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: esmigrate
+      POSTGRES_PASSWORD: esmigrate
+      POSTGRES_DB: esmigrate
+    ports:
+      - 127.0.0.1:${ESMIGRATE_PG_PORT:-5432}:5432
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U esmigrate -d esmigrate"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  mysql:
+    image: mysql:8.4
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_0900_ai_ci
+    environment:
+      MYSQL_DATABASE: esmigrate
+      MYSQL_USER: esmigrate
+      MYSQL_PASSWORD: esmigrate
+      MYSQL_ROOT_PASSWORD: esmigrate
+    ports:
+      - 127.0.0.1:${ESMIGRATE_MYSQL_PORT:-3306}:3306
+    tmpfs:
+      - /var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uesmigrate -pesmigrate --silent"]
+      interval: 2s
+      timeout: 5s
+      retries: 60
+
+  es-certs:
+    image: elasticsearch:8.19.23
+    user: "0"
+    volumes:
+      - ./.certs:/certs
+    command:
+      - bash
+      - -c
+      - |
+        set -e
+        cd /usr/share/elasticsearch
+        if [ ! -f /certs/ca/ca.crt ]; then
+          bin/elasticsearch-certutil ca --silent --pem --out /tmp/ca.zip
+          unzip -qo /tmp/ca.zip -d /certs
+          printf '%s\n' \
+            'instances:' \
+            '  - {name: es-server, dns: [localhost], ip: [127.0.0.1]}' \
+            '  - {name: migrator}' > /tmp/instances.yml
+          bin/elasticsearch-certutil cert --silent --pem --in /tmp/instances.yml \
+            --ca-cert /certs/ca/ca.crt --ca-key /certs/ca/ca.key --out /tmp/certs.zip
+          unzip -qo /tmp/certs.zip -d /certs
+        fi
+        chmod -R a+rX /certs
+
+  elasticsearch-secure:
+    image: elasticsearch:8.19.23
+    depends_on:
+      es-certs:
+        condition: service_completed_successfully
+    environment: &secure-es-environment
+      discovery.type: single-node
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+      ELASTIC_PASSWORD: esmigrate-secret
+      xpack.security.enabled: "true"
+      xpack.security.http.ssl.enabled: "true"
+      xpack.security.http.ssl.key: certs/es-server/es-server.key
+      xpack.security.http.ssl.certificate: certs/es-server/es-server.crt
+      xpack.security.http.ssl.certificate_authorities: certs/ca/ca.crt
+      action.destructive_requires_name: "false"
+    volumes:
+      - ./.certs:/usr/share/elasticsearch/config/certs:ro
+    ports:
+      - 127.0.0.1:${ESMIGRATE_ES_SECURE_PORT:-9201}:9200
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          curl -fs --cacert config/certs/ca/ca.crt -u elastic:esmigrate-secret
+          'https://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=1s'
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 30s
+
+  elasticsearch-mtls:
+    image: elasticsearch:8.19.23
+    depends_on:
+      es-certs:
+        condition: service_completed_successfully
+    environment:
+      <<: *secure-es-environment
+      xpack.security.http.ssl.client_authentication: required
+    volumes:
+      - ./.certs:/usr/share/elasticsearch/config/certs:ro
+    ports:
+      - 127.0.0.1:${ESMIGRATE_ES_MTLS_PORT:-9202}:9200
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          curl -fs --cacert config/certs/ca/ca.crt -u elastic:esmigrate-secret
+          --cert config/certs/migrator/migrator.crt --key config/certs/migrator/migrator.key
+          'https://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=1s'
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 30s

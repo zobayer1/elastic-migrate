@@ -1,29 +1,25 @@
-# -*- coding: utf-8 -*-
 import os
-import sys
+from importlib.metadata import version as get_version
 
-if sys.version_info < (3, 8):  # pragma: no cover
-    # noinspection PyUnresolvedReferences
-    from importlib_metadata import version as get_version
-else:  # pragma: no cover
-    from importlib.metadata import version as get_version
+from platformdirs import user_config_dir
 
-import appdirs
-
-from esmigrate.commons.script_data import ScriptData
 from esmigrate.commons.command import Command
 from esmigrate.commons.formatters import query_results_string
 from esmigrate.commons.helpers import (
     is_valid_json,
     is_valid_ndjson,
     parse_file_path,
+    parse_version,
 )
+from esmigrate.commons.script_data import ScriptData
 
 http_verbs = ["GET", "PUT", "POST", "DELETE"]
 JSON_HEADER = {"Content-Type": "application/json"}
 NDJSON_HEADER = {"Content-Type": "application/x-ndjson"}
 
 appname = "elastic-migrate"
+DEFAULT_NAMESPACE = "default"
+DEFAULT_PROFILE = "default"
 version = get_version(appname)
 
 title = f"""
@@ -37,21 +33,24 @@ title = f"""
 """
 
 local_config_file_path = os.path.join(os.getcwd(), "config.json")
-user_config_file_path = os.path.join(appdirs.user_config_dir(appname=appname), "config.json")
+user_config_file_path = os.path.join(user_config_dir(appname=appname), "config.json")
 
 __all__ = [
-    "http_verbs",
+    "DEFAULT_NAMESPACE",
+    "DEFAULT_PROFILE",
     "JSON_HEADER",
     "NDJSON_HEADER",
-    "appname",
-    "version",
-    "title",
-    "local_config_file_path",
-    "user_config_file_path",
     "Command",
     "ScriptData",
+    "appname",
+    "http_verbs",
     "is_valid_json",
     "is_valid_ndjson",
+    "local_config_file_path",
     "parse_file_path",
+    "parse_version",
     "query_results_string",
+    "title",
+    "user_config_file_path",
+    "version",
 ]

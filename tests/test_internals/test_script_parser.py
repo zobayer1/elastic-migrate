@@ -1,13 +1,10 @@
-# -*- coding: utf-8 -*-
 import pytest
 
-from esmigrate.contexts import ContextConfig
 from esmigrate.exceptions import (
-    InvalidCommandScriptError,
-    ContextObjectNotSetError,
-    InvalidCommandVerbError,
-    InvalidCommandPathError,
     InvalidCommandBodyError,
+    InvalidCommandPathError,
+    InvalidCommandScriptError,
+    InvalidCommandVerbError,
 )
 from esmigrate.internals import ScriptParser
 
@@ -15,12 +12,10 @@ from esmigrate.internals import ScriptParser
 @pytest.fixture(scope="module")
 def script_parser():
     """pytest fixture for providing default ScriptParser object"""
-    _parser = ScriptParser()
-    _parser.init_ctx(ContextConfig())
-    return _parser
+    return ScriptParser()
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def parameter(request):
     """pytest fixture for allowing indirect pytest.mark.parametrize"""
     return request.param
@@ -48,7 +43,7 @@ def test_script_parser_raises_invalid_command_verb(script_parser, parameter):
 
 @pytest.mark.parametrize(
     "parameter",
-    ["GET http://localhost:9200/twitter?size=100&text=this is me&page=1"],
+    ["GET http://localhost:9200/twitter?size=100&text=this is me&page=1", "GET //es.example.com/twitter"],
     indirect=["parameter"],
 )
 def test_script_parser_raises_invalid_command_path(script_parser, parameter):
@@ -88,12 +83,43 @@ def test_script_parser_raises_invalid_command_body(script_parser, parameter):
 )
 def test_script_parser_with_single_command(script_parser, parameter):
     """Test fails if get_commands cannot process script with single valid command"""
-    commands = [command for command in script_parser.get_commands(parameter)]
+    commands = list(script_parser.get_commands(parameter))
     assert len(commands) == 1
 
 
-def test_script_parser_raises_context_object_not_set_error():
-    """Test fails if get_commands does not raise error when called without a context"""
-    with pytest.raises(ContextObjectNotSetError):
-        for _ in ScriptParser().get_commands(""):
-            pass
+@pytest.mark.parametrize("parameter", ["", "  \n\t\n  "], indirect=["parameter"])
+def test_script_parser_raises_invalid_command_script_for_empty_script(script_parser, parameter):
+    """Test fails if get_commands does not raise a script error for empty scripts"""
+    with pytest.raises(InvalidCommandScriptError, match="does not contain any command"):
+        list(script_parser.get_commands(parameter))
+
+
+@pytest.mark.parametrize(
+    ("parameter", "expected"),
+    [
+        ("GET twitter/_search", "/twitter/_search"),
+        ("GET /twitter/_search", "/twitter/_search"),
+        ("GET twitter/", "/twitter/"),
+        ("PUT /twitter/_doc/1?refresh=true", "/twitter/_doc/1?refresh=true"),
+    ],
+    indirect=["parameter"],
+)
+def test_script_parser_emits_host_relative_paths(script_parser, parameter, expected):
+    """Test fails if get_commands does not produce a single leading-slash path without host"""
+    assert next(script_parser.get_commands(parameter)).path == expected
+
+
+@pytest.mark.parametrize(
+    "parameter",
+    [
+        'POST /_bulk\n{"delete": {"_id": "1"}}',
+        'POST /_bulk\n{"index": {}}\n{"user": "me"}',
+        'GET /t/_search\n{"query": {}}',
+    ],
+    indirect=["parameter"],
+)
+def test_script_parser_terminates_bodies_with_newline(script_parser, parameter):
+    """Test fails if request bodies are not newline-terminated as required by the elasticsearch bulk API"""
+    body = next(script_parser.get_commands(parameter)).body
+    assert body is not None
+    assert body.endswith("}\n")

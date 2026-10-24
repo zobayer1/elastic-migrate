@@ -1,8 +1,7 @@
-# -*- coding: utf-8 -*-
 import pytest
 
 from esmigrate.contexts import ContextConfig
-from esmigrate.exceptions import ContextObjectNotSetError, InvalidSchemaPatternError, InvalidSchemaFileError
+from esmigrate.exceptions import ContextObjectNotSetError, InvalidSchemaFileError, InvalidSchemaPatternError
 from esmigrate.internals import GlobLoader
 
 
@@ -22,20 +21,20 @@ def test_scan_dir_raises_not_a_directory_error(glob_loader):
 
 def test_scan_dir_parses_valid_file_names(glob_loader, fs):
     """Test fails if scan_dir cannot process a valid schema directory"""
-    fs.create_file("./schema_dir/V1_1__create_index_mapping_for_twitter.exm")
+    fs.create_file("./schema_dir/V1_1__create_index_mapping_for_twitter.esm")
     assert len(glob_loader.scan_dir("./schema_dir")) > 0
 
 
 def test_scan_dir_raises_invalid_schema_file_error(glob_loader, fs):
     """Test fails if scan_dir dies not raise error when schema file cannot be read"""
-    fs.create_file("./schema_dir/V1_1__create_index_mapping_for_twitter.exm", contents="dummy", st_size=10000)
+    fs.create_file("./schema_dir/V1_1__create_index_mapping_for_twitter.esm", contents="dummy", st_size=10000)
     with pytest.raises(InvalidSchemaFileError):
         glob_loader.scan_dir("./schema_dir")
 
 
 def test_scan_dir_raises_invalid_schema_pattern_error(glob_loader, fs):
     """Test fails if scan_dir does not raise error for invalid file names"""
-    fs.create_file("./schema_dir/V1_1_create_index_mapping_for_twitter.exm")
+    fs.create_file("./schema_dir/V1_1_create_index_mapping_for_twitter.esm")
     with pytest.raises(InvalidSchemaPatternError):
         glob_loader.scan_dir("./schema_dir")
 
@@ -44,3 +43,53 @@ def test_scan_dir_raises_context_object_not_set_error():
     """Test fails if scan_dir does not raise error when called without a context"""
     with pytest.raises(ContextObjectNotSetError):
         GlobLoader().scan_dir(".")
+
+
+def test_scan_dir_sorts_versions_numerically(glob_loader, fs):
+    """Test fails if scan_dir sorts versions or sequences of 10 and above lexicographically"""
+    for name in ["V10_1__d.esm", "V1_10__b.esm", "V9_1__c.esm", "V1_9__a.esm", "V1_2__x.esm"]:
+        fs.create_file(f"./schema_dir/{name}")
+    versions = [item.version for item in glob_loader.scan_dir("./schema_dir")]
+    assert versions == ["1.2", "1.9", "1.10", "9.1", "10.1"]
+
+
+def test_scan_dir_stores_paths_relative_to_schema_dir(glob_loader, fs):
+    """Test fails if scan_dir keeps the schema directory prefix in script paths"""
+    fs.create_file("/srv/project/schema_dir/V1_1__create_index.esm")
+    assert [item.path for item in glob_loader.scan_dir("/srv/project/schema_dir")] == ["V1_1__create_index.esm"]
+
+
+@pytest.mark.parametrize("name", ["V2147483648_1__too_big.esm", "V1_2147483648__too_big.esm"])
+def test_scan_dir_rejects_versions_exceeding_integer_columns(glob_loader, fs, name):
+    """Test fails if version parts larger than a 32-bit INTEGER column are accepted"""
+    fs.create_file(f"./schema_dir/{name}")
+    with pytest.raises(InvalidSchemaPatternError, match="Version number too large"):
+        glob_loader.scan_dir("./schema_dir")
+
+
+def test_scan_dir_accepts_largest_version(glob_loader, fs):
+    """Test fails if the largest 32-bit version and sequence are rejected"""
+    fs.create_file("./schema_dir/V2147483647_2147483647__max.esm")
+    assert glob_loader.scan_dir("./schema_dir")[0].version_key == (2147483647, 2147483647)
+
+
+def test_scan_dir_reads_utf8_scripts(glob_loader, fs):
+    """Test fails if schema files are not read as UTF-8 regardless of the locale"""
+    fs.create_file("./schema_dir/V1_0__unicode.esm", contents='PUT twitter/_doc/1\n{"user": "zoë"}', encoding="utf-8")
+    assert "zoë" in glob_loader.scan_dir("./schema_dir")[0].content
+
+
+def test_scan_dir_uses_esm_extension_by_default(glob_loader, fs):
+    """Test fails if the default extension is not .esm or legacy .exm files are picked up by default"""
+    fs.create_file("./schema_dir/V1_0__new.esm")
+    fs.create_file("./schema_dir/V1_1__legacy.exm")
+    assert [item.description for item in glob_loader.scan_dir("./schema_dir")] == ["new.esm"]
+
+
+def test_scan_dir_supports_configured_legacy_extension(fs):
+    """Test fails if projects cannot keep their v1 .exm files by setting schema_ext"""
+    context = ContextConfig()
+    context.schema_ext = ".exm"
+    fs.create_file("./schema_dir/V1_0__legacy.exm")
+    fs.create_file("./schema_dir/V1_1__new.esm")
+    assert [item.description for item in GlobLoader(context).scan_dir("./schema_dir")] == ["legacy.exm"]

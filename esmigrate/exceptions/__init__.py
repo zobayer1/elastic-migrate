@@ -1,26 +1,30 @@
-# -*- coding: utf-8 -*-
-from requests.exceptions import ConnectionError
+from enum import IntEnum
+
+from httpx import Response
 
 
-class Errors(object):
+class Errors(IntEnum):
     # Profile errors
-    ERR_PROFILE_NOT_FOUND = -101
+    ERR_PROFILE_NOT_FOUND = 10
+    ERR_INVALID_CONFIGURATION = 11
 
     # Database errors
-    ERR_DB_CONNECTION_FAILED = -201
-    ERR_DB_IN_ERROR_STATE = -202
+    ERR_DB_CONNECTION_FAILED = 20
+    ERR_DB_IN_ERROR_STATE = 21
+    ERR_DB_LEGACY_TABLE = 22
+    ERR_DB_LOCKED = 23
 
     # Directory errors
-    ERR_INVALID_SCHEMA_DIRECTORY = -301
-    ERR_INVALID_SCHEMA_FILE = -302
-    ERR_INVALID_SCHEMA_COMMAND = -303
+    ERR_INVALID_SCHEMA_DIRECTORY = 30
+    ERR_INVALID_SCHEMA_FILE = 31
+    ERR_INVALID_SCHEMA_COMMAND = 32
 
     # Parameter errors
-    ERR_INVALID_SCMVER = -401
+    ERR_INVALID_SCMVER = 40
 
     # HTTP errors
-    ERR_ES_HTTPERROR = -501
-    ERR_ES_CONNERROR = -502
+    ERR_ES_HTTPERROR = 50
+    ERR_ES_CONNERROR = 51
 
 
 class ContextObjectNotSetError(RuntimeError):
@@ -53,6 +57,12 @@ class InvalidCommandVerbError(RuntimeError):
     pass
 
 
+class InvalidConfigurationError(RuntimeError):
+    """Raised when a profile field has an invalid value"""
+
+    pass
+
+
 class InvalidDBConnectionError(RuntimeError):
     """Raised when database connection URL is invalid"""
 
@@ -71,6 +81,18 @@ class InvalidSchemaPatternError(RuntimeError):
     pass
 
 
+class LegacySchemaTableError(RuntimeError):
+    """Raised when the schema version table uses the v1 layout and must be upgraded with `esmigrate init`"""
+
+    pass
+
+
+class MigrationLockedError(RuntimeError):
+    """Raised when another esmigrate run holds the migration lock for the namespace"""
+
+    pass
+
+
 class SchemaVersionSqlDbError(RuntimeError):
     """Raised when schema version entity is invalid or conflicting"""
 
@@ -83,23 +105,36 @@ class UserProfileNotFoundError(RuntimeError):
     pass
 
 
-class ElasticsearchConnError(ConnectionError):
-    """Raised when connection error occurs from elasticsearch server"""
+class ElasticsearchConnError(RuntimeError):
+    """Raised when elasticsearch cannot be reached or does not respond in time"""
 
     pass
+
+
+class ElasticsearchHTTPError(RuntimeError):
+    """Raised when elasticsearch responds with a non-success HTTP status"""
+
+    def __init__(self, response: Response) -> None:
+        request = response.request
+        super().__init__(f"{response.status_code} {response.reason_phrase} for {request.method} {request.url.path}")
+        self.response = response
 
 
 __all__ = [
     "ContextObjectNotSetError",
     "ElasticsearchConnError",
+    "ElasticsearchHTTPError",
+    "Errors",
     "InvalidCommandBodyError",
     "InvalidCommandPathError",
     "InvalidCommandScriptError",
     "InvalidCommandVerbError",
+    "InvalidConfigurationError",
     "InvalidDBConnectionError",
     "InvalidSchemaFileError",
     "InvalidSchemaPatternError",
+    "LegacySchemaTableError",
+    "MigrationLockedError",
     "SchemaVersionSqlDbError",
     "UserProfileNotFoundError",
-    "Errors",
 ]

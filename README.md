@@ -1,12 +1,9 @@
 ElasticMigrate
 ==============
 [![Python](https://img.shields.io/badge/python-3.6%20%7C%203.7%20%7C%203.8%20%7C%203.9-blueviolet?logo=python&logoColor=green)](https://www.python.org)
-[![Build Status](https://travis-ci.org/zobayer1/elastic-migrate.svg?branch=main)](https://travis-ci.org/zobayer1/elastic-migrate)
-[![codecov](https://codecov.io/gh/zobayer1/elastic-migrate/branch/main/graph/badge.svg)](https://codecov.io/gh/zobayer1/elastic-migrate)
-[![Updates](https://pyup.io/repos/github/zobayer1/elastic-migrate/shield.svg)](https://pyup.io/repos/github/zobayer1/elastic-migrate)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/zobayer1/elastic-migrate/blob/main/LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/zobayer1/elastic-migrate/blob/main/LICENSE)
 
 ### Elasticsearch mapping migration tool
 ElasticMigrate is a continuous schema migration tool for Elasticsearch. It is a very simple CLI tool that requires very little to no configuration and provides a convenient way to update your Elasticsearch mappings while keeping in line with your version control system. ElasticMigrate takes a "Fail Fast" approach for failed schema migrations by preventing further migrations until all errors are resolved. It also keeps track of all your previous migrations and provides schema file validation.
@@ -38,7 +35,7 @@ One or more configuration profiles:
             "schema_db": "sqlite:///esmigrate.db",
             "elastic_host": "http://localhost:9200",
             "elastic_headers": {"Content-Type": "application/json"},
-            "schema_ext": ".exm",
+            "schema_ext": ".esm",
             "schema_dir": "./schema_dir"
           }
         }
@@ -53,11 +50,11 @@ One or more configuration profiles:
 
 Example schema filenames:
 
-    V1_1__create_index_mapping_for_twitter.exm
-    V1_2__create_new_doc_in_twitter.exm
-    V1_3__update_existing_doc_in_twitter.exm
-    V1_4__delete_all_doc_in_twitter.exm
-    V1_5__delete_index_twitter.exm
+    V1_1__create_index_mapping_for_twitter.esm
+    V1_2__create_new_doc_in_twitter.esm
+    V1_3__update_existing_doc_in_twitter.esm
+    V1_4__delete_all_doc_in_twitter.esm
+    V1_5__delete_index_twitter.esm
 
 Default regex for parsing filenames:
 
@@ -85,4 +82,4 @@ After installation, run `esmigrate --help`, and `esmigrate {command} --help` for
 
 ## License
 
-See [LICENSE](LICENSE)
+Licensed under the [Apache License 2.0](LICENSE). Releases up to `v1.0.0-alpha.1` were published under the MIT License.

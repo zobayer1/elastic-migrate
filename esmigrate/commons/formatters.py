@@ -1,9 +1,8 @@
-# -*- coding: utf-8 -*-
 import json
 
-from requests import Response
+from httpx import Response
 
-from .command import Command
+from esmigrate.commons.command import Command
 
 
 def query_results_string(command: Command, response: Response) -> str:

@@ -1,29 +1,124 @@
 [build-system]
-requires = ["setuptools>=42", "wheel", "setuptools_scm[toml]>=3.4"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling>=1.27", "hatch-vcs>=0.4"]
+build-backend = "hatchling.build"
 
-[tool.setuptools_scm]
-write_to = "esmigrate/version.py"
-write_to_template = "# -*- coding: utf-8 -*-\n\n__version__ = '{version}'\n"
-version_scheme = "release-branch-semver"
+[project]
+name = "elastic-migrate"
+dynamic = ["version"]
+description = "Elasticsearch migration tool."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+authors = [{ name = "Zobayer Hasan", email = "zobayer1@gmail.com" }]
+keywords = ["python", "elastic", "elasticsearch", "migrate", "migration"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Database",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "aiosqlite>=0.21",
+    "click>=8.1",
+    "httpx>=0.28",
+    "platformdirs>=4.0",
+    "sqlalchemy[asyncio]>=2.0",
+]
 
-[tool.check-manifest]
-ignore = ["esmigrate/version.py"]
+[project.urls]
+Homepage = "https://github.com/zobayer1/elastic-migrate"
+Issues = "https://github.com/zobayer1/elastic-migrate/issues"
 
-[tool.black]
+[project.scripts]
+esmigrate = "esmigrate.cli:main"
+
+[project.optional-dependencies]
+postgres = [
+    "asyncpg>=0.30",
+]
+mysql = [
+    "asyncmy>=0.2.17",
+]
+
+[dependency-groups]
+dev = [
+    "asyncmy>=0.2.17",
+    "asyncpg>=0.30",
+    "pre-commit>=4.0",
+    "pyfakefs>=5.7",
+    "pyright>=1.1.414",
+    "pytest>=8.3",
+    "pytest-asyncio>=1.0",
+    "pytest-cov>=6.0",
+    "pytest-mock>=3.14",
+    "respx>=0.22",
+    "ruff>=0.17.2",
+    "trustme>=1.2",
+]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.targets.sdist]
+include = ["esmigrate", "tests", "README.md", "LICENSE"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["esmigrate"]
+
+[tool.ruff]
 line-length = 120
-include = '\.pyi?$'
-exclude = '''
-/(
-    \.eggs
-  | \.git
-  | \.pytest_cache
-  | \.tox
-  | \.venv
-  | schema_dir
-  | scripts
-  | build
-  | dist
-  | setup.py
-)/
-'''
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B", "SIM", "C4", "PT", "RUF", "ANN2", "TID252"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ANN"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.isort]
+known-first-party = ["esmigrate"]
+
+[tool.pyright]
+include = ["esmigrate", "tests"]
+pythonVersion = "3.11"
+venvPath = "."
+venv = ".venv"
+typeCheckingMode = "standard"
+strict = ["esmigrate"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = ["-m", "not integration"]
+markers = ["integration: needs the docker compose services (run with `pytest -m integration`)"]
+filterwarnings = [
+    "error::DeprecationWarning",
+    "error::PendingDeprecationWarning",
+    "error::ResourceWarning",
+    "error::pytest.PytestUnraisableExceptionWarning",
+]
+
+[tool.coverage.run]
+source = ["esmigrate"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 100
+exclude_also = [
+    "def __repr__",
+    "def __del__",
+]

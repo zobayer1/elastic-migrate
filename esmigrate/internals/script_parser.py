@@ -1,47 +1,37 @@
-# -*- coding: utf-8 -*-
 import re
+from collections.abc import Iterator
 from urllib.parse import urlparse
 
 from esmigrate.commons import (
-    Command,
-    is_valid_json,
     JSON_HEADER,
-    is_valid_ndjson,
     NDJSON_HEADER,
+    Command,
     http_verbs,
+    is_valid_json,
+    is_valid_ndjson,
 )
-from esmigrate.commons.helpers import construct_path
-from esmigrate.contexts import ContextConfig
 from esmigrate.exceptions import (
+    InvalidCommandBodyError,
+    InvalidCommandPathError,
     InvalidCommandScriptError,
     InvalidCommandVerbError,
-    ContextObjectNotSetError,
-    InvalidCommandPathError,
-    InvalidCommandBodyError,
 )
 
 
-class ScriptParser(object):
-    def __init__(self, ctx: ContextConfig = None):
-        self._ctx = ctx
+class ScriptParser:
+    def __init__(self) -> None:
         self._pattern = re.compile(rf"^({'|'.join(http_verbs)})\s+(.*)$", re.M | re.I)
 
-    def init_ctx(self, ctx: ContextConfig):
-        self._ctx = ctx
-
-    def get_commands(self, script_text: str):
-        if self._ctx is None:
-            raise ContextObjectNotSetError("Context was not set")
-
+    def get_commands(self, script_text: str) -> Iterator[Command]:
         stripped_lines = [line.strip() for line in script_text.split("\n") if len(line.strip()) > 0]
-        occurs = [idx for idx, line in enumerate(stripped_lines) if self._pattern.match(line)]
-        if len(occurs) == 0 or occurs[0] != 0:
+        if not stripped_lines:
+            raise InvalidCommandScriptError("Script does not contain any command")
+        matches = [(idx, m) for idx, line in enumerate(stripped_lines) if (m := self._pattern.match(line))]
+        if not matches or matches[0][0] != 0:
             raise InvalidCommandScriptError(f"Unexpected command found: {stripped_lines[0].split()[0]}")
 
-        occurs.append(len(stripped_lines))
-        for idx in range(len(occurs) - 1):
-            cmdline = occurs[idx]
-            m = self._pattern.match(stripped_lines[cmdline])
+        occurs = [idx for idx, _ in matches] + [len(stripped_lines)]
+        for idx, (cmdline, m) in enumerate(matches):
             verb, path = m.group(1).strip(), m.group(2).strip()
 
             if verb not in http_verbs:
@@ -51,13 +41,13 @@ class ScriptParser(object):
             if parsed_path.scheme or parsed_path.netloc:
                 raise InvalidCommandPathError(f"Unexpected URL scheme found: {path}")
 
-            path = construct_path(self._ctx.es_host, path)
+            path = "/" + path.lstrip("/")
             cmdnext = occurs[idx + 1]
 
             if cmdline + 1 >= cmdnext:
                 body, head = None, None
             else:
-                body = "\n".join(stripped_lines[cmdline + 1 : cmdnext])
+                body = "\n".join(stripped_lines[cmdline + 1 : cmdnext]) + "\n"
                 if is_valid_json(body):
                     head = JSON_HEADER
                 elif is_valid_ndjson(body):
