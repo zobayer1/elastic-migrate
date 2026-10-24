@@ -81,7 +81,7 @@ def start_upgrade(tmp_path, env):
 
 def test_lock_held_by_another_process_blocks_upgrade(esmigrate, schema_dir, es, es_index, stored_rows, lock_holder):
     """Test fails if upgrade runs while another process holds the lock, or stays blocked after release"""
-    write_schemas(schema_dir, es_index, {"V1_0__create.exm": CREATE_INDEX})
+    write_schemas(schema_dir, es_index, {"V1_0__create.esm": CREATE_INDEX})
     holder = lock_holder()
     result = esmigrate("upgrade")
     assert result.exit_code == Errors.ERR_DB_LOCKED, result.output
@@ -97,7 +97,7 @@ def test_concurrent_upgrades_apply_each_script_once(
     profile, schema_dir, es, es_index, stored_rows, lock_holder, tmp_path, isolated_env
 ):
     """Test fails if two upgrades racing for the lock both apply scripts or either one fails"""
-    write_schemas(schema_dir, es_index, {"V1_0__create.exm": CREATE_INDEX, "V1_1__document.exm": CREATE_DOCUMENT})
+    write_schemas(schema_dir, es_index, {"V1_0__create.esm": CREATE_INDEX, "V1_1__document.esm": CREATE_DOCUMENT})
     profile(lock_timeout=60)
     holder = lock_holder()
     runs = [start_upgrade(tmp_path, isolated_env) for _ in range(2)]
@@ -112,7 +112,7 @@ def test_concurrent_upgrades_apply_each_script_once(
 
 def test_lock_of_killed_process_does_not_block(esmigrate, schema_dir, es, es_index, lock_holder):
     """Test fails if a lock left by a killed process blocks later runs"""
-    write_schemas(schema_dir, es_index, {"V1_0__create.exm": CREATE_INDEX})
+    write_schemas(schema_dir, es_index, {"V1_0__create.esm": CREATE_INDEX})
     holder = lock_holder()
     holder.send_signal(signal.SIGKILL)
     holder.wait()
@@ -122,7 +122,7 @@ def test_lock_of_killed_process_does_not_block(esmigrate, schema_dir, es, es_ind
 
 def test_audit_log_records_lock(esmigrate, profile, schema_dir, es_index, tmp_path):
     """Test fails if a real run does not record lock acquisition and release"""
-    write_schemas(schema_dir, es_index, {"V1_0__create.exm": CREATE_INDEX})
+    write_schemas(schema_dir, es_index, {"V1_0__create.esm": CREATE_INDEX})
     profile(log_file=str(tmp_path / "audit.log"))
     assert esmigrate("upgrade").exit_code == 0
     text = (tmp_path / "audit.log").read_text()

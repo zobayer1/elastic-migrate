@@ -38,9 +38,9 @@ LEGACY_ROWS = [
         1,
         0,
         1,
-        "a.exm",
+        "a.esm",
         "NOSQL",
-        "/srv/schema/V1_0__a.exm",
+        "/srv/schema/V1_0__a.esm",
         b"x",
         "ops",
         "2021-06-16 09:57:22.123456",
@@ -48,7 +48,7 @@ LEGACY_ROWS = [
         1,
         "[]",
     ),
-    ("1.1", 1, 1, 2, "b.exm", "NOSQL", "C:\\schema\\V1_1__b.exm", b"y", "ops", "2021-06-17 10:00:00", 2, 0, "[]"),
+    ("1.1", 1, 1, 2, "b.esm", "NOSQL", "C:\\schema\\V1_1__b.esm", b"y", "ops", "2021-06-17 10:00:00", 2, 0, "[]"),
 ]
 
 
@@ -323,8 +323,8 @@ async def test_db_manager_upgrades_legacy_table(tmp_path):
         assert db.upgraded_legacy_table
         rows = await db.find_all_schema()
     assert [(row.namespace, row.version, row.script, row.success) for row in rows] == [
-        ("default", "1.0", "V1_0__a.exm", True),
-        ("default", "1.1", "V1_1__b.exm", False),
+        ("default", "1.0", "V1_0__a.esm", True),
+        ("default", "1.1", "V1_1__b.esm", False),
     ]
     installed_on = rows[0].installed_on
     assert installed_on is not None

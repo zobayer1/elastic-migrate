@@ -137,7 +137,7 @@ def test_cli_rejects_verbose_with_quiet(runner, context):
 
 def test_cli_verbose_logs_each_request(runner, context, schema_dir, respx_mock):
     """Test fails if --verbose does not log verb, path, sizes, status and duration without the request body"""
-    write_schema(schema_dir, "V1_0__create_twitter.exm", 'PUT twitter\n{"secret": "do-not-log"}')
+    write_schema(schema_dir, "V1_0__create_twitter.esm", 'PUT twitter\n{"secret": "do-not-log"}')
     respx_mock.put(f"{ES_HOST}/twitter").respond(200, json={"acknowledged": True})
     verbose = runner.invoke(cli.main, ["--verbose", "--profile", "test", "upgrade"])
     assert verbose.exit_code == 0, verbose.output
@@ -145,16 +145,16 @@ def test_cli_verbose_logs_each_request(runner, context, schema_dir, respx_mock):
     assert "-> 200 (" in verbose.stderr
     assert " ms" in verbose.stderr
     assert "do-not-log" not in verbose.output
-    write_schema(schema_dir, "V1_1__read_twitter.exm", "GET twitter")
+    write_schema(schema_dir, "V1_1__read_twitter.esm", "GET twitter")
     respx_mock.get(f"{ES_HOST}/twitter").respond(200)
     default = invoke(runner, "upgrade")
-    assert "Processing schema read_twitter.exm" in default.output
+    assert "Processing schema read_twitter.esm" in default.output
     assert "-> 200" not in default.output
 
 
 def test_cli_quiet_shows_only_errors(runner, context, schema_dir, respx_mock):
     """Test fails if --quiet prints status messages or hides errors"""
-    write_schema(schema_dir, "V1_0__create_twitter.exm")
+    write_schema(schema_dir, "V1_0__create_twitter.esm")
     respx_mock.get(f"{ES_HOST}/twitter").mock(side_effect=httpx.ConnectError("refused"))
     result = runner.invoke(cli.main, ["--quiet", "--profile", "test", "upgrade"])
     assert result.exit_code == Errors.ERR_ES_CONNERROR
@@ -165,14 +165,14 @@ def test_cli_quiet_shows_only_errors(runner, context, schema_dir, respx_mock):
 
 def test_cli_log_file_records_audit_trail(runner, context, schema_dir, respx_mock, tmp_path):
     """Test fails if --log-file does not record run start, scripts, requests and exit code even with --quiet"""
-    write_schema(schema_dir, "V1_0__create_twitter.exm")
+    write_schema(schema_dir, "V1_0__create_twitter.esm")
     respx_mock.get(f"{ES_HOST}/twitter").respond(200)
     log_file = tmp_path / "esmigrate.log"
     result = runner.invoke(cli.main, ["-q", "--log-file", str(log_file), "--profile", "test", "upgrade"])
     assert result.exit_code == 0, result.output
     text = log_file.read_text()
     assert "upgrade: profile=test namespace=default" in text
-    assert "Schema 1.0: script=V1_0__create_twitter.exm checksum=" in text
+    assert "Schema 1.0: script=V1_0__create_twitter.esm checksum=" in text
     assert "GET /twitter (0 bytes) -> 200" in text
     assert "Schema 1.0 succeeded in" in text
     assert "Finished upgrade with exit code 0" in text
@@ -359,7 +359,7 @@ def test_cli_upgrade_cmd_fails_with_invalid_directory_error(runner, context, tmp
 
 def test_cli_upgrade_cmd_fails_with_invalid_schema_file_error(runner, context, schema_dir):
     """Test fails if `esmigrate upgrade` does not report schema files with illegal names"""
-    write_schema(schema_dir, "V1_0_missing_double_underscore.exm")
+    write_schema(schema_dir, "V1_0_missing_double_underscore.esm")
     result = invoke(runner, "upgrade")
     assert result.exit_code == Errors.ERR_INVALID_SCHEMA_FILE
 
@@ -373,8 +373,8 @@ def test_cli_upgrade_cmd_exits_for_empty_schema_directory(runner, context):
 
 def test_cli_upgrade_cmd_succeeds_for_valid_schema_file(runner, context, schema_dir, respx_mock):
     """Test fails if `esmigrate upgrade` does not run scripts in order and record host-relative results"""
-    write_schema(schema_dir, "V1_0__create_twitter.exm", 'PUT twitter\n{"settings": {}}')
-    write_schema(schema_dir, "V1_1__index_tweet.exm", 'PUT twitter/_doc/1\n{"user": "me"}')
+    write_schema(schema_dir, "V1_0__create_twitter.esm", 'PUT twitter\n{"settings": {}}')
+    write_schema(schema_dir, "V1_1__index_tweet.esm", 'PUT twitter/_doc/1\n{"user": "me"}')
     create = respx_mock.put(f"{ES_HOST}/twitter").respond(200, json={"acknowledged": True})
     index = respx_mock.put(f"{ES_HOST}/twitter/_doc/1").respond(201, json={"result": "created"})
     result = invoke(runner, "upgrade")
@@ -385,8 +385,8 @@ def test_cli_upgrade_cmd_succeeds_for_valid_schema_file(runner, context, schema_
     assert respx_mock.calls[0].request.url.path == "/twitter"
     rows = stored_rows(context)
     assert [(row.version, row.success, row.script) for row in rows] == [
-        ("1.0", True, "V1_0__create_twitter.exm"),
-        ("1.1", True, "V1_1__index_tweet.exm"),
+        ("1.0", True, "V1_0__create_twitter.esm"),
+        ("1.1", True, "V1_1__index_tweet.esm"),
     ]
     query_results = rows[0].query_results
     assert query_results is not None
@@ -397,7 +397,7 @@ def test_cli_upgrade_cmd_succeeds_for_valid_schema_file(runner, context, schema_
 def test_cli_upgrade_cmd_exits_when_requested_version_too_low(runner, context, schema_dir):
     """Test fails if `esmigrate upgrade` does not exit early when requested version is already migrated"""
     seed(context, ("1.0", True))
-    write_schema(schema_dir, "V1_0__create_twitter.exm")
+    write_schema(schema_dir, "V1_0__create_twitter.esm")
     result = invoke(runner, "upgrade")
     assert result.exit_code == 0
     assert "nothing to do" in result.output
@@ -405,7 +405,7 @@ def test_cli_upgrade_cmd_exits_when_requested_version_too_low(runner, context, s
 
 def test_cli_upgrade_cmd_fails_with_invalid_command_error(runner, context, schema_dir):
     """Test fails if `esmigrate upgrade` does not record a failed row for an invalid script"""
-    write_schema(schema_dir, "V1_0__broken.exm", "PATCH twitter")
+    write_schema(schema_dir, "V1_0__broken.esm", "PATCH twitter")
     result = invoke(runner, "upgrade")
     assert result.exit_code == Errors.ERR_INVALID_SCHEMA_COMMAND
     assert [(row.version, row.success) for row in stored_rows(context)] == [("1.0", False)]
@@ -413,8 +413,8 @@ def test_cli_upgrade_cmd_fails_with_invalid_command_error(runner, context, schem
 
 def test_cli_upgrade_cmd_fails_with_elasticsearch_http_error(runner, context, schema_dir, respx_mock):
     """Test fails if `esmigrate upgrade` does not stop and record a failed row on an elasticsearch error response"""
-    write_schema(schema_dir, "V1_0__create_twitter.exm", "PUT twitter\nPUT twitter/_doc/1")
-    write_schema(schema_dir, "V1_1__never_runs.exm")
+    write_schema(schema_dir, "V1_0__create_twitter.esm", "PUT twitter\nPUT twitter/_doc/1")
+    write_schema(schema_dir, "V1_1__never_runs.esm")
     respx_mock.put(f"{ES_HOST}/twitter").respond(400, json={"error": "resource_already_exists_exception"})
     second = respx_mock.put(f"{ES_HOST}/twitter/_doc/1").respond(200)
     result = invoke(runner, "upgrade")
@@ -429,7 +429,7 @@ def test_cli_upgrade_cmd_fails_with_elasticsearch_http_error(runner, context, sc
 
 def test_cli_upgrade_cmd_fails_with_elasticsearch_conn_error(runner, context, schema_dir, respx_mock):
     """Test fails if `esmigrate upgrade` records a row or does not report when elasticsearch is unreachable"""
-    write_schema(schema_dir, "V1_0__create_twitter.exm")
+    write_schema(schema_dir, "V1_0__create_twitter.esm")
     respx_mock.get(f"{ES_HOST}/twitter").mock(side_effect=httpx.ConnectError("refused"))
     result = invoke(runner, "upgrade")
     assert result.exit_code == Errors.ERR_ES_CONNERROR
@@ -438,7 +438,7 @@ def test_cli_upgrade_cmd_fails_with_elasticsearch_conn_error(runner, context, sc
 
 def test_cli_upgrade_cmd_fails_with_unusable_certificates(runner, context, schema_dir, tmp_path):
     """Test fails if an unreadable CA bundle is not reported as a configuration error before any request"""
-    write_schema(schema_dir, "V1_0__create_twitter.exm")
+    write_schema(schema_dir, "V1_0__create_twitter.esm")
     (tmp_path / "ca.pem").write_text("not a certificate")
     context.es_ca_certs = str(tmp_path / "ca.pem")
     result = invoke(runner, "upgrade")
@@ -449,7 +449,7 @@ def test_cli_upgrade_cmd_fails_with_unusable_certificates(runner, context, schem
 
 def test_cli_upgrade_cmd_fails_with_database_error(runner, context, schema_dir, respx_mock, mocker):
     """Test fails if `esmigrate upgrade` does not report database errors during insert"""
-    write_schema(schema_dir, "V1_0__create_twitter.exm")
+    write_schema(schema_dir, "V1_0__create_twitter.esm")
     respx_mock.get(f"{ES_HOST}/twitter").respond(200)
     mocker.patch("esmigrate.internals.DBManager.insert_new_schema", side_effect=SchemaVersionSqlDbError("locked"))
     result = invoke(runner, "upgrade")
@@ -459,7 +459,7 @@ def test_cli_upgrade_cmd_fails_with_database_error(runner, context, schema_dir, 
 
 def test_cli_upgrade_cmd_closes_client_and_engine_on_failure(runner, context, schema_dir, respx_mock, mocker):
     """Test fails if the HTTP client or database engine stays open after a failed upgrade"""
-    write_schema(schema_dir, "V1_0__create_twitter.exm")
+    write_schema(schema_dir, "V1_0__create_twitter.esm")
     respx_mock.get(f"{ES_HOST}/twitter").mock(side_effect=httpx.ConnectError("refused"))
     aclose = mocker.spy(httpx.AsyncClient, "aclose")
     dispose = mocker.spy(AsyncEngine, "dispose")
@@ -472,32 +472,32 @@ def test_cli_upgrade_cmd_closes_client_and_engine_on_failure(runner, context, sc
 def test_cli_upgrade_cmd_applies_double_digit_sequence_after_single_digit(runner, context, schema_dir, respx_mock):
     """Test fails if `esmigrate upgrade` treats version 1.10 as older than an applied 1.9"""
     seed(context, ("1.9", True))
-    write_schema(schema_dir, "V1_9__step_1_9.exm")
-    write_schema(schema_dir, "V1_10__step_1_10.exm")
+    write_schema(schema_dir, "V1_9__step_1_9.esm")
+    write_schema(schema_dir, "V1_10__step_1_10.esm")
     respx_mock.get(f"{ES_HOST}/twitter").respond(200)
     result = invoke(runner, "upgrade")
     assert result.exit_code == 0
-    assert "Processing schema step_1_9.exm" not in result.output
-    assert "Processing schema step_1_10.exm" in result.output
+    assert "Processing schema step_1_9.esm" not in result.output
+    assert "Processing schema step_1_10.esm" in result.output
     assert "Schema database upgraded to 1.10" in result.output
 
 
 def test_cli_upgrade_cmd_stops_at_double_digit_requested_version(runner, context, schema_dir, respx_mock):
     """Test fails if `esmigrate upgrade --schema-version 1.10` does not stop at 1.10"""
     for sequence in (9, 10, 11):
-        write_schema(schema_dir, f"V1_{sequence}__step_1_{sequence}.exm")
+        write_schema(schema_dir, f"V1_{sequence}__step_1_{sequence}.esm")
     respx_mock.get(f"{ES_HOST}/twitter").respond(200)
     result = invoke(runner, "upgrade", "--schema-version", "1.10")
     assert result.exit_code == 0
-    assert "Processing schema step_1_9.exm" in result.output
-    assert "Processing schema step_1_10.exm" in result.output
-    assert "Processing schema step_1_11.exm" not in result.output
+    assert "Processing schema step_1_9.esm" in result.output
+    assert "Processing schema step_1_10.esm" in result.output
+    assert "Processing schema step_1_11.esm" not in result.output
     assert "Schema database upgraded to 1.10" in result.output
 
 
 def test_cli_upgrade_cmd_treats_zero_version_as_explicit_target(runner, context, schema_dir):
     """Test fails if `esmigrate upgrade --schema-version 0` is treated as 'latest'"""
-    write_schema(schema_dir, "V1_0__create_twitter.exm")
+    write_schema(schema_dir, "V1_0__create_twitter.esm")
     result = invoke(runner, "upgrade", "--schema-version", "0")
     assert result.exit_code == 0
     assert "Processing schema" not in result.output
@@ -507,11 +507,11 @@ def test_cli_upgrade_cmd_uses_profile_namespace(runner, context, schema_dir, res
     """Test fails if `esmigrate upgrade` ignores the profile schema namespace"""
     seed(context, ("1.0", True))
     context.schema_namespace = "billing"
-    write_schema(schema_dir, "V1_0__create_twitter.exm")
+    write_schema(schema_dir, "V1_0__create_twitter.esm")
     respx_mock.get(f"{ES_HOST}/twitter").respond(200)
     result = invoke(runner, "upgrade")
     assert result.exit_code == 0
-    assert "Processing schema create_twitter.exm" in result.output
+    assert "Processing schema create_twitter.esm" in result.output
     assert [row.version for row in stored_rows(context, namespace="billing")] == ["1.0"]
     assert [row.version for row in stored_rows(context)] == ["1.0"]
 
@@ -586,7 +586,7 @@ def lock_rows(context):
 @pytest.mark.parametrize("command", ["upgrade", "rollback", "reset"])
 def test_cli_commands_fail_when_migration_lock_is_held(runner, context, schema_dir, command):
     """Test fails if a command runs while another esmigrate run holds the namespace lock"""
-    write_schema(schema_dir, "V1_0__create_twitter.exm")
+    write_schema(schema_dir, "V1_0__create_twitter.esm")
     seed(context, ("1.0", False))
     hold_lock(context)
     result = invoke(runner, command)
@@ -598,7 +598,7 @@ def test_cli_commands_fail_when_migration_lock_is_held(runner, context, schema_d
 @pytest.mark.parametrize("outcome", ["success", "failure"])
 def test_cli_upgrade_releases_lock(runner, context, schema_dir, respx_mock, outcome):
     """Test fails if the migration lock is left behind after a successful or failed upgrade"""
-    write_schema(schema_dir, "V1_0__create_twitter.exm")
+    write_schema(schema_dir, "V1_0__create_twitter.esm")
     respx_mock.get(f"{ES_HOST}/twitter").respond(200 if outcome == "success" else 500)
     result = invoke(runner, "upgrade")
     assert result.exit_code == (0 if outcome == "success" else Errors.ERR_ES_HTTPERROR)

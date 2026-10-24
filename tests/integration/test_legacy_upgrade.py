@@ -14,7 +14,7 @@ V1_TYPES = {
     "postgresql": {"binary": "BYTEA", "timestamp": "TIMESTAMP WITHOUT TIME ZONE"},
 }
 V1_INSTALLED_ON = [datetime(2021, 6, 16, 9, 57, 22, 123456), datetime(2021, 6, 17, 10, 0, 0)]
-V1_SCRIPTS = ["V1_0__create_index.exm", "V1_1__index_document.exm"]
+V1_SCRIPTS = ["V1_0__create_index.esm", "V1_1__index_document.esm"]
 
 
 def v1_table_ddl(dialect):
@@ -70,7 +70,7 @@ def test_v1_installation_is_upgraded_by_init_and_continues(esmigrate, db_url, sc
     write_schemas(
         schema_dir,
         es_index,
-        {V1_SCRIPTS[0]: CREATE_INDEX, V1_SCRIPTS[1]: INDEX_DOCUMENT, "V1_2__bulk_documents.exm": BULK_DOCUMENTS},
+        {V1_SCRIPTS[0]: CREATE_INDEX, V1_SCRIPTS[1]: INDEX_DOCUMENT, "V1_2__bulk_documents.esm": BULK_DOCUMENTS},
     )
 
     result = esmigrate("upgrade")
@@ -96,7 +96,7 @@ def test_v1_installation_is_upgraded_by_init_and_continues(esmigrate, db_url, sc
 
     result = esmigrate("upgrade")
     assert result.exit_code == 0, result.output
-    assert "Processing schema create_index.exm" not in result.output
+    assert "Processing schema create_index.esm" not in result.output
     assert "Schema database upgraded to 1.2" in result.output
     assert [row.version for row in stored_rows()] == ["1.0", "1.1", "1.2"]
     assert doc_count(es, es_index) == 3

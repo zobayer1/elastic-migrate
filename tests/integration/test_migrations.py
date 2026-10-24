@@ -29,11 +29,11 @@ BROKEN_DOCUMENT = """PUT /{index}/_doc/9?refresh=true
 """
 
 FULL_FLOW = {
-    "V1_0__create_index.exm": CREATE_INDEX,
-    "V1_1__index_document.exm": INDEX_DOCUMENT,
-    "V1_2__bulk_documents.exm": BULK_DOCUMENTS,
-    "V2_0__add_field.exm": ADD_FIELD,
-    "V2_1__delete_by_query.exm": DELETE_BY_QUERY,
+    "V1_0__create_index.esm": CREATE_INDEX,
+    "V1_1__index_document.esm": INDEX_DOCUMENT,
+    "V1_2__bulk_documents.esm": BULK_DOCUMENTS,
+    "V2_0__add_field.esm": ADD_FIELD,
+    "V2_1__delete_by_query.esm": DELETE_BY_QUERY,
 }
 
 
@@ -81,7 +81,7 @@ def test_full_migration_flow(esmigrate, schema_dir, es, es_index, stored_rows, e
 
 def test_failed_script_blocks_until_rollback(esmigrate, schema_dir, es, es_index, stored_rows):
     """Test fails if a failed script does not block upgrades until rolled back and fixed"""
-    write_schemas(schema_dir, es_index, {"V1_0__create_index.exm": CREATE_INDEX, "V1_1__broken.exm": BROKEN_DOCUMENT})
+    write_schemas(schema_dir, es_index, {"V1_0__create_index.esm": CREATE_INDEX, "V1_1__broken.esm": BROKEN_DOCUMENT})
     result = esmigrate("upgrade")
     assert result.exit_code == Errors.ERR_ES_HTTPERROR, result.output
     assert versions(stored_rows()) == [("1.0", True), ("1.1", False)]
@@ -92,7 +92,7 @@ def test_failed_script_blocks_until_rollback(esmigrate, schema_dir, es, es_index
     assert esmigrate("rollback").exit_code == 0
     assert versions(stored_rows()) == [("1.0", True)]
 
-    write_schemas(schema_dir, es_index, {"V1_1__broken.exm": INDEX_DOCUMENT})
+    write_schemas(schema_dir, es_index, {"V1_1__broken.esm": INDEX_DOCUMENT})
     result = esmigrate("upgrade")
     assert result.exit_code == 0, result.output
     assert versions(stored_rows()) == [("1.0", True), ("1.1", True)]
@@ -129,8 +129,8 @@ def test_reset_then_full_rerun(esmigrate, schema_dir, es, es_index, stored_rows)
 def test_namespaces_share_one_database(esmigrate, profile, tmp_path, es, es_index, stored_rows):
     """Test fails if two projects in different namespaces of one database see each other's history"""
     for namespace, scripts in (
-        ("alpha", {"V1_0__create_index.exm": CREATE_INDEX, "V1_1__index_document.exm": INDEX_DOCUMENT}),
-        ("beta", {"V1_0__create_index.exm": CREATE_INDEX}),
+        ("alpha", {"V1_0__create_index.esm": CREATE_INDEX, "V1_1__index_document.esm": INDEX_DOCUMENT}),
+        ("beta", {"V1_0__create_index.esm": CREATE_INDEX}),
     ):
         schema_dir = tmp_path / namespace
         schema_dir.mkdir()
@@ -146,10 +146,10 @@ def test_namespaces_share_one_database(esmigrate, profile, tmp_path, es, es_inde
     assert doc_count(es, f"{es_index}-beta") == 0
 
 
-@pytest.mark.parametrize("name", ["V2147483648_0__too_big.exm", "V1_99999999999__too_big.exm"])
+@pytest.mark.parametrize("name", ["V2147483648_0__too_big.esm", "V1_99999999999__too_big.esm"])
 def test_oversized_versions_are_rejected_before_running(esmigrate, schema_dir, es, es_index, stored_rows, name):
     """Test fails if a version that cannot be stored runs against elasticsearch before being rejected"""
-    write_schemas(schema_dir, es_index, {"V1_0__create_index.exm": CREATE_INDEX, name: INDEX_DOCUMENT})
+    write_schemas(schema_dir, es_index, {"V1_0__create_index.esm": CREATE_INDEX, name: INDEX_DOCUMENT})
     result = esmigrate("upgrade")
     assert result.exit_code == Errors.ERR_INVALID_SCHEMA_FILE, result.output
     assert "Version number too large" in result.output

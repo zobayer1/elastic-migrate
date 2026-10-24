@@ -135,7 +135,7 @@ class ContextConfig:
         self.profile: str | None = None
         self.headers = {"Connection": "keep-alive"}
         self.schema_dir: str | None = None
-        self.schema_ext = ".exm"
+        self.schema_ext = ".esm"
         self.schema_namespace = DEFAULT_NAMESPACE
         self.schema_pattern = rf"^{os.getenv('SCHEMA_PATTERN', ContextConfig._default_pattern)}$"
         if not all(p in self.schema_pattern for p in ContextConfig._named_groups):

@@ -35,7 +35,7 @@ One or more configuration profiles:
             "schema_db": "sqlite:///esmigrate.db",
             "elastic_host": "http://localhost:9200",
             "elastic_headers": {"Content-Type": "application/json"},
-            "schema_ext": ".exm",
+            "schema_ext": ".esm",
             "schema_dir": "./schema_dir"
           }
         }
@@ -50,11 +50,11 @@ One or more configuration profiles:
 
 Example schema filenames:
 
-    V1_1__create_index_mapping_for_twitter.exm
-    V1_2__create_new_doc_in_twitter.exm
-    V1_3__update_existing_doc_in_twitter.exm
-    V1_4__delete_all_doc_in_twitter.exm
-    V1_5__delete_index_twitter.exm
+    V1_1__create_index_mapping_for_twitter.esm
+    V1_2__create_new_doc_in_twitter.esm
+    V1_3__update_existing_doc_in_twitter.esm
+    V1_4__delete_all_doc_in_twitter.esm
+    V1_5__delete_index_twitter.esm
 
 Default regex for parsing filenames:
 

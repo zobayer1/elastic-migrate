@@ -20,7 +20,7 @@ def index(secure_es):
 @pytest.fixture
 def migration(schema_dir, index):
     """pytest fixture writing a two-step migration against the test index"""
-    write_schemas(schema_dir, index, {"V1_0__create.exm": CREATE_INDEX, "V1_1__document.exm": INDEX_DOCUMENT})
+    write_schemas(schema_dir, index, {"V1_0__create.esm": CREATE_INDEX, "V1_1__document.esm": INDEX_DOCUMENT})
     return index
 
 

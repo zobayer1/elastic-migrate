@@ -46,9 +46,9 @@ def test_schema_version_defaults_to_default_namespace_and_utc_time():
 
 def test_schema_version_is_created_from_script_data():
     """Test fails if from_script_data does not copy version, description, path and checksum"""
-    script_data = ScriptData("1", "2", "create_index", "exm", "V1_2__create_index.exm", "GET twitter")
+    script_data = ScriptData("1", "2", "create_index", "esm", "V1_2__create_index.esm", "GET twitter")
     scmver = SchemaVersion.from_script_data(script_data)
     assert (scmver.version, scmver.version_base, scmver.version_rank) == ("1.2", 1, 2)
-    assert scmver.description == "create_index.exm"
-    assert scmver.script == "V1_2__create_index.exm"
+    assert scmver.description == "create_index.esm"
+    assert scmver.script == "V1_2__create_index.esm"
     assert scmver.checksum == script_data.checksum

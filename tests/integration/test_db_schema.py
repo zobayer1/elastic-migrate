@@ -20,7 +20,7 @@ def test_tables_are_created_in_configured_schema(
     esmigrate, profile, db_url, db_schema, tables_in, schema_dir, es_index
 ):
     """Test fails if the schema version table is not created and used in schema_db_schema only"""
-    write_schemas(schema_dir, es_index, {"V1_0__create.exm": CREATE_INDEX})
+    write_schemas(schema_dir, es_index, {"V1_0__create.esm": CREATE_INDEX})
     profile(schema_db_schema=db_schema)
     result = esmigrate("upgrade")
     assert result.exit_code == 0, result.output
@@ -33,8 +33,8 @@ def test_schemas_on_one_database_keep_separate_histories(esmigrate, profile, db_
     """Test fails if two projects in different schemas of one database share or block each other's history"""
     first, second = db_schemas(), db_schemas()
     for schema, scripts in (
-        (first, {"V1_0__create.exm": CREATE_INDEX, "V1_1__document.exm": INDEX_DOCUMENT}),
-        (second, {"V1_0__create.exm": CREATE_INDEX}),
+        (first, {"V1_0__create.esm": CREATE_INDEX, "V1_1__document.esm": INDEX_DOCUMENT}),
+        (second, {"V1_0__create.esm": CREATE_INDEX}),
     ):
         schema_dir = tmp_path / schema
         schema_dir.mkdir()
@@ -42,7 +42,7 @@ def test_schemas_on_one_database_keep_separate_histories(esmigrate, profile, db_
         profile(schema_dir=str(schema_dir), schema_db_schema=schema)
         result = esmigrate("upgrade")
         assert result.exit_code == 0, result.output
-        assert "Processing schema create.exm" in result.output
+        assert "Processing schema create.esm" in result.output
     assert doc_count(es, f"{es_index}-{first}") == 1
     assert doc_count(es, f"{es_index}-{second}") == 0
     profile(schema_db_schema=first)
