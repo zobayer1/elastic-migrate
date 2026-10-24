@@ -62,7 +62,9 @@ def run(coro: Coroutine[Any, Any, int]) -> NoReturn:
 
 
 def connect_db(cfg: ContextConfig, upgrade: bool = False) -> AbstractAsyncContextManager[DBManager]:
-    return DBManager.connect(cfg.schema_db, namespace=cfg.schema_namespace, upgrade=upgrade)
+    return DBManager.connect(
+        cfg.schema_db, namespace=cfg.schema_namespace, upgrade=upgrade, schema=cfg.schema_db_schema
+    )
 
 
 @click.group(invoke_without_command=True)
@@ -107,7 +109,8 @@ def main(
     log.info(f"Profile loaded: {profile}")
     log.debug(
         f"esmigrate {version} {ctx.invoked_subcommand}: profile={profile} namespace={cfg.schema_namespace} "
-        f"elastic_host={cfg.es_host} schema_db={mask_db_url(cfg.schema_db)} user={getpass.getuser()} "
+        f"elastic_host={cfg.es_host} schema_db={mask_db_url(cfg.schema_db)} schema_db_schema={cfg.schema_db_schema} "
+        f"user={getpass.getuser()} "
         f"host={socket.gethostname()}"
     )
     if not ctx.obj.es_verify_certs:

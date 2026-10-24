@@ -344,3 +344,37 @@ def test_context_repr_masks_database_password(fs):
     text = repr(ContextConfig().load_for("test"))
     assert "s3cr3t" not in text
     assert "schema_version_db: postgresql://migrator:***@db/esmigrate" in text
+
+
+def test_context_loads_schema_db_schema(fs, monkeypatch):
+    """Test fails if schema_db_schema is not loaded, interpolated and shown by config"""
+    monkeypatch.setenv("TENANT_SCHEMA", "billing")
+    write_profile(fs, schema_dir="s", schema_db="postgresql://u@db/app", schema_db_schema="${TENANT_SCHEMA}")
+    context = ContextConfig().load_for("test")
+    assert context.schema_db_schema == "billing"
+    assert "schema_version_db_schema: billing" in repr(context)
+
+
+@pytest.mark.parametrize(
+    ("fields", "message"),
+    [
+        ({"schema_db": "sqlite:///x.db", "schema_db_schema": "app"}, "not supported for SQLite"),
+        ({"schema_db": "postgresql://u@db/app?options=-csearch_path%3Dapp"}, "set the PostgreSQL schema with"),
+        ({"schema_db_schema": 5}, "schema_db_schema must be a string"),
+    ],
+)
+def test_context_rejects_invalid_schema_db_settings(fs, fields, message):
+    """Test fails if a schema on SQLite, psycopg2 URL options or a non-string schema are accepted"""
+    write_profile(fs, schema_dir="s", **fields)
+    with pytest.raises(InvalidConfigurationError, match=message):
+        ContextConfig().load_for("test")
+
+
+@pytest.mark.parametrize(
+    "schema_db",
+    ["mysql://u@db/app?charset=utf8mb4", "postgresql://u@db/app?sslmode=require", "not a url"],
+)
+def test_context_accepts_other_schema_db_urls(fs, schema_db):
+    """Test fails if non-options URL parameters, other databases or unparsable URLs are rejected at profile load"""
+    write_profile(fs, schema_dir="s", schema_db=schema_db, schema_db_schema="app")
+    assert ContextConfig().load_for("test").schema_db == schema_db

@@ -54,20 +54,34 @@ def create_engine(db_url: str, echo: bool = False) -> AsyncEngine:
         raise InvalidDBConnectionError(f"Unsupported database driver: {url.drivername}, {err}") from err
 
 
-def is_legacy_table(conn: Connection) -> bool:
+def qualified_name(conn: Connection, table: str, schema: str | None) -> str:
+    preparer = conn.dialect.identifier_preparer
+    name = preparer.quote(table)
+    return f"{preparer.quote_schema(schema)}.{name}" if schema else name
+
+
+def check_schema_exists(conn: Connection, schema: str | None) -> None:
+    if schema is not None and schema not in inspect(conn).get_schema_names():
+        raise InvalidDBConnectionError(f"Database schema {schema} does not exist")
+
+
+def is_legacy_table(conn: Connection, schema: str | None = None) -> bool:
     inspector = inspect(conn)
-    if not inspector.has_table(SCHEMA_TABLE.name):
+    if not inspector.has_table(SCHEMA_TABLE.name, schema=schema):
         return False
-    return "namespace" not in {column["name"] for column in inspector.get_columns(SCHEMA_TABLE.name)}
+    columns = inspector.get_columns(SCHEMA_TABLE.name, schema=schema)
+    return "namespace" not in {column["name"] for column in columns}
 
 
-def upgrade_legacy_table(conn: Connection) -> None:
-    if inspect(conn).has_table(LEGACY_BACKUP_TABLE):
+def upgrade_legacy_table(conn: Connection, schema: str | None = None) -> None:
+    if inspect(conn).has_table(LEGACY_BACKUP_TABLE, schema=schema):
         raise SchemaVersionSqlDbError(f"Backup table {LEGACY_BACKUP_TABLE} already exists, remove it before upgrading")
     table = SCHEMA_TABLE
-    conn.execute(text(f"CREATE TABLE {LEGACY_BACKUP_TABLE} AS SELECT * FROM {table.name}"))
-    rows = conn.execute(text(f"SELECT * FROM {LEGACY_BACKUP_TABLE}")).mappings().all()
-    conn.execute(text(f"DROP TABLE {table.name}"))
+    backup = qualified_name(conn, LEGACY_BACKUP_TABLE, schema)
+    current = qualified_name(conn, table.name, schema)
+    conn.execute(text(f"CREATE TABLE {backup} AS SELECT * FROM {current}"))
+    rows = conn.execute(text(f"SELECT * FROM {backup}")).mappings().all()
+    conn.execute(text(f"DROP TABLE {current}"))
     table.create(conn)
     if rows:
         conn.execute(insert(table), [upgrade_legacy_row(row) for row in rows])
@@ -89,30 +103,44 @@ def upgrade_legacy_row(row: Mapping[Any, Any]) -> dict[str, Any]:
 
 
 class DBManager:
-    def __init__(self, engine: AsyncEngine, namespace: str = DEFAULT_NAMESPACE, upgraded: bool = False) -> None:
+    def __init__(
+        self,
+        engine: AsyncEngine,
+        namespace: str = DEFAULT_NAMESPACE,
+        upgraded: bool = False,
+        schema: str | None = None,
+    ) -> None:
         self._engine = engine
         self._sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
         self.namespace = namespace
+        self.schema = schema
         self.upgraded_legacy_table = upgraded
 
     @classmethod
     @asynccontextmanager
     async def connect(
-        cls, db_url: str, namespace: str = DEFAULT_NAMESPACE, upgrade: bool = False, echo: bool = False
+        cls,
+        db_url: str,
+        namespace: str = DEFAULT_NAMESPACE,
+        upgrade: bool = False,
+        echo: bool = False,
+        schema: str | None = None,
     ) -> AsyncGenerator[Self, None]:
-        engine = create_engine(db_url, echo)
+        base_engine = create_engine(db_url, echo)
+        engine = base_engine.execution_options(schema_translate_map={None: schema}) if schema else base_engine
         try:
             try:
                 async with engine.connect() as conn:
-                    legacy = await conn.run_sync(is_legacy_table)
-            except (SQLAlchemyError, OSError) as err:
+                    await conn.run_sync(check_schema_exists, schema)
+                    legacy = await conn.run_sync(is_legacy_table, schema)
+            except (SQLAlchemyError, OSError, TypeError) as err:
                 raise InvalidDBConnectionError(f"{type(err).__name__}: {err}") from err
             if legacy and not upgrade:
                 raise LegacySchemaTableError("Schema version table uses the v1 layout, run `esmigrate init` to upgrade")
             if legacy:
                 try:
                     async with engine.begin() as conn:
-                        await conn.run_sync(upgrade_legacy_table)
+                        await conn.run_sync(upgrade_legacy_table, schema)
                 except SQLAlchemyError as err:
                     raise SchemaVersionSqlDbError(f"Legacy table upgrade failed: {err}") from err
             try:
@@ -120,13 +148,13 @@ class DBManager:
                     await conn.run_sync(Base.metadata.create_all)
             except SQLAlchemyError as err:
                 raise InvalidDBConnectionError(str(err)) from err
-            yield cls(engine, namespace, upgraded=legacy)
+            yield cls(engine, namespace, upgraded=legacy, schema=schema)
         finally:
-            await engine.dispose()
+            await base_engine.dispose()
 
     async def schema_version_exists(self) -> bool:
         async with self._engine.connect() as conn:
-            tables = await conn.run_sync(lambda sync_conn: inspect(sync_conn).get_table_names())
+            tables = await conn.run_sync(lambda sync_conn: inspect(sync_conn).get_table_names(schema=self.schema))
         return SCHEMA_TABLE.name in tables
 
     async def insert_new_schema(self, scmver: SchemaVersion) -> None:

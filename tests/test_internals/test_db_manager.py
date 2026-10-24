@@ -398,3 +398,36 @@ async def test_db_manager_reports_table_creation_errors(db_url, mocker):
     with pytest.raises(InvalidDBConnectionError, match="permission denied"):
         async with DBManager.connect(db_url):
             pass
+
+
+async def test_db_manager_uses_configured_schema(db_url):
+    """Test fails if the tables are not created and queried in the configured schema"""
+    async with DBManager.connect(db_url, schema="main") as db:
+        assert db.schema == "main"
+        assert await db.schema_version_exists()
+        await db.insert_new_schema(make_schema("1.0"))
+        assert [row.version for row in await db.find_all_schema()] == ["1.0"]
+
+
+async def test_db_manager_reports_missing_schema(db_url):
+    """Test fails if a schema that does not exist is not reported as a connection error"""
+    with pytest.raises(InvalidDBConnectionError, match="Database schema missing_schema does not exist"):
+        async with DBManager.connect(db_url, schema="missing_schema"):
+            pass
+
+
+async def test_db_manager_upgrades_legacy_table_in_schema(tmp_path):
+    """Test fails if the v1 upgrade does not run against the configured schema"""
+    path = tmp_path / "legacy.db"
+    create_legacy_db(path)
+    async with DBManager.connect(f"sqlite:///{path}", upgrade=True, schema="main") as db:
+        assert db.upgraded_legacy_table
+        assert len(await db.find_all_schema()) == 2
+    assert LEGACY_BACKUP_TABLE in table_names(path)
+
+
+async def test_db_manager_wraps_driver_argument_errors():
+    """Test fails if a driver rejecting URL arguments crashes with TypeError instead of a connection error"""
+    with pytest.raises(InvalidDBConnectionError, match=r"TypeError: .*unexpected keyword argument 'options'"):
+        async with DBManager.connect("postgresql://u:p@127.0.0.1:1/db?options=-csearch_path%3Dx"):
+            pass

@@ -120,6 +120,7 @@ class ContextConfig:
         self.es_client_key: str | None = None
         self.es_client_key_password: str | None = None
         self.schema_db = "sqlite:///esmigrate.db"
+        self.schema_db_schema: str | None = None
         self.log_file: str | None = None
         self.log_rotation = "size"
         self.log_max_bytes = DEFAULT_LOG_MAX_BYTES
@@ -169,11 +170,26 @@ class ContextConfig:
         if "elastic_timeout" in data:
             self.es_timeout = parse_timeout(data["elastic_timeout"])
         self.schema_db = optional_str(data, "schema_db") or self.schema_db
+        self.schema_db_schema = optional_str(data, "schema_db_schema")
+        self._validate_schema_db()
         self.schema_dir = optional_str(data, "schema_dir")
         self.schema_ext = optional_str(data, "schema_ext") or self.schema_ext
         self.schema_namespace = optional_str(data, "schema_namespace") or self.schema_namespace
         self._apply_security(data)
         self._apply_logging(data)
+
+    def _validate_schema_db(self) -> None:
+        try:
+            url = make_url(self.schema_db)
+        except ArgumentError:
+            return
+        backend = url.get_backend_name()
+        if backend == "sqlite" and self.schema_db_schema:
+            raise InvalidConfigurationError("schema_db_schema is not supported for SQLite schema databases")
+        if backend == "postgresql" and "options" in url.query:
+            raise InvalidConfigurationError(
+                "schema_db URL options are not supported, set the PostgreSQL schema with schema_db_schema"
+            )
 
     def _apply_logging(self, data: dict[str, Any]) -> None:
         self.log_file = optional_str(data, "log_file")
@@ -241,6 +257,7 @@ class ContextConfig:
             + f"elastic_client_key: {self.es_client_key}\n"
             + f"elastic_client_key_password: {secret(self.es_client_key_password)}\n"
             + f"schema_version_db: {mask_db_url(self.schema_db)}\n"
+            + f"schema_version_db_schema: {self.schema_db_schema}\n"
             + f"schema_file_directory: {self.schema_dir}\n"
             + f"schema_file_extension: {self.schema_ext}\n"
             + f"schema_namespace: {self.schema_namespace}\n"

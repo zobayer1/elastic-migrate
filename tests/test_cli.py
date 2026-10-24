@@ -203,6 +203,18 @@ def test_cli_reports_unwritable_log_file(runner, context, tmp_path, source):
     assert "Cannot open log file" in result.output
 
 
+def test_cli_passes_schema_to_database(runner, context, tmp_path):
+    """Test fails if commands do not use schema_db_schema or the audit log omits it"""
+    context.schema_db_schema = "main"
+    result = runner.invoke(cli.main, ["--log-file", str(tmp_path / "esmigrate.log"), "--profile", "test", "init"])
+    assert result.exit_code == 0, result.output
+    assert "schema_db_schema=main" in (tmp_path / "esmigrate.log").read_text()
+    context.schema_db_schema = "missing_schema"
+    result = invoke(runner, "init")
+    assert result.exit_code == Errors.ERR_DB_CONNECTION_FAILED
+    assert "Database schema missing_schema does not exist" in result.output
+
+
 def test_cli_audit_masks_database_password(runner, context, tmp_path):
     """Test fails if the audit log records the schema database password"""
     context.schema_db = "postgresql://migrator:s3cr3t@db.example.com/esmigrate"
