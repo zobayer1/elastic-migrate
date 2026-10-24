@@ -45,6 +45,12 @@ def parse_timeout(value: object) -> float | None:
     return float(value)
 
 
+def parse_lock_timeout(value: object) -> float:
+    if isinstance(value, bool) or not isinstance(value, int | float) or value < 0:
+        raise InvalidConfigurationError(f"lock_timeout must be a non-negative number of seconds, got {value!r}")
+    return float(value)
+
+
 def parse_host(value: object) -> str:
     if not isinstance(value, str):
         raise InvalidConfigurationError(f"elastic_host must be a string, got {value!r}")
@@ -121,6 +127,7 @@ class ContextConfig:
         self.es_client_key_password: str | None = None
         self.schema_db = "sqlite:///esmigrate.db"
         self.schema_db_schema: str | None = None
+        self.lock_timeout = 0.0
         self.log_file: str | None = None
         self.log_rotation = "size"
         self.log_max_bytes = DEFAULT_LOG_MAX_BYTES
@@ -172,6 +179,7 @@ class ContextConfig:
         self.schema_db = optional_str(data, "schema_db") or self.schema_db
         self.schema_db_schema = optional_str(data, "schema_db_schema")
         self._validate_schema_db()
+        self.lock_timeout = parse_lock_timeout(data.get("lock_timeout", 0))
         self.schema_dir = optional_str(data, "schema_dir")
         self.schema_ext = optional_str(data, "schema_ext") or self.schema_ext
         self.schema_namespace = optional_str(data, "schema_namespace") or self.schema_namespace
@@ -258,6 +266,7 @@ class ContextConfig:
             + f"elastic_client_key_password: {secret(self.es_client_key_password)}\n"
             + f"schema_version_db: {mask_db_url(self.schema_db)}\n"
             + f"schema_version_db_schema: {self.schema_db_schema}\n"
+            + f"lock_timeout: {self.lock_timeout}\n"
             + f"schema_file_directory: {self.schema_dir}\n"
             + f"schema_file_extension: {self.schema_ext}\n"
             + f"schema_namespace: {self.schema_namespace}\n"

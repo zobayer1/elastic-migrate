@@ -4,8 +4,8 @@ import logging
 import socket
 import sys
 import time
-from collections.abc import Coroutine
-from contextlib import AbstractAsyncContextManager
+from collections.abc import AsyncGenerator, Coroutine
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from typing import Any, NoReturn
 
 import click
@@ -27,6 +27,7 @@ from esmigrate.exceptions import (
     InvalidSchemaFileError,
     InvalidSchemaPatternError,
     LegacySchemaTableError,
+    MigrationLockedError,
     SchemaVersionSqlDbError,
     UserProfileNotFoundError,
 )
@@ -39,6 +40,7 @@ log = logging.getLogger(__name__)
 DB_ERRORS: dict[type[Exception], Errors] = {
     InvalidDBConnectionError: Errors.ERR_DB_CONNECTION_FAILED,
     LegacySchemaTableError: Errors.ERR_DB_LEGACY_TABLE,
+    MigrationLockedError: Errors.ERR_DB_LOCKED,
     SchemaVersionSqlDbError: Errors.ERR_DB_IN_ERROR_STATE,
 }
 
@@ -59,6 +61,18 @@ def run(coro: Coroutine[Any, Any, int]) -> NoReturn:
     code = asyncio.run(coro)
     log.debug(f"Finished {click.get_current_context().info_name} with exit code {code}")
     sys.exit(code)
+
+
+@asynccontextmanager
+async def migration_lock(cfg: ContextConfig, db: DBManager) -> AsyncGenerator[None, None]:
+    log.debug(f"Acquiring migration lock for namespace {cfg.schema_namespace} (timeout {cfg.lock_timeout}s)")
+    async with db.lock(cfg.lock_timeout):
+        acquired = time.perf_counter()
+        log.debug("Migration lock acquired")
+        try:
+            yield
+        finally:
+            log.debug(f"Migration lock released after {int((time.perf_counter() - acquired) * 1000)} ms")
 
 
 def connect_db(cfg: ContextConfig, upgrade: bool = False) -> AbstractAsyncContextManager[DBManager]:
@@ -156,6 +170,17 @@ def reset(cfg: ContextConfig) -> None:
     run(run_reset(cfg))
 
 
+@main.command(help="Remove a stuck SQLite migration lock left by a crashed run")
+@click.help_option(help="Show help index and exit")
+@click.option("-y", "--yes", is_flag=True, help="Do not ask for confirmation")
+@click.pass_obj
+def unlock(cfg: ContextConfig, yes: bool = False) -> None:
+    if not yes and not click.confirm(f"Remove the migration lock for namespace {cfg.schema_namespace}?"):
+        log.info("Unlock cancelled")
+        sys.exit(0)
+    run(run_unlock(cfg))
+
+
 async def run_init(cfg: ContextConfig) -> int:
     log.info("Initializing schema version database...")
     try:
@@ -179,7 +204,7 @@ async def run_upgrade(cfg: ContextConfig, schema_version: str) -> int:
     except ValueError as err:
         return fail(err, Errors.ERR_INVALID_SCMVER)
     try:
-        async with connect_db(cfg) as db:
+        async with connect_db(cfg) as db, migration_lock(cfg, db):
             return await upgrade_schema(cfg, db, requested)
     except tuple(DB_ERRORS) as err:
         return fail(err, DB_ERRORS[type(err)])
@@ -252,7 +277,7 @@ async def apply_schema(db: DBManager, http_handler: HTTPHandler, script_parser: 
 
 async def run_rollback(cfg: ContextConfig) -> int:
     try:
-        async with connect_db(cfg) as db:
+        async with connect_db(cfg) as db, migration_lock(cfg, db):
             latest = await db.find_latest_schema()
             if latest and not latest.success:
                 log.info(f"Schema database has error entry for version {latest.version}")
@@ -267,9 +292,24 @@ async def run_rollback(cfg: ContextConfig) -> int:
 
 async def run_reset(cfg: ContextConfig) -> int:
     try:
-        async with connect_db(cfg) as db:
+        async with connect_db(cfg) as db, migration_lock(cfg, db):
             await db.delete_all_schema()
     except tuple(DB_ERRORS) as err:
         return fail(err, DB_ERRORS[type(err)])
     log.info("Schema database successfully reset")
+    return 0
+
+
+async def run_unlock(cfg: ContextConfig) -> int:
+    try:
+        async with connect_db(cfg) as db:
+            removed = await db.force_unlock()
+    except tuple(DB_ERRORS) as err:
+        return fail(err, DB_ERRORS[type(err)])
+    if removed is None:
+        log.info("PostgreSQL and MySQL migration locks are released automatically when the holder exits")
+    elif removed:
+        log.info(f"Removed the migration lock for namespace {cfg.schema_namespace}")
+    else:
+        log.info(f"No migration lock is held for namespace {cfg.schema_namespace}")
     return 0

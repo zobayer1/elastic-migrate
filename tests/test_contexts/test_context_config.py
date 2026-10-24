@@ -378,3 +378,25 @@ def test_context_accepts_other_schema_db_urls(fs, schema_db):
     """Test fails if non-options URL parameters, other databases or unparsable URLs are rejected at profile load"""
     write_profile(fs, schema_dir="s", schema_db=schema_db, schema_db_schema="app")
     assert ContextConfig().load_for("test").schema_db == schema_db
+
+
+def test_context_defaults_lock_timeout_to_fail_immediately():
+    """Test fails if the default lock timeout is not zero seconds"""
+    context = ContextConfig()
+    assert context.lock_timeout == 0.0
+    assert "lock_timeout: 0.0" in repr(context)
+
+
+@pytest.mark.parametrize(("value", "expected"), [(0, 0.0), (30, 30.0), (2.5, 2.5)])
+def test_context_loads_lock_timeout(fs, value, expected):
+    """Test fails if lock_timeout is not read as seconds"""
+    write_profile(fs, schema_dir="s", lock_timeout=value)
+    assert ContextConfig().load_for("test").lock_timeout == expected
+
+
+@pytest.mark.parametrize("value", [-1, "30", True, None])
+def test_context_rejects_invalid_lock_timeout(fs, value):
+    """Test fails if a negative, textual, boolean or null lock_timeout is accepted"""
+    write_profile(fs, schema_dir="s", lock_timeout=value)
+    with pytest.raises(InvalidConfigurationError, match="lock_timeout must be a non-negative number"):
+        ContextConfig().load_for("test")

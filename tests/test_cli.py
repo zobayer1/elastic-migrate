@@ -1,9 +1,12 @@
 import asyncio
 import sqlite3
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
 from click.testing import CliRunner
+from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from esmigrate import cli
@@ -11,6 +14,7 @@ from esmigrate.contexts import ContextConfig
 from esmigrate.exceptions import Errors, InvalidConfigurationError, SchemaVersionSqlDbError
 from esmigrate.internals import DBManager
 from esmigrate.internals.db_manager import LEGACY_BACKUP_TABLE
+from esmigrate.internals.migration_lock import LOCK_TABLE
 from esmigrate.models import SchemaVersion
 
 ES_HOST = "http://es.example.com:9200"
@@ -551,3 +555,103 @@ def test_cli_reset_cmd_fails_with_sql_db_error(runner, context, mocker):
     mocker.patch("esmigrate.internals.DBManager.delete_all_schema", side_effect=SchemaVersionSqlDbError)
     result = invoke(runner, "reset")
     assert result.exit_code == Errors.ERR_DB_IN_ERROR_STATE
+
+
+def hold_lock(context, host="other-host", pid=4242):
+    async def insert_row():
+        async with DBManager.connect(context.schema_db, namespace=context.schema_namespace) as db:
+            async with db.lock():
+                pass
+            async with db._engine.begin() as conn:
+                await conn.execute(
+                    insert(LOCK_TABLE).values(
+                        namespace=context.schema_namespace,
+                        owner_host=host,
+                        owner_pid=pid,
+                        acquired_at=datetime.now(UTC),
+                    )
+                )
+
+    asyncio.run(insert_row())
+
+
+def lock_rows(context):
+    async def fetch():
+        async with DBManager.connect(context.schema_db) as db, db._engine.connect() as conn:
+            return (await conn.execute(select(LOCK_TABLE))).mappings().all()
+
+    return asyncio.run(fetch())
+
+
+@pytest.mark.parametrize("command", ["upgrade", "rollback", "reset"])
+def test_cli_commands_fail_when_migration_lock_is_held(runner, context, schema_dir, command):
+    """Test fails if a command runs while another esmigrate run holds the namespace lock"""
+    write_schema(schema_dir, "V1_0__create_twitter.exm")
+    seed(context, ("1.0", False))
+    hold_lock(context)
+    result = invoke(runner, command)
+    assert result.exit_code == Errors.ERR_DB_LOCKED
+    assert "MigrationLockedError: Migration lock is held by other-host pid 4242 since" in result.output
+    assert [(row.version, row.success) for row in stored_rows(context)] == [("1.0", False)]
+
+
+@pytest.mark.parametrize("outcome", ["success", "failure"])
+def test_cli_upgrade_releases_lock(runner, context, schema_dir, respx_mock, outcome):
+    """Test fails if the migration lock is left behind after a successful or failed upgrade"""
+    write_schema(schema_dir, "V1_0__create_twitter.exm")
+    respx_mock.get(f"{ES_HOST}/twitter").respond(200 if outcome == "success" else 500)
+    result = invoke(runner, "upgrade")
+    assert result.exit_code == (0 if outcome == "success" else Errors.ERR_ES_HTTPERROR)
+    assert lock_rows(context) == []
+
+
+def test_cli_logs_lock_lifecycle(runner, context, tmp_path):
+    """Test fails if acquiring and releasing the lock, with the timeout, are not recorded in the audit log"""
+    context.lock_timeout = 2.5
+    runner.invoke(cli.main, ["--log-file", str(tmp_path / "esmigrate.log"), "--profile", "test", "reset"])
+    text = (tmp_path / "esmigrate.log").read_text()
+    assert "Acquiring migration lock for namespace default (timeout 2.5s)" in text
+    assert "Migration lock acquired" in text
+    assert "Migration lock released after" in text
+
+
+def test_cli_unlock_with_yes_removes_stuck_lock(runner, context):
+    """Test fails if unlock --yes does not remove a stuck SQLite lock"""
+    hold_lock(context)
+    result = invoke(runner, "unlock", "--yes")
+    assert result.exit_code == 0
+    assert "Removed the migration lock for namespace default" in result.output
+    assert lock_rows(context) == []
+
+
+@pytest.mark.parametrize(("answer", "remaining"), [("y\n", 0), ("n\n", 1)])
+def test_cli_unlock_asks_for_confirmation(runner, context, answer, remaining):
+    """Test fails if unlock does not confirm first, or removes the lock when the answer is no"""
+    hold_lock(context)
+    result = runner.invoke(cli.main, ["--profile", "test", "unlock"], input=answer)
+    assert result.exit_code == 0
+    assert "Remove the migration lock for namespace default?" in result.output
+    assert len(lock_rows(context)) == remaining
+    if remaining:
+        assert "Unlock cancelled" in result.output
+
+
+def test_cli_unlock_reports_when_no_lock_is_held(runner, context):
+    """Test fails if unlock without a stuck lock does not say so"""
+    result = invoke(runner, "unlock", "--yes")
+    assert result.exit_code == 0
+    assert "No migration lock is held for namespace default" in result.output
+
+
+def test_cli_unlock_explains_server_database_locks(runner, context, mocker):
+    """Test fails if unlock on PostgreSQL or MySQL does not explain that locks release automatically"""
+    mocker.patch("esmigrate.internals.DBManager.force_unlock", AsyncMock(return_value=None))
+    result = invoke(runner, "unlock", "--yes")
+    assert result.exit_code == 0
+    assert "released automatically when the holder exits" in result.output
+
+
+def test_cli_unlock_reports_database_errors(runner, context):
+    """Test fails if unlock does not report an invalid database URL"""
+    context.schema_db = "oracle://user@host/db"
+    assert invoke(runner, "unlock", "--yes").exit_code == Errors.ERR_DB_CONNECTION_FAILED
