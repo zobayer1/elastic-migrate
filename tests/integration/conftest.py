@@ -21,6 +21,7 @@ DB_URLS = {
     "mysql": os.getenv("ESMIGRATE_TEST_MYSQL_URL", "mysql://esmigrate:esmigrate@localhost:3306/esmigrate"),
 }
 PROFILE = "integration"
+MYSQL_ROOT_URL = os.getenv("ESMIGRATE_TEST_MYSQL_ROOT_URL", "mysql://root:esmigrate@localhost:3306/esmigrate")
 ES_SECURE_URL = os.getenv("ESMIGRATE_TEST_ES_SECURE_URL", "https://localhost:9201")
 ES_MTLS_URL = os.getenv("ESMIGRATE_TEST_ES_MTLS_URL", "https://localhost:9202")
 ES_PASSWORD = os.getenv("ESMIGRATE_TEST_ES_PASSWORD", "esmigrate-secret")
@@ -161,3 +162,69 @@ def secure_es(certs):
     for client in clients.values():
         client.delete("/esmigrate-it-*", params={"ignore_unavailable": "true"})
         client.close()
+
+
+async def run_statements(db_url, *statements):
+    engine = create_engine(db_url)
+    try:
+        async with engine.begin() as conn:
+            results = [await conn.execute(text(statement)) for statement in statements]
+            return [result.all() if result.returns_rows else None for result in results]
+    finally:
+        await engine.dispose()
+
+
+def create_schema(db_url, name):
+    if db_url.startswith("postgresql"):
+        asyncio.run(run_statements(db_url, f"CREATE SCHEMA {name}"))
+    else:
+        asyncio.run(
+            run_statements(MYSQL_ROOT_URL, f"CREATE DATABASE {name}", f"GRANT ALL ON {name}.* TO 'esmigrate'@'%'")
+        )
+
+
+def drop_schema(db_url, name):
+    if db_url.startswith("postgresql"):
+        asyncio.run(run_statements(db_url, f"DROP SCHEMA IF EXISTS {name} CASCADE"))
+    else:
+        asyncio.run(run_statements(MYSQL_ROOT_URL, f"DROP DATABASE IF EXISTS {name}"))
+
+
+@pytest.fixture
+def db_schemas(db_url):
+    """pytest fixture creating unique PostgreSQL schemas or MySQL databases on demand, dropped after the test"""
+    created = []
+
+    def create():
+        name = f"esm_it_{uuid.uuid4().hex[:10]}"
+        create_schema(db_url, name)
+        created.append(name)
+        return name
+
+    yield create
+    for name in created:
+        drop_schema(db_url, name)
+
+
+@pytest.fixture
+def db_schema(db_schemas):
+    """pytest fixture for one unique PostgreSQL schema or MySQL database"""
+    return db_schemas()
+
+
+@pytest.fixture
+def tables_in(db_url):
+    """pytest fixture listing esm_ tables per schema on the server"""
+
+    def query(schema):
+        (rows,) = asyncio.run(
+            run_statements(
+                db_url,
+                "SELECT table_name FROM information_schema.tables "
+                f"WHERE table_schema = '{schema}' AND table_name LIKE 'esm_%' ORDER BY table_name",
+            )
+        )
+        assert rows is not None
+        return [row[0] for row in rows]
+
+    return query
