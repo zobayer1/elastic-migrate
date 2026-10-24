@@ -121,5 +121,5 @@ jobs:
         with:
           fetch-depth: 0
       - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-      - run: uv build
+      - run: uv build --build-constraints build-constraints.txt --require-hashes
       - run: uvx twine check --strict dist/*
