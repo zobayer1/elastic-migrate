@@ -102,5 +102,5 @@ Key behaviors:
 ## Current state
 
 - Done on `modernize`: #253 (CI/bot cleanup), #263 (Apache-2.0), #256 (SQLAlchemy 2), #254 (pyproject + uv), #255 (ruff, 3.11+ style), #257 (integer version ordering), #258 (async httpx + async DB, CLI rewrite), #59 (schema namespaces, UTC timestamps, explicit v1 table upgrade), #264 (positive exit codes), #265 (pyright), #259 (Docker integration tests on all three DBs), #260 + #109 (TLS, mTLS, basic/API-key auth, `${VAR}` interpolation, strict host validation), #261 (CI, Codecov OIDC, auto-assign), #108 (default profile `default`), #64 (logging, log file, audit trail), #268 (configurable database schema), #267 (migration lock), #266 (default extension `.esm`; v1 used `.exm`).
-- The modernization PR (#269) is merged into `main` with a merge commit. Remaining in milestone `v2.0.0`, on branch `documentation`: #262 (Sphinx + MyST docs on GitHub Pages, incl. "Migrating from v1" and a Downloads page) and #270 (signed GitHub releases, see CI section).
+- The modernization PR (#269) and the docs and release PR (#272: #262 docs on GitHub Pages, #271 subcommand help, #270 release tooling) are merged into `main` with merge commits. #270 stays open until v2.0.0 is published and signed.
 - Coverage is 100% with `fail_under = 100`.
