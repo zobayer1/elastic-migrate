@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0.0 (unreleased)
+## 2.0.0 (2026-10-31)
 
 A rewrite of ElasticMigrate for Python 3.11+ and Elasticsearch 8. See [](migrating-from-v1.md) for upgrade steps.
 
