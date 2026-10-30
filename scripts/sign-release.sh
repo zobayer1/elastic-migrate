@@ -33,13 +33,20 @@ while (($#)); do
 done
 [[ -n "$tag" ]] || usage
 
-for tool in gh gpg git uv sha256sum cmp; do
+for tool in gh gpg git uvx sha256sum cmp; do
     command -v "$tool" > /dev/null || die "$tool is required"
 done
 
 root="$(git rev-parse --show-toplevel)"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
+
+pinned() {
+    local value
+    value="$(sed -nE "s/^$1=([0-9]+\.[0-9]+\.[0-9]+)$/\1/p" "$work/source/build-toolchain.env" | head -n1)"
+    [[ -n "$value" ]] || die "$tag does not pin $1 in build-toolchain.env"
+    echo "$value"
+}
 
 echo "==> Checking that $tag is a draft release"
 draft="$(gh release view "$tag" --repo "$REPO" --json isDraft --jq .isDraft 2> /dev/null)" ||
@@ -72,9 +79,16 @@ done
 
 echo "==> Rebuilding $tag locally"
 git clone --quiet --branch "$tag" "$root" "$work/source" 2> /dev/null
+[[ -f "$work/source/build-toolchain.env" ]] || die "$tag has no build-toolchain.env"
+uv_version="$(pinned UV_VERSION)"
+build_python="$(pinned BUILD_PYTHON)"
+echo "    uv $uv_version, CPython $build_python"
 (
     cd "$work/source"
-    SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" uv build --quiet \
+    export UV_PYTHON_INSTALL_DIR="$work/python"
+    uvx --quiet "uv@$uv_version" python install --quiet --no-bin "$build_python"
+    SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)" uvx --quiet "uv@$uv_version" build --quiet \
+        --python "$build_python" --managed-python \
         --build-constraints build-constraints.txt --require-hashes --out-dir "$work/local"
 )
 for artifact in "${artifacts[@]}"; do

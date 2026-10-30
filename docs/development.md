@@ -43,8 +43,10 @@ examples must stay valid. The site is deployed to GitHub Pages from `main`.
 ## Releases
 
 Releases are built by GitHub Actions and signed locally by the maintainer; the signing key never leaves the
-maintainer's machine. Builds are reproducible: the build backend is pinned with hashes in `build-constraints.txt`, and
-`SOURCE_DATE_EPOCH` is set to the tagged commit's time.
+maintainer's machine. Builds are reproducible: the build backend is pinned with hashes in `build-constraints.txt`,
+`SOURCE_DATE_EPOCH` is set to the tagged commit's time, and `build-toolchain.env` pins the uv version and the
+uv-managed CPython that build the archives. The interpreter matters because archive compression comes from its zlib:
+a system Python linked against zlib-ng, as on Fedora, packs the same files into different bytes.
 
 1. Update `docs/changelog.md` with the version and date, merge to `main` and wait for CI to pass.
 2. Create a signed tag on `main` and push it:
@@ -64,13 +66,22 @@ maintainer's machine. Builds are reproducible: the build backend is pinned with 
    ```
 
    The script checks that the release is a draft, that the tag is signed by a trusted release key, the checksums and
-   attestations, and that a local rebuild from the tag is byte-identical. It then signs every file, uploads the
-   signatures and publishes the release, which refreshes the Downloads page.
+   attestations, and that a local rebuild from the tag is byte-identical. The rebuild runs the uv version pinned in the
+   tag's `build-toolchain.env` through `uvx` and installs the pinned CPython into a temporary directory, so the local
+   uv and Python installations are not involved. It then signs every file, uploads the signatures and publishes the
+   release, which refreshes the Downloads page.
 
 To update the pinned build backend:
 
 ```bash
 printf 'hatchling\nhatch-vcs\n' | uv pip compile - --universal --generate-hashes --python-version 3.11 --no-header -o build-constraints.txt
+```
+
+To update the pinned toolchain, set `UV_VERSION` to a uv release and `BUILD_PYTHON` to a CPython version that this uv
+release can download:
+
+```bash
+uvx uv@0.13.6 python list --only-downloads --all-versions 3.11
 ```
 
 ## Continuous integration
