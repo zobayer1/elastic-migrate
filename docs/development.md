@@ -68,8 +68,9 @@ a system Python linked against zlib-ng, as on Fedora, packs the same files into 
    The script checks that the release is a draft, that the tag is signed by a trusted release key, the checksums and
    attestations, and that a local rebuild from the tag is byte-identical. The rebuild runs the uv version pinned in the
    tag's `build-toolchain.env` through `uvx` and installs the pinned CPython into a temporary directory, so the local
-   uv and Python installations are not involved. It then signs every file, uploads the signatures and publishes the
-   release, which refreshes the Downloads page.
+   uv and Python installations are not involved. It then signs every file, uploads the signatures, publishes the
+   release and starts the docs deployment from `main`, which refreshes the Downloads page. The site is always built
+   from `main`, never from a tag.
 
 To update the pinned build backend:
 
