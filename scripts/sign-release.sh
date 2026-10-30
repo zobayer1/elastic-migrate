@@ -117,3 +117,6 @@ fi
 gh release upload "$tag" "$work/release"/*.asc --repo "$REPO"
 gh release edit "$tag" --repo "$REPO" --draft=false
 echo "Published $tag: https://github.com/$REPO/releases/tag/$tag"
+gh workflow run pages.yml --repo "$REPO" --ref main ||
+    die "starting the docs deployment failed, run: gh workflow run pages.yml --repo $REPO --ref main"
+echo "Started the docs deployment from main: https://github.com/$REPO/actions/workflows/pages.yml"
