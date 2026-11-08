@@ -6,7 +6,7 @@ from sqlalchemy import LargeBinary, String, Text, UniqueConstraint
 from sqlalchemy.dialects.mysql import LONGTEXT
 from sqlalchemy.orm import Mapped, mapped_column
 
-from esmigrate.commons import DEFAULT_NAMESPACE, ScriptData
+from esmigrate.commons import DEFAULT_NAMESPACE, Migration
 from esmigrate.models.base import Base
 from esmigrate.models.types import UTCDateTime
 
@@ -38,11 +38,12 @@ class SchemaVersion(Base):
         self.type = "NOSQL"
 
     @classmethod
-    def from_script_data(cls, script_data: ScriptData) -> Self:
-        scmver = cls(script_data.version)
-        scmver.version_base = script_data.version_base
-        scmver.version_rank = script_data.version_rank
-        scmver.description = script_data.description
-        scmver.script = script_data.path
-        scmver.checksum = script_data.checksum
+    def from_migration(cls, migration: Migration) -> Self:
+        scmver = cls(str(migration.version))
+        scmver.version_base = migration.version.base
+        scmver.version_rank = migration.version.rank
+        scmver.description = migration.description
+        if migration.up:
+            scmver.script = migration.up.path
+            scmver.checksum = migration.up.checksum
         return scmver

@@ -7,7 +7,6 @@ from esmigrate.contexts import ContextConfig
 from esmigrate.contexts.context_config import mask_db_url
 from esmigrate.exceptions import (
     InvalidConfigurationError,
-    InvalidSchemaPatternError,
     UserProfileNotFoundError,
 )
 
@@ -20,11 +19,72 @@ def write_profile(fs, **fields):
     write_profiles(fs, local_config_file_path, {"test": fields})
 
 
-def test_context_fails_with_invalid_schema_pattern_error(monkeypatch):
-    """Test fails if ContextConfig can be instantiated with invalid pattern set via env variable"""
-    monkeypatch.setenv("SCHEMA_PATTERN", "some illegal pattern")
-    with pytest.raises(InvalidSchemaPatternError):
+@pytest.mark.parametrize("pattern", ["(", "[", "(?P<version>"])
+def test_context_fails_with_invalid_schema_pattern_regex(monkeypatch, pattern):
+    """Test fails if an invalid regular expression in SCHEMA_PATTERN is not a configuration error"""
+    monkeypatch.setenv("SCHEMA_PATTERN", pattern)
+    with pytest.raises(InvalidConfigurationError, match="Invalid SCHEMA_PATTERN"):
         ContextConfig()
+
+
+@pytest.mark.parametrize(
+    ("pattern", "missing"),
+    [
+        (r"V\d+_(?P<sequence>\d+)__(?P<name>\w+)\.(?P<extension>\w+)", {"version"}),
+        (r"V(?P<version>\d+)_\d+__(?P<name>\w+)\.(?P<extension>\w+)", {"sequence"}),
+        (r"V(?P<version>\d+)_(?P<sequence>\d+)__\w+\.(?P<extension>\w+)", {"name"}),
+        (r"V(?P<version>\d+)_(?P<sequence>\d+)__(?P<name>\w+)\.\w+", {"extension"}),
+        ("some illegal pattern", {"version", "sequence", "name", "extension"}),
+        (r"(?x)V(?P<version>\d+) # (?P<sequence>) (?P<name>) (?P<extension>)", {"sequence", "name", "extension"}),
+    ],
+)
+def test_context_fails_when_schema_pattern_misses_required_groups(monkeypatch, pattern, missing):
+    """Test fails if a pattern without a required named group is accepted or any missing group goes unnamed"""
+    monkeypatch.setenv("SCHEMA_PATTERN", pattern)
+    with pytest.raises(InvalidConfigurationError) as err:
+        ContextConfig()
+    reported = str(err.value).removeprefix("missing required named groups: ").removesuffix(" in SCHEMA_PATTERN")
+    assert set(reported.split(", ")) == missing
+
+
+@pytest.mark.parametrize(
+    ("file_name", "direction"),
+    [
+        ("V1_10__a.esm", None),
+        ("V1_10__a.up.esm", "up"),
+        ("V1_10__a.down.esm", "down"),
+        ("V1_10__setup.esm", None),
+        ("V1_10__up.esm", None),
+        ("V1_10__down.esm", None),
+    ],
+)
+def test_default_schema_pattern_reads_optional_direction(file_name, direction):
+    """Test fails if the default pattern does not read only a .up or .down segment as the direction"""
+    match = ContextConfig().schema_regex.fullmatch(file_name)
+    assert match is not None
+    assert (match["version"], match["sequence"], match["extension"]) == ("1", "10", "esm")
+    assert match["direction"] == direction
+
+
+@pytest.mark.parametrize(
+    "file_name",
+    ["V1_0__a.UP.esm", "V1_0__a.sideways.esm", "V1_0__a.up.down.esm", "V1_0__a.esm.up"],
+)
+def test_default_schema_pattern_rejects_other_segments(file_name):
+    """Test fails if the default pattern accepts a segment other than a lowercase .up or .down before the extension"""
+    assert ContextConfig().schema_regex.fullmatch(file_name) is None
+
+
+def test_context_accepts_schema_pattern_without_direction_group(monkeypatch):
+    """Test fails if the optional direction group is required in a custom pattern"""
+    monkeypatch.setenv("SCHEMA_PATTERN", r"V(?P<version>\d+)_(?P<sequence>\d+)__(?P<name>\w+)\.(?P<extension>\w+)")
+    assert "direction" not in ContextConfig().schema_regex.groupindex
+
+
+def test_context_accepts_schema_pattern_with_global_flags(monkeypatch):
+    """Test fails if a custom pattern cannot start with global regular expression flags"""
+    monkeypatch.setenv("SCHEMA_PATTERN", r"(?i)v(?P<version>\d+)_(?P<sequence>\d+)__(?P<name>\w+)\.(?P<extension>\w+)")
+    assert ContextConfig().schema_regex.fullmatch("V1_0__a.ESM") is not None
 
 
 def test_context_fails_with_user_profile_not_found_error():
