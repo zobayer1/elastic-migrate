@@ -4,7 +4,7 @@ import sys
 
 import pytest
 
-from esmigrate.exceptions import Errors
+from esmigrate.exceptions import Errors, error_list
 
 RESERVED_EXIT_CODES = {0, 1, 2, 126, 127}
 
@@ -56,3 +56,39 @@ def test_process_exits_when_schema_dir_is_missing(tmp_path, monkeypatch):
     assert result.returncode == Errors.ERR_INVALID_CONFIGURATION
     assert "schema_dir is required in profile 'noschema'" in result.stderr
     assert result.stdout == ""
+
+
+@pytest.mark.parametrize(
+    ("pattern", "message"),
+    [("(", "Invalid SCHEMA_PATTERN"), ("V(?P<version>\\d+)", "missing required named groups")],
+)
+def test_process_exit_status_matches_unusable_schema_pattern(tmp_path, monkeypatch, pattern, message):
+    """Test fails if an unusable SCHEMA_PATTERN does not exit with Errors.ERR_INVALID_CONFIGURATION"""
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    monkeypatch.delenv("ESMIGRATE_CONFIG", raising=False)
+    monkeypatch.setenv("SCHEMA_PATTERN", pattern)
+    result = run_cli(tmp_path, "upgrade")
+    assert result.returncode == Errors.ERR_INVALID_CONFIGURATION
+    assert "ERROR: InvalidConfigurationError: " in result.stderr
+    assert message in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def test_process_shows_help_with_unusable_schema_pattern(tmp_path, monkeypatch):
+    """Test fails if an unusable SCHEMA_PATTERN breaks subcommand help, which needs no configuration"""
+    monkeypatch.setenv("SCHEMA_PATTERN", "(")
+    result = run_cli(tmp_path, "upgrade", "--help")
+    assert result.returncode == 0
+    assert "--schema-version" in result.stdout
+
+
+def test_error_list_indents_one_error_per_line_under_its_title():
+    """Test fails if error_list does not put the title first and indent one error per line"""
+    assert error_list("Invalid migrations:", ["1.0: first", "1.1: second"]) == (
+        "Invalid migrations:\n  1.0: first\n  1.1: second"
+    )
+
+
+def test_error_list_returns_only_the_title_without_errors():
+    """Test fails if error_list adds lines when there are no errors"""
+    assert error_list("Invalid migrations:", []) == "Invalid migrations:"

@@ -12,12 +12,16 @@ from esmigrate.commons import DEFAULT_NAMESPACE, DEFAULT_PROFILE, local_config_f
 from esmigrate.commons.log_setup import DEFAULT_LOG_BACKUP_COUNT, DEFAULT_LOG_MAX_BYTES, LOG_ROTATIONS
 from esmigrate.exceptions import (
     InvalidConfigurationError,
-    InvalidSchemaPatternError,
     UserProfileNotFoundError,
 )
 
 ENV_REFERENCE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 MASK = "****"
+
+DEFAULT_SCHEMA_PATTERN = (
+    "V(?P<version>[\\d]+)_(?P<sequence>[\\d]+)__(?P<name>[\\w]+)(?:\\.(?P<direction>up|down))?\\.(?P<extension>[\\w]+)"
+)
+DEFAULT_SCHEMA_PATTERN_GROUPS = ("version", "sequence", "name", "extension")
 
 
 def interpolate(value: Any, field: str) -> Any:
@@ -110,10 +114,6 @@ def parse_headers(value: object) -> dict[str, str]:
 
 
 class ContextConfig:
-    _named_groups = ("version", "sequence", "name", "extension")
-    _default_pattern = "V(?P<version>[\\d]+)_(?P<sequence>[\\d]+)__(?P<name>[\\w]+)\\.(?P<extension>[\\w]+)"
-    _default_config_filename = "config.json"
-
     def __init__(self) -> None:
         self.es_host = "http://localhost:9200"
         self.es_timeout: float | None = 60.0
@@ -137,9 +137,17 @@ class ContextConfig:
         self.schema_dir: str | None = None
         self.schema_ext = ".esm"
         self.schema_namespace = DEFAULT_NAMESPACE
-        self.schema_pattern = rf"^{os.getenv('SCHEMA_PATTERN', ContextConfig._default_pattern)}$"
-        if not all(p in self.schema_pattern for p in ContextConfig._named_groups):
-            raise InvalidSchemaPatternError(f"SCHEMA_PATTERN must have named groups for {ContextConfig._named_groups}")
+        self.schema_pattern = os.getenv("SCHEMA_PATTERN", DEFAULT_SCHEMA_PATTERN)
+        self.schema_regex: re.Pattern[str]
+        try:
+            self.schema_regex = re.compile(self.schema_pattern)
+        except re.error as err:
+            raise InvalidConfigurationError(f"Invalid SCHEMA_PATTERN: {err}") from err
+        missing_groups = DEFAULT_SCHEMA_PATTERN_GROUPS - self.schema_regex.groupindex.keys()
+        if missing_groups:
+            raise InvalidConfigurationError(
+                f"missing required named groups: {', '.join(missing_groups)} in SCHEMA_PATTERN"
+            )
 
     def load_for(self, profile: str = DEFAULT_PROFILE) -> Self:
         profile = str(profile).strip()

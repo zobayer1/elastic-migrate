@@ -120,6 +120,10 @@ class ElasticsearchHTTPError(RuntimeError):
         self.response = response
 
 
+def error_list(title: str, errors: list[str]) -> str:
+    return "\n".join([title, *(f"  {error}" for error in errors)])
+
+
 __all__ = [
     "ContextObjectNotSetError",
     "ElasticsearchConnError",
@@ -137,4 +141,5 @@ __all__ = [
     "MigrationLockedError",
     "SchemaVersionSqlDbError",
     "UserProfileNotFoundError",
+    "error_list",
 ]

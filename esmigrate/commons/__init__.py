@@ -8,10 +8,11 @@ from esmigrate.commons.formatters import query_results_string
 from esmigrate.commons.helpers import (
     is_valid_json,
     is_valid_ndjson,
-    parse_file_path,
+    make_sha1,
     parse_version,
 )
-from esmigrate.commons.script_data import ScriptData
+from esmigrate.commons.migration import Migration
+from esmigrate.commons.script_data import MAX_VERSION_PART, Direction, MigVersion, ScriptData
 
 http_verbs = ["GET", "PUT", "POST", "DELETE"]
 JSON_HEADER = {"Content-Type": "application/json"}
@@ -39,15 +40,19 @@ __all__ = [
     "DEFAULT_NAMESPACE",
     "DEFAULT_PROFILE",
     "JSON_HEADER",
+    "MAX_VERSION_PART",
     "NDJSON_HEADER",
     "Command",
+    "Direction",
+    "MigVersion",
+    "Migration",
     "ScriptData",
     "appname",
     "http_verbs",
     "is_valid_json",
     "is_valid_ndjson",
     "local_config_file_path",
-    "parse_file_path",
+    "make_sha1",
     "parse_version",
     "query_results_string",
     "title",

@@ -11,7 +11,7 @@ from typing import Any, Concatenate, NoReturn, ParamSpec, TypeVar
 
 import click
 
-from esmigrate.commons import DEFAULT_PROFILE, ScriptData, appname, parse_version, query_results_string, title, version
+from esmigrate.commons import DEFAULT_PROFILE, Migration, MigVersion, appname, query_results_string, title, version
 from esmigrate.commons.log_setup import configure_console, configure_file
 from esmigrate.contexts import ContextConfig
 from esmigrate.contexts.context_config import mask_db_url
@@ -220,7 +220,7 @@ async def run_init(cfg: ContextConfig) -> int:
 async def run_upgrade(cfg: ContextConfig, schema_version: str) -> int:
     log.debug(f"Upgrade target: {schema_version}")
     try:
-        requested = None if schema_version == "latest" else parse_version(schema_version)
+        requested = None if schema_version == "latest" else MigVersion.parse(schema_version)
     except ValueError as err:
         return fail(err, Errors.ERR_INVALID_SCMVER)
     try:
@@ -232,14 +232,14 @@ async def run_upgrade(cfg: ContextConfig, schema_version: str) -> int:
         return fail(err, Errors.ERR_INVALID_CONFIGURATION)
 
 
-async def upgrade_schema(cfg: ContextConfig, db: DBManager, requested: tuple[int, int] | None) -> int:
+async def upgrade_schema(cfg: ContextConfig, db: DBManager, requested: MigVersion | None) -> int:
     latest_db_entry = await db.find_latest_schema()
     if latest_db_entry and not latest_db_entry.success:
         log.error(f"Schema database contains an error for version {latest_db_entry.version}")
         return Errors.ERR_DB_IN_ERROR_STATE
-    latest_db_version = parse_version(latest_db_entry.version) if latest_db_entry else (0, 0)
+    latest_db_version = MigVersion.parse(latest_db_entry.version) if latest_db_entry else MigVersion(0, 0)
     try:
-        schema_entries = GlobLoader(cfg).scan_dir(cfg.schema_path)
+        schema_entries = GlobLoader(cfg).load_migrations(cfg.schema_path)
     except NotADirectoryError as err:
         return fail(err, Errors.ERR_INVALID_SCHEMA_DIRECTORY)
     except (InvalidSchemaPatternError, InvalidSchemaFileError) as err:
@@ -247,8 +247,8 @@ async def upgrade_schema(cfg: ContextConfig, db: DBManager, requested: tuple[int
     if not schema_entries:
         log.info("No schema file found, nothing to do")
         return 0
-    target = schema_entries[-1].version_key if requested is None else requested
-    pending = [entry for entry in schema_entries if latest_db_version < entry.version_key <= target]
+    target = schema_entries[-1].version if requested is None else requested
+    pending = [entry for entry in schema_entries if latest_db_version < entry.version <= target]
     if not pending:
         log.info("Schema version in database is ahead of requested version, nothing to do")
         return 0
@@ -262,30 +262,33 @@ async def upgrade_schema(cfg: ContextConfig, db: DBManager, requested: tuple[int
     return 0
 
 
-async def apply_schema(db: DBManager, http_handler: HTTPHandler, script_parser: ScriptParser, entry: ScriptData) -> int:
+async def apply_schema(db: DBManager, http_handler: HTTPHandler, script_parser: ScriptParser, entry: Migration) -> int:
     log.info(f"Processing schema {entry.description}")
-    log.debug(f"Schema {entry.version}: script={entry.path} checksum={entry.checksum.hex()}")
-    query_results: list[str] = []
-    error_code = 0
     tic = time.perf_counter()
-    try:
-        commands = list(script_parser.get_commands(entry.content))
-    except SCRIPT_ERRORS as err:
-        commands = []
-        error_code = fail(err, Errors.ERR_INVALID_SCHEMA_COMMAND)
-    for command in commands:
+    error_code = 0
+    query_results: list[str] = []
+    if entry.up:
+        log.debug(f"Schema {entry.version}: script={entry.up.path} checksum={entry.up.checksum.hex()}")
         try:
-            response = await http_handler.make_requests(command)
-        except ElasticsearchConnError as err:
-            return fail(err, Errors.ERR_ES_CONNERROR)
-        except ElasticsearchHTTPError as err:
-            query_results.append(query_results_string(command, err.response))
-            error_code = fail(err, Errors.ERR_ES_HTTPERROR)
-            break
-        query_results.append(query_results_string(command, response))
+            commands = list(script_parser.get_commands(entry.up.content))
+        except SCRIPT_ERRORS as err:
+            commands = []
+            error_code = fail(err, Errors.ERR_INVALID_SCHEMA_COMMAND)
+        for command in commands:
+            try:
+                response = await http_handler.make_requests(command)
+            except ElasticsearchConnError as err:
+                return fail(err, Errors.ERR_ES_CONNERROR)
+            except ElasticsearchHTTPError as err:
+                query_results.append(query_results_string(command, err.response))
+                error_code = fail(err, Errors.ERR_ES_HTTPERROR)
+                break
+            query_results.append(query_results_string(command, response))
+    else:
+        log.info(f"Schema {entry.version} has no up script, recording it without requests")
     duration = int((time.perf_counter() - tic) * 1000)
     log.debug(f"Schema {entry.version} {'succeeded' if error_code == 0 else 'failed'} in {duration} ms")
-    scmver = SchemaVersion.from_script_data(entry)
+    scmver = SchemaVersion.from_migration(entry)
     scmver.success = error_code == 0
     scmver.execution_time = int(time.perf_counter() - tic)
     scmver.query_results = ";".join(query_results)

@@ -10,6 +10,7 @@ from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from esmigrate import cli
+from esmigrate.commons import make_sha1
 from esmigrate.contexts import ContextConfig
 from esmigrate.exceptions import Errors, InvalidConfigurationError, SchemaVersionSqlDbError
 from esmigrate.internals import DBManager
@@ -336,7 +337,7 @@ def test_cli_commands_refuse_legacy_table(runner, context, command):
     assert "esmigrate init" in result.output
 
 
-@pytest.mark.parametrize("schema_version", ["invalid", "1.2.3", "1.x"])
+@pytest.mark.parametrize("schema_version", ["invalid", "1.2.3", "1.x", "2147483648", "1.2147483648"])
 def test_cli_upgrade_cmd_fails_with_value_error(runner, context, schema_version):
     """Test fails if `esmigrate upgrade` fails to check invalid schema version parameter"""
     result = invoke(runner, "upgrade", "--schema-version", schema_version)
@@ -523,6 +524,174 @@ def test_cli_upgrade_cmd_uses_profile_namespace(runner, context, schema_dir, res
     assert "Processing schema create_twitter.esm" in result.output
     assert [row.version for row in stored_rows(context, namespace="billing")] == ["1.0"]
     assert [row.version for row in stored_rows(context)] == ["1.0"]
+
+
+def test_cli_upgrade_cmd_runs_up_and_plain_scripts_only(runner, context, schema_dir, respx_mock):
+    """Test fails if `esmigrate upgrade` runs a down script or does not record the up and plain scripts"""
+    up_script = 'PUT twitter\n{"settings": {}}'
+    write_schema(schema_dir, "V1_0__create_twitter.up.esm", up_script)
+    write_schema(schema_dir, "V1_0__create_twitter.down.esm", "DELETE twitter")
+    write_schema(schema_dir, "V1_1__create_tweets.esm", 'PUT tweets\n{"settings": {}}')
+    respx_mock.put(f"{ES_HOST}/twitter").respond(200, json={"acknowledged": True})
+    respx_mock.put(f"{ES_HOST}/tweets").respond(200, json={"acknowledged": True})
+    result = invoke(runner, "upgrade")
+    assert result.exit_code == 0
+    assert "Schema database upgraded to 1.1" in result.output
+    assert len(respx_mock.calls) == 2
+    rows = stored_rows(context)
+    assert [(row.version, row.success, row.script, row.description) for row in rows] == [
+        ("1.0", True, "V1_0__create_twitter.up.esm", "create_twitter.esm"),
+        ("1.1", True, "V1_1__create_tweets.esm", "create_tweets.esm"),
+    ]
+    assert rows[0].checksum == make_sha1(up_script)
+
+
+def test_cli_upgrade_cmd_records_down_only_migration_without_requests(runner, context, schema_dir, respx_mock):
+    """Test fails if a down-only migration sends a request, is not recorded or is not logged as having no up script"""
+    write_schema(schema_dir, "V1_0__drop_old_index.down.esm", "DELETE old_index")
+    result = invoke(runner, "upgrade")
+    assert result.exit_code == 0
+    assert "Schema 1.0 has no up script, recording it without requests" in result.output
+    assert len(respx_mock.calls) == 0
+    rows = stored_rows(context)
+    assert [(row.version, row.version_base, row.version_rank, row.description, row.success) for row in rows] == [
+        ("1.0", 1, 0, "drop_old_index.esm", True),
+    ]
+    assert rows[0].script is None
+    assert rows[0].checksum is None
+    assert rows[0].query_results == ""
+
+
+def test_cli_upgrade_cmd_does_not_repeat_down_only_migration(runner, context, schema_dir, respx_mock):
+    """Test fails if a recorded down-only migration is processed again by a later upgrade"""
+    write_schema(schema_dir, "V1_0__drop_old_index.down.esm", "DELETE old_index")
+    assert invoke(runner, "upgrade").exit_code == 0
+    result = invoke(runner, "upgrade")
+    assert result.exit_code == 0
+    assert "Processing schema" not in result.output
+    assert len(stored_rows(context)) == 1
+
+
+def test_cli_upgrade_cmd_applies_down_only_migration_between_others(runner, context, schema_dir, respx_mock):
+    """Test fails if a down-only migration interrupts the scripts before and after it"""
+    write_schema(schema_dir, "V1_0__first.esm", 'PUT first\n{"settings": {}}')
+    write_schema(schema_dir, "V1_1__second.down.esm", "DELETE second")
+    write_schema(schema_dir, "V1_2__third.up.esm", 'PUT third\n{"settings": {}}')
+    respx_mock.put(f"{ES_HOST}/first").respond(200, json={"acknowledged": True})
+    respx_mock.put(f"{ES_HOST}/third").respond(200, json={"acknowledged": True})
+    result = invoke(runner, "upgrade")
+    assert result.exit_code == 0
+    assert len(respx_mock.calls) == 2
+    assert [(row.version, row.script) for row in stored_rows(context)] == [
+        ("1.0", "V1_0__first.esm"),
+        ("1.1", None),
+        ("1.2", "V1_2__third.up.esm"),
+    ]
+
+
+def test_cli_upgrade_cmd_stops_at_requested_down_only_migration(runner, context, schema_dir, respx_mock):
+    """Test fails if a requested version that is down-only is not the last one applied"""
+    write_schema(schema_dir, "V1_0__first.esm", 'PUT first\n{"settings": {}}')
+    write_schema(schema_dir, "V1_1__second.down.esm", "DELETE second")
+    write_schema(schema_dir, "V1_2__third.esm", 'PUT third\n{"settings": {}}')
+    respx_mock.put(f"{ES_HOST}/first").respond(200, json={"acknowledged": True})
+    result = invoke(runner, "upgrade", "--schema-version", "1.1")
+    assert result.exit_code == 0
+    assert "Schema database upgraded to 1.1" in result.output
+    assert [row.version for row in stored_rows(context)] == ["1.0", "1.1"]
+
+
+@pytest.mark.parametrize("down_script", ["THIS IS NOT A COMMAND", ""])
+def test_cli_upgrade_cmd_ignores_down_script_content(runner, context, schema_dir, respx_mock, down_script):
+    """Test fails if `esmigrate upgrade` parses a down script"""
+    write_schema(schema_dir, "V1_0__create_twitter.up.esm", 'PUT twitter\n{"settings": {}}')
+    write_schema(schema_dir, "V1_0__create_twitter.down.esm", down_script)
+    respx_mock.put(f"{ES_HOST}/twitter").respond(200, json={"acknowledged": True})
+    result = invoke(runner, "upgrade")
+    assert result.exit_code == 0
+    assert [row.success for row in stored_rows(context)] == [True]
+
+
+def test_cli_upgrade_cmd_lists_illegal_file_names_before_any_request(runner, context, schema_dir, respx_mock):
+    """Test fails if illegal file names are not all named with exit 31 before anything runs"""
+    write_schema(schema_dir, "V1__first_bad.esm")
+    write_schema(schema_dir, "V2__second_bad.esm")
+    write_schema(schema_dir, "V3_0__create_twitter.esm")
+    result = invoke(runner, "upgrade")
+    assert result.exit_code == Errors.ERR_INVALID_SCHEMA_FILE
+    assert "V1__first_bad.esm" in result.output
+    assert "V2__second_bad.esm" in result.output
+    assert len(respx_mock.calls) == 0
+    assert not stored_rows(context)
+
+
+def test_cli_upgrade_cmd_lists_invalid_pairs_before_any_request(runner, context, schema_dir, respx_mock):
+    """Test fails if invalid sets of files are not all reported with exit 31 before anything runs"""
+    write_schema(schema_dir, "V1_0__a.esm")
+    write_schema(schema_dir, "V1_0__a.up.esm")
+    write_schema(schema_dir, "V2_0__a.up.esm")
+    write_schema(schema_dir, "V2_0__b.down.esm")
+    write_schema(schema_dir, "V3_0__create_twitter.esm")
+    result = invoke(runner, "upgrade")
+    assert result.exit_code == Errors.ERR_INVALID_SCHEMA_FILE
+    assert "1.0: plain and up/down files mixed" in result.output
+    assert "2.0: up and down script names must match" in result.output
+    assert len(respx_mock.calls) == 0
+    assert not stored_rows(context)
+
+
+def test_cli_upgrade_cmd_rejects_version_zero_file(runner, context, schema_dir, respx_mock):
+    """Test fails if a file for version 0.0 is not rejected with exit 31"""
+    write_schema(schema_dir, "V0_0__a.esm")
+    result = invoke(runner, "upgrade")
+    assert result.exit_code == Errors.ERR_INVALID_SCHEMA_FILE
+    assert "0.0: version 0.0 is not allowed" in result.output
+    assert len(respx_mock.calls) == 0
+
+
+def test_cli_upgrade_cmd_records_failed_up_script(runner, context, schema_dir, respx_mock):
+    """Test fails if a failing up script is not recorded by its own path and does not block a later upgrade"""
+    write_schema(schema_dir, "V1_0__create_twitter.up.esm", 'PUT twitter\n{"settings": {}}')
+    write_schema(schema_dir, "V1_0__create_twitter.down.esm", "DELETE twitter")
+    respx_mock.put(f"{ES_HOST}/twitter").respond(500, json={"error": "boom"})
+    result = invoke(runner, "upgrade")
+    assert result.exit_code == Errors.ERR_ES_HTTPERROR
+    assert [(row.version, row.success, row.script) for row in stored_rows(context)] == [
+        ("1.0", False, "V1_0__create_twitter.up.esm"),
+    ]
+    assert invoke(runner, "upgrade").exit_code == Errors.ERR_DB_IN_ERROR_STATE
+
+
+def test_cli_upgrade_cmd_records_up_script_that_does_not_parse(runner, context, schema_dir, respx_mock):
+    """Test fails if an up script that does not parse is not recorded as failed with exit 32"""
+    write_schema(schema_dir, "V1_0__create_twitter.up.esm", "THIS IS NOT A COMMAND")
+    result = invoke(runner, "upgrade")
+    assert result.exit_code == Errors.ERR_INVALID_SCHEMA_COMMAND
+    assert [(row.success, row.script) for row in stored_rows(context)] == [(False, "V1_0__create_twitter.up.esm")]
+    assert len(respx_mock.calls) == 0
+
+
+@pytest.mark.parametrize("name", ["V1_0__empty.esm", "V1_0__empty.up.esm"])
+def test_cli_upgrade_cmd_fails_for_empty_up_script(runner, context, schema_dir, respx_mock, name):
+    """Test fails if an empty up or plain script is not a script error, unlike a down-only migration"""
+    write_schema(schema_dir, name, "")
+    result = invoke(runner, "upgrade")
+    assert result.exit_code == Errors.ERR_INVALID_SCHEMA_COMMAND
+    assert "Script does not contain any command" in result.output
+    assert [(row.success, row.script) for row in stored_rows(context)] == [(False, name)]
+    assert len(respx_mock.calls) == 0
+
+
+def test_cli_upgrade_cmd_skips_applied_version_written_with_leading_zeros(runner, context, schema_dir, respx_mock):
+    """Test fails if a v2 row stored as 1.01 does not count as version 1.1 already applied"""
+    seed(context, ("1.01", True))
+    write_schema(schema_dir, "V1_01__first.esm", 'PUT first\n{"settings": {}}')
+    write_schema(schema_dir, "V1_2__second.esm", 'PUT second\n{"settings": {}}')
+    respx_mock.put(f"{ES_HOST}/second").respond(200, json={"acknowledged": True})
+    result = invoke(runner, "upgrade")
+    assert result.exit_code == 0
+    assert len(respx_mock.calls) == 1
+    assert [row.version for row in stored_rows(context)] == ["1.01", "1.2"]
 
 
 def test_cli_rollback_cmd_succeeds_when_no_error_entry(runner, context):
