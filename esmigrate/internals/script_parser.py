@@ -56,7 +56,7 @@ class ScriptParser:
             cmdnext = occurs[idx + 1]
 
             if cmdline + 1 >= cmdnext:
-                body, head = None, None
+                body, head = None, {}
             else:
                 body = "\n".join(stripped_lines[cmdline + 1 : cmdnext]) + "\n"
                 if is_valid_json(body):
