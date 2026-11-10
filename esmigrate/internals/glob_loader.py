@@ -5,7 +5,7 @@ from collections.abc import Iterable
 
 from esmigrate.commons import MAX_VERSION_PART, Direction, Migration, MigVersion, ScriptData
 from esmigrate.contexts import ContextConfig
-from esmigrate.exceptions import ContextObjectNotSetError, InvalidSchemaFileError, InvalidSchemaPatternError, error_list
+from esmigrate.exceptions import InvalidSchemaFileError, InvalidSchemaPatternError, error_list
 
 ZERO_VERSION = MigVersion(0, 0)
 
@@ -41,13 +41,10 @@ def pair_scripts(scripts: Iterable[ScriptData]) -> list[Migration]:
 
 
 class GlobLoader:
-    def __init__(self, ctx: ContextConfig | None = None) -> None:
+    def __init__(self, ctx: ContextConfig) -> None:
         self._ctx = ctx
 
     def scan_dir(self, schema_dir: str) -> list[ScriptData]:
-        if self._ctx is None:
-            raise ContextObjectNotSetError("Context was not set")
-
         if not schema_dir or not os.path.isdir(schema_dir):
             raise NotADirectoryError(f"Not a valid directory: {schema_dir}")
 
