@@ -3,7 +3,7 @@ import hashlib
 
 import pytest
 
-from esmigrate.commons import MAX_VERSION_PART, Direction, MigVersion, ScriptData
+from esmigrate.commons import MAX_VERSION_PART, Direction, MigVersion, Operation, ScriptData
 
 
 def test_mig_version_orders_parts_numerically():
@@ -110,3 +110,19 @@ def test_script_data_is_plain_without_a_direction():
     """Test fails if a script built without a direction is not a plain file"""
     script = ScriptData(MigVersion(1, 0), "create_index", "esm", "V1_0__create_index.esm", "GET twitter")
     assert script.direction is None
+
+
+@pytest.mark.parametrize(
+    ("member", "text"),
+    [(Operation.UP, "up"), (Operation.DOWN, "down"), (Operation.FORCE, "force"), (Operation.RESET, "reset")],
+)
+def test_operation_is_stored_under_its_lower_case_name(member, text):
+    """Test fails if a history operation is not stored and printed as its lower-case name"""
+    assert member.value == text
+    assert str(member) == text
+
+
+@pytest.mark.parametrize("direction", list(Direction))
+def test_every_direction_has_a_matching_operation(direction):
+    """Test fails if a script direction cannot be recorded as the history operation of the same name"""
+    assert Operation(direction.value).value == direction.value

@@ -4,7 +4,7 @@ from importlib.metadata import version as get_version
 from platformdirs import user_config_dir
 
 from esmigrate.commons.command import Command
-from esmigrate.commons.formatters import query_results_string
+from esmigrate.commons.formatters import old_timestamp_to_utc, query_error_string, query_results_string
 from esmigrate.commons.helpers import (
     is_valid_json,
     is_valid_ndjson,
@@ -12,7 +12,7 @@ from esmigrate.commons.helpers import (
     parse_version,
 )
 from esmigrate.commons.migration import Migration
-from esmigrate.commons.script_data import MAX_VERSION_PART, Direction, MigVersion, ScriptData
+from esmigrate.commons.script_data import MAX_VERSION_PART, Direction, MigVersion, Operation, ScriptData
 
 http_verbs = ["GET", "PUT", "POST", "DELETE"]
 JSON_HEADER = {"Content-Type": "application/json"}
@@ -46,6 +46,7 @@ __all__ = [
     "Direction",
     "MigVersion",
     "Migration",
+    "Operation",
     "ScriptData",
     "appname",
     "http_verbs",
@@ -53,7 +54,9 @@ __all__ = [
     "is_valid_ndjson",
     "local_config_file_path",
     "make_sha1",
+    "old_timestamp_to_utc",
     "parse_version",
+    "query_error_string",
     "query_results_string",
     "title",
     "user_config_file_path",

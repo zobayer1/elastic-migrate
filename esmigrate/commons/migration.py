@@ -1,4 +1,4 @@
-from esmigrate.commons.script_data import ScriptData
+from esmigrate.commons.script_data import Direction, ScriptData
 
 
 class Migration:
@@ -14,3 +14,6 @@ class Migration:
             self.description = down.description
         else:
             raise ValueError("Up and down migrations cannot be empty at the same time")
+
+    def script_for(self, direction: Direction) -> ScriptData | None:
+        return self.up if direction is Direction.UP else self.down

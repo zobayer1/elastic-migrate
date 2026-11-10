@@ -253,3 +253,49 @@ async def test_http_handler_reports_raw_ssl_errors(http_handler, mocker):
     mocker.patch.object(http_handler._client, "request", side_effect=error)
     with pytest.raises(ElasticsearchConnError, match=r"TLS error: .*certificate required"):
         await http_handler.make_requests(Command("GET", "/twitter"))
+
+
+ALERT_CERTIFICATE_REQUIRED = "[SSL: TLSV13_ALERT_CERTIFICATE_REQUIRED] tlsv13 alert certificate required"
+
+
+@pytest.mark.parametrize(
+    ("error", "never_reached"),
+    [
+        (httpx.ConnectError("refused"), True),
+        (httpx.ConnectTimeout("slow"), True),
+        (ssl.SSLError(1, ALERT_CERTIFICATE_REQUIRED), True),
+        (ssl.SSLError(1, "[SSL: SSLV3_ALERT_CERTIFICATE_EXPIRED] sslv3 alert certificate expired"), True),
+        (ssl.SSLError(1, "[SSL: SSLV3_ALERT_BAD_CERTIFICATE] sslv3 alert bad certificate"), True),
+        (ssl.SSLError(1, "[SSL: SSLV3_ALERT_BAD_RECORD_MAC] sslv3 alert bad record mac"), False),
+        (httpx.ReadTimeout("slow"), False),
+        (httpx.WriteTimeout("slow"), False),
+        (httpx.PoolTimeout("slow"), False),
+        (httpx.ReadError("cut"), False),
+        (httpx.WriteError("cut"), False),
+        (httpx.RemoteProtocolError("bad response"), False),
+        (httpx.ProxyError("proxy"), False),
+    ],
+)
+async def test_http_handler_marks_requests_that_never_reached_elasticsearch(http_handler, mocker, error, never_reached):
+    """Test fails if only connection-phase failures and certificate alerts are not marked as never reaching ES"""
+    mocker.patch.object(http_handler._client, "request", side_effect=error)
+    with pytest.raises(ElasticsearchConnError) as raised:
+        await http_handler.make_requests(Command("GET", "/twitter"))
+    assert raised.value.never_reached is never_reached
+
+
+@pytest.mark.parametrize(
+    ("error", "cause", "never_reached"),
+    [
+        (httpx.ConnectError("handshake failed"), ssl.SSLCertVerificationError(1, "certificate verify failed"), True),
+        (httpx.ReadError("alert"), ssl.SSLError(1, ALERT_CERTIFICATE_REQUIRED), True),
+        (httpx.ReadError("eof"), ssl.SSLEOFError(8, "EOF occurred in violation of protocol"), False),
+    ],
+)
+async def test_http_handler_marks_wrapped_tls_errors(http_handler, mocker, error, cause, never_reached):
+    """Test fails if a TLS cause is not reported as a TLS error with the right never-reached flag"""
+    error.__cause__ = cause
+    mocker.patch.object(http_handler._client, "request", side_effect=error)
+    with pytest.raises(ElasticsearchConnError, match="TLS error") as raised:
+        await http_handler.make_requests(Command("GET", "/twitter"))
+    assert raised.value.never_reached is never_reached

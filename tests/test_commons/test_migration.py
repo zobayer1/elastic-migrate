@@ -48,3 +48,17 @@ def test_migration_requires_at_least_one_script():
     """Test fails if a migration can be built without any script"""
     with pytest.raises(ValueError, match="cannot be empty"):
         Migration()
+
+
+@pytest.mark.parametrize("direction", [Direction.UP, Direction.DOWN])
+def test_migration_returns_the_script_for_a_direction(direction):
+    """Test fails if script_for does not return the up script for up and the down script for down"""
+    up, down = make_script("pair", Direction.UP), make_script("pair", Direction.DOWN)
+    assert Migration(up=up, down=down).script_for(direction) is (up if direction is Direction.UP else down)
+
+
+@pytest.mark.parametrize(("present", "missing"), [(Direction.UP, Direction.DOWN), (Direction.DOWN, Direction.UP)])
+def test_migration_has_no_script_for_a_missing_direction(present, missing):
+    """Test fails if script_for returns a script for a direction the migration does not have"""
+    migration = Migration(**{present.value: make_script("only_one", present)})
+    assert migration.script_for(missing) is None

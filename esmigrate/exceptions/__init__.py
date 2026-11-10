@@ -81,8 +81,14 @@ class InvalidSchemaPatternError(RuntimeError):
     pass
 
 
+class InvalidSchemaTableError(RuntimeError):
+    """Raised when a schema table does not have the columns esmigrate requires"""
+
+    pass
+
+
 class LegacySchemaTableError(RuntimeError):
-    """Raised when the schema version table uses the v1 layout and must be upgraded with `esmigrate init`"""
+    """Raised when the schema version table uses the v1 or v2 layouts and must be upgraded with `esmigrate init`"""
 
     pass
 
@@ -108,7 +114,9 @@ class UserProfileNotFoundError(RuntimeError):
 class ElasticsearchConnError(RuntimeError):
     """Raised when elasticsearch cannot be reached or does not respond in time"""
 
-    pass
+    def __init__(self, message: str, never_reached: bool = False) -> None:
+        super().__init__(message)
+        self.never_reached = never_reached
 
 
 class ElasticsearchHTTPError(RuntimeError):
@@ -137,6 +145,7 @@ __all__ = [
     "InvalidDBConnectionError",
     "InvalidSchemaFileError",
     "InvalidSchemaPatternError",
+    "InvalidSchemaTableError",
     "LegacySchemaTableError",
     "MigrationLockedError",
     "SchemaVersionSqlDbError",

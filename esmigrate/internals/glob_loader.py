@@ -44,9 +44,6 @@ class GlobLoader:
     def __init__(self, ctx: ContextConfig | None = None) -> None:
         self._ctx = ctx
 
-    def init_ctx(self, ctx: ContextConfig) -> None:
-        self._ctx = ctx
-
     def scan_dir(self, schema_dir: str) -> list[ScriptData]:
         if self._ctx is None:
             raise ContextObjectNotSetError("Context was not set")
