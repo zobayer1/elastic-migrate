@@ -4,7 +4,7 @@ import sys
 
 import pytest
 
-from esmigrate.exceptions import Errors, error_list
+from esmigrate.exceptions import ElasticsearchConnError, Errors, error_list
 
 RESERVED_EXIT_CODES = {0, 1, 2, 126, 127}
 
@@ -92,3 +92,9 @@ def test_error_list_indents_one_error_per_line_under_its_title():
 def test_error_list_returns_only_the_title_without_errors():
     """Test fails if error_list adds lines when there are no errors"""
     assert error_list("Invalid migrations:", []) == "Invalid migrations:"
+
+
+def test_connection_error_assumes_the_request_may_have_been_processed():
+    """Test fails if a connection error is marked as never reaching elasticsearch unless the handler says so"""
+    assert ElasticsearchConnError("ReadTimeout: slow").never_reached is False
+    assert ElasticsearchConnError("ConnectError: refused", never_reached=True).never_reached is True

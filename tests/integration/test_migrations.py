@@ -43,7 +43,7 @@ def write_schemas(schema_dir, index, scripts):
 
 
 def versions(rows):
-    return [(row.version, row.success) for row in rows]
+    return [(str(row.version), row.success) for row in rows]
 
 
 def doc_count(es, index):

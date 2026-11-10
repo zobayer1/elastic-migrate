@@ -32,6 +32,12 @@ def build_ssl_context(ctx: ContextConfig) -> ssl.SSLContext:
     return context
 
 
+def request_never_reached(err: Exception, tls_error: ssl.SSLError | None) -> bool:
+    if isinstance(err, (httpx.ConnectError, httpx.ConnectTimeout)):
+        return True
+    return tls_error is not None and "ALERT" in str(tls_error) and "CERTIFICATE" in str(tls_error)
+
+
 def find_tls_error(err: BaseException) -> ssl.SSLError | None:
     seen: set[int] = set()
     current: BaseException | None = err
@@ -97,11 +103,12 @@ class HTTPHandler:
             raise ElasticsearchHTTPError(err.response) from err
         except (httpx.TransportError, ssl.SSLError) as err:
             tls_error = find_tls_error(err)
+            never_reached = request_never_reached(err, tls_error)
             if tls_error is not None:
                 message = (
                     f"TLS error: {tls_error}, check elastic_ca_certs, elastic_verify_certs and client certificates"
                 )
-                raise ElasticsearchConnError(message) from err
-            raise ElasticsearchConnError(f"{type(err).__name__}: {err}") from err
+                raise ElasticsearchConnError(message, never_reached) from err
+            raise ElasticsearchConnError(f"{type(err).__name__}: {err}", never_reached) from err
 
         return response

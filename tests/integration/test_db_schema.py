@@ -3,7 +3,7 @@ import asyncio
 import pytest
 
 from esmigrate.exceptions import Errors
-from esmigrate.internals.db_manager import LEGACY_BACKUP_TABLE
+from esmigrate.internals import SCHEMA_VERSION_TABLE
 from tests.integration.conftest import run_statements
 from tests.integration.test_legacy_upgrade import V1_INSTALLED_ON, v1_table_ddl
 from tests.integration.test_migrations import CREATE_INDEX, INDEX_DOCUMENT, doc_count, write_schemas
@@ -19,12 +19,12 @@ def default_schema(db_url):
 def test_tables_are_created_in_configured_schema(
     esmigrate, profile, db_url, db_schema, tables_in, schema_dir, es_index
 ):
-    """Test fails if the schema version table is not created and used in schema_db_schema only"""
+    """Test fails if the state and history tables are not created and used in schema_db_schema only"""
     write_schemas(schema_dir, es_index, {"V1_0__create.esm": CREATE_INDEX})
     profile(schema_db_schema=db_schema)
     result = esmigrate("upgrade")
     assert result.exit_code == 0, result.output
-    assert tables_in(db_schema) == ["esm_schema_version"]
+    assert tables_in(db_schema) == ["esm_schema_history", "esm_schema_state"]
     assert tables_in(default_schema(db_url)) == []
 
 
@@ -61,8 +61,8 @@ def test_missing_schema_is_a_connection_error(esmigrate, profile):
 
 
 @pytest.mark.parametrize("db_url", ["postgresql"], indirect=True)
-def test_v1_table_in_schema_is_upgraded(esmigrate, profile, db_url, db_schema, tables_in):
-    """Test fails if a v1 table inside a PostgreSQL schema is not upgraded in place with its backup"""
+def test_v1_table_in_schema_is_copied(esmigrate, profile, db_url, db_schema, tables_in):
+    """Test fails if a v1 table inside a PostgreSQL schema is not copied there and kept"""
     ddl = v1_table_ddl("postgresql").replace("TABLE esm_schema_version", f"TABLE {db_schema}.esm_schema_version")
     insert = (
         f"INSERT INTO {db_schema}.esm_schema_version (version, installed_rank, success, installed_on) "
@@ -74,5 +74,22 @@ def test_v1_table_in_schema_is_upgraded(esmigrate, profile, db_url, db_schema, t
     result = esmigrate("init")
     assert result.exit_code == 0, result.output
     assert "latest version V1.0" in result.output
-    assert tables_in(db_schema) == ["esm_schema_version", LEGACY_BACKUP_TABLE]
+    assert tables_in(db_schema) == ["esm_schema_history", "esm_schema_state", SCHEMA_VERSION_TABLE]
     assert tables_in("public") == []
+
+
+@SERVER_BACKENDS
+def test_printed_sql_creates_tables_in_configured_schema(
+    esmigrate, profile, db_url, db_schema, tables_in, schema_dir, es_index
+):
+    """Test fails if the printed SQL does not create working tables in schema_db_schema, as a DBA would run it"""
+    profile(schema_db_schema=db_schema)
+    result = esmigrate("init", "--print-sql")
+    assert result.exit_code == 0, result.output
+    asyncio.run(run_statements(db_url, *[statement for statement in result.stdout.split(";") if statement.strip()]))
+    assert tables_in(db_schema) == ["esm_schema_history", "esm_schema_state"]
+    write_schemas(schema_dir, es_index, {"V1_0__create.esm": CREATE_INDEX})
+    result = esmigrate("upgrade")
+    assert result.exit_code == 0, result.output
+    assert "latest version V1.0" in esmigrate("init").output
+    assert tables_in(default_schema(db_url)) == []

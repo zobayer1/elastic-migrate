@@ -38,6 +38,13 @@ class Direction(StrEnum):
     DOWN = "down"
 
 
+class Operation(StrEnum):
+    UP = "up"
+    DOWN = "down"
+    FORCE = "force"
+    RESET = "reset"
+
+
 class ScriptData:
     def __init__(
         self,

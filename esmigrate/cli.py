@@ -11,7 +11,18 @@ from typing import Any, Concatenate, NoReturn, ParamSpec, TypeVar
 
 import click
 
-from esmigrate.commons import DEFAULT_PROFILE, Migration, MigVersion, appname, query_results_string, title, version
+from esmigrate.commons import (
+    DEFAULT_PROFILE,
+    Command,
+    Direction,
+    Migration,
+    MigVersion,
+    appname,
+    query_error_string,
+    query_results_string,
+    title,
+    version,
+)
 from esmigrate.commons.log_setup import configure_console, configure_file
 from esmigrate.contexts import ContextConfig
 from esmigrate.contexts.context_config import mask_db_url
@@ -27,14 +38,22 @@ from esmigrate.exceptions import (
     InvalidDBConnectionError,
     InvalidSchemaFileError,
     InvalidSchemaPatternError,
+    InvalidSchemaTableError,
     LegacySchemaTableError,
     MigrationLockedError,
     SchemaVersionSqlDbError,
     UserProfileNotFoundError,
+    error_list,
 )
-from esmigrate.internals import DBManager, GlobLoader, HTTPHandler, ScriptParser
-from esmigrate.internals.db_manager import LEGACY_BACKUP_TABLE
-from esmigrate.models import SchemaVersion
+from esmigrate.internals import (
+    SCHEMA_VERSION_TABLE,
+    DBManager,
+    GlobLoader,
+    HTTPHandler,
+    Layout,
+    ScriptParser,
+    create_tables_sql,
+)
 
 log = logging.getLogger(__name__)
 
@@ -45,6 +64,7 @@ LOG_FILE_KEY = "esmigrate.log_file"
 
 DB_ERRORS: dict[type[Exception], Errors] = {
     InvalidDBConnectionError: Errors.ERR_DB_CONNECTION_FAILED,
+    InvalidSchemaTableError: Errors.ERR_DB_LEGACY_TABLE,
     LegacySchemaTableError: Errors.ERR_DB_LEGACY_TABLE,
     MigrationLockedError: Errors.ERR_DB_LOCKED,
     SchemaVersionSqlDbError: Errors.ERR_DB_IN_ERROR_STATE,
@@ -154,11 +174,12 @@ def pass_config(command: Callable[Concatenate[ContextConfig, P], R]) -> Callable
     return wrapper
 
 
-@main.command(help="Initialize schema version database, upgrading a v1 table if present")
+@main.command(help="Create the schema tables, copying rows from v1 and v2 tables if present")
 @click.help_option(help="Show help index and exit")
+@click.option("--print-sql", is_flag=True, help="Print the SQL that creates the schema tables, without connecting")
 @pass_config
-def init(cfg: ContextConfig) -> None:
-    run(run_init(cfg))
+def init(cfg: ContextConfig, print_sql: bool = False) -> None:
+    run(print_tables_sql(cfg) if print_sql else run_init(cfg))
 
 
 @main.command(help="Show configuration")
@@ -205,8 +226,8 @@ async def run_init(cfg: ContextConfig) -> int:
     log.info("Initializing schema version database...")
     try:
         async with connect_db(cfg, upgrade=True) as db:
-            if db.upgraded_legacy_table:
-                log.info(f"Upgraded v1 schema version table, previous table kept as {LEGACY_BACKUP_TABLE}")
+            if db.upgraded_from is not Layout.CURRENT:
+                log.info(f"Copied {db.upgraded_from} schema versions, previous table kept as {SCHEMA_VERSION_TABLE}")
             latest = await db.find_latest_schema()
     except tuple(DB_ERRORS) as err:
         return fail(err, DB_ERRORS[type(err)])
@@ -214,6 +235,15 @@ async def run_init(cfg: ContextConfig) -> int:
         log.info(f"Schema version database already exists with latest version V{latest.version}")
     else:
         log.info("Schema version database initialized")
+    return 0
+
+
+async def print_tables_sql(cfg: ContextConfig) -> int:
+    try:
+        sql = create_tables_sql(cfg.schema_db, cfg.schema_db_schema)
+    except InvalidDBConnectionError as err:
+        return fail(err, Errors.ERR_DB_CONNECTION_FAILED)
+    click.echo(sql)
     return 0
 
 
@@ -232,12 +262,72 @@ async def run_upgrade(cfg: ContextConfig, schema_version: str) -> int:
         return fail(err, Errors.ERR_INVALID_CONFIGURATION)
 
 
+def parse_scripts(direction: Direction, migrations: list[Migration]) -> list[tuple[Migration, list[Command]]]:
+    parser = ScriptParser()
+    parsed: list[tuple[Migration, list[Command]]] = []
+    errors: list[str] = []
+    for migration in migrations:
+        script = migration.script_for(direction)
+        if script is None:
+            parsed.append((migration, []))
+            continue
+        try:
+            parsed.append((migration, list(parser.get_commands(script.content))))
+        except SCRIPT_ERRORS as err:
+            errors.append(f"{script.path}: {err}")
+    if errors:
+        raise InvalidCommandScriptError(error_list("Invalid migration scripts:", errors))
+    return parsed
+
+
+async def apply_schema(
+    db: DBManager, http_handler: HTTPHandler, direction: Direction, entry: Migration, commands: list[Command]
+) -> int:
+    log.info(f"Processing schema {entry.description}")
+    script = entry.script_for(direction)
+    if script:
+        log.debug(f"Schema {entry.version} {direction}: script={script.path} checksum={script.checksum.hex()}")
+    else:
+        log.info(f"Schema {entry.version} has no {direction} script, recording it without requests")
+    run = await db.start_run(direction, entry)
+    tic = time.perf_counter()
+    error_code = 0
+    undo = False
+    query_results: list[str] = []
+    for command in commands:
+        try:
+            response = await http_handler.make_requests(command)
+        except ElasticsearchConnError as err:
+            undo = err.never_reached and not query_results
+            query_results.append(query_error_string(command, err))
+            error_code = fail(err, Errors.ERR_ES_CONNERROR)
+            break
+        except ElasticsearchHTTPError as err:
+            query_results.append(query_results_string(command, err.response))
+            error_code = fail(err, Errors.ERR_ES_HTTPERROR)
+            break
+        query_results.append(query_results_string(command, response))
+    duration = int((time.perf_counter() - tic) * 1000)
+    results = ";".join(query_results)
+    if undo:
+        await db.undo_run(run, duration, results)
+    else:
+        await db.finish_run(run, error_code == 0, duration, results)
+    log.debug(f"Schema {entry.version} {direction} {'succeeded' if error_code == 0 else 'failed'} in {duration} ms")
+    if error_code == 0:
+        log.info(f"Schema {entry.description} executed successfully")
+    return error_code
+
+
 async def upgrade_schema(cfg: ContextConfig, db: DBManager, requested: MigVersion | None) -> int:
     latest_db_entry = await db.find_latest_schema()
     if latest_db_entry and not latest_db_entry.success:
-        log.error(f"Schema database contains an error for version {latest_db_entry.version}")
-        return Errors.ERR_DB_IN_ERROR_STATE
-    latest_db_version = MigVersion.parse(latest_db_entry.version) if latest_db_entry else MigVersion(0, 0)
+        state = "failed" if latest_db_entry.success is False else "was interrupted"
+        err = SchemaVersionSqlDbError(
+            f"Version {latest_db_entry.version} {state}, see `esmigrate status` and resolve it with `esmigrate force`"
+        )
+        return fail(err, Errors.ERR_DB_IN_ERROR_STATE)
+    latest_db_version = latest_db_entry.version if latest_db_entry else MigVersion(0, 0)
     try:
         schema_entries = GlobLoader(cfg).load_migrations(cfg.schema_path)
     except NotADirectoryError as err:
@@ -247,55 +337,31 @@ async def upgrade_schema(cfg: ContextConfig, db: DBManager, requested: MigVersio
     if not schema_entries:
         log.info("No schema file found, nothing to do")
         return 0
+    applied = await db.find_applied_versions()
+    skipped = [entry for entry in schema_entries if entry.version < latest_db_version and entry.version not in applied]
+    if skipped:
+        title = f"Migrations below the latest applied version {latest_db_version} are skipped:"
+        files = [
+            f"{entry.version}: {', '.join(script.path for script in (entry.up, entry.down) if script)}"
+            for entry in skipped
+        ]
+        log.warning(error_list(title, files))
     target = schema_entries[-1].version if requested is None else requested
     pending = [entry for entry in schema_entries if latest_db_version < entry.version <= target]
     if not pending:
         log.info("Schema version in database is ahead of requested version, nothing to do")
         return 0
-    script_parser = ScriptParser()
+    try:
+        parsed = parse_scripts(Direction.UP, pending)
+    except InvalidCommandScriptError as err:
+        return fail(err, Errors.ERR_INVALID_SCHEMA_COMMAND)
     async with HTTPHandler(cfg) as http_handler:
-        for entry in pending:
-            code = await apply_schema(db, http_handler, script_parser, entry)
+        for entry, commands in parsed:
+            code = await apply_schema(db, http_handler, Direction.UP, entry, commands)
             if code:
                 return code
     log.info(f"Schema database upgraded to {pending[-1].version}")
     return 0
-
-
-async def apply_schema(db: DBManager, http_handler: HTTPHandler, script_parser: ScriptParser, entry: Migration) -> int:
-    log.info(f"Processing schema {entry.description}")
-    tic = time.perf_counter()
-    error_code = 0
-    query_results: list[str] = []
-    if entry.up:
-        log.debug(f"Schema {entry.version}: script={entry.up.path} checksum={entry.up.checksum.hex()}")
-        try:
-            commands = list(script_parser.get_commands(entry.up.content))
-        except SCRIPT_ERRORS as err:
-            commands = []
-            error_code = fail(err, Errors.ERR_INVALID_SCHEMA_COMMAND)
-        for command in commands:
-            try:
-                response = await http_handler.make_requests(command)
-            except ElasticsearchConnError as err:
-                return fail(err, Errors.ERR_ES_CONNERROR)
-            except ElasticsearchHTTPError as err:
-                query_results.append(query_results_string(command, err.response))
-                error_code = fail(err, Errors.ERR_ES_HTTPERROR)
-                break
-            query_results.append(query_results_string(command, response))
-    else:
-        log.info(f"Schema {entry.version} has no up script, recording it without requests")
-    duration = int((time.perf_counter() - tic) * 1000)
-    log.debug(f"Schema {entry.version} {'succeeded' if error_code == 0 else 'failed'} in {duration} ms")
-    scmver = SchemaVersion.from_migration(entry)
-    scmver.success = error_code == 0
-    scmver.execution_time = int(time.perf_counter() - tic)
-    scmver.query_results = ";".join(query_results)
-    await db.insert_new_schema(scmver)
-    if error_code == 0:
-        log.info(f"Schema {entry.description} executed successfully")
-    return error_code
 
 
 async def run_rollback(cfg: ContextConfig) -> int:
