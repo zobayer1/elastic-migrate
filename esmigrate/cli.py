@@ -349,7 +349,12 @@ async def upgrade_schema(cfg: ContextConfig, db: DBManager, requested: MigVersio
     target = schema_entries[-1].version if requested is None else requested
     pending = [entry for entry in schema_entries if latest_db_version < entry.version <= target]
     if not pending:
-        log.info("Schema version in database is ahead of requested version, nothing to do")
+        if requested is None:
+            log.info(f"Schema database is up to date at version {latest_db_version}, nothing to do")
+        else:
+            log.info(
+                f"No migrations to apply up to version {requested} (database at {latest_db_version}), nothing to do"
+            )
         return 0
     try:
         parsed = parse_scripts(Direction.UP, pending)

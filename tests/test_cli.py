@@ -468,13 +468,37 @@ def test_cli_upgrade_cmd_succeeds_for_valid_schema_file(runner, context, schema_
     assert ES_HOST not in query_results
 
 
-def test_cli_upgrade_cmd_exits_when_requested_version_too_low(runner, context, schema_dir):
-    """Test fails if `esmigrate upgrade` does not exit early when requested version is already migrated"""
+def test_cli_upgrade_cmd_reports_up_to_date_database(runner, context, schema_dir, respx_mock):
+    """Test fails if `esmigrate upgrade` without a target does not report an up-to-date database and stop"""
     seed(context, ("1.0", True))
     write_schema(schema_dir, "V1_0__create_twitter.esm")
     result = invoke(runner, "upgrade")
     assert result.exit_code == 0
-    assert "nothing to do" in result.output
+    assert "Schema database is up to date at version 1.0, nothing to do" in result.output
+    assert "requested" not in result.output
+    assert len(respx_mock.calls) == 0
+
+
+@pytest.mark.parametrize(
+    ("applied", "files", "target", "expected"),
+    [
+        (["1.0", "2.0"], ["V1_0__first.esm", "V2_0__second.esm", "V3_0__third.esm"], "1.0", "1.0 (database at 2.0)"),
+        (["1.0"], ["V1_0__first.esm", "V2_0__second.esm"], "1.5", "1.5 (database at 1.0)"),
+    ],
+)
+def test_cli_upgrade_cmd_reports_nothing_to_apply_up_to_target(
+    runner, context, schema_dir, respx_mock, applied, files, target, expected
+):
+    """Test fails if a target at or below the database version, or with no file in range, is not reported as such"""
+    seed(context, *[(version, True) for version in applied])
+    for name in files:
+        write_schema(schema_dir, name)
+    result = invoke(runner, "upgrade", "--schema-version", target)
+    assert result.exit_code == 0
+    assert f"No migrations to apply up to version {expected}, nothing to do" in result.output
+    assert "up to date" not in result.output
+    assert len(respx_mock.calls) == 0
+    assert versions(context) == applied
 
 
 def test_cli_upgrade_cmd_fails_with_invalid_command_error(runner, context, schema_dir, respx_mock):
@@ -609,6 +633,7 @@ def test_cli_upgrade_cmd_treats_zero_version_as_explicit_target(runner, context,
     result = invoke(runner, "upgrade", "--schema-version", "0")
     assert result.exit_code == 0
     assert "Processing schema" not in result.output
+    assert "No migrations to apply up to version 0.0 (database at 0.0), nothing to do" in result.output
 
 
 def test_cli_upgrade_cmd_uses_profile_namespace(runner, context, schema_dir, respx_mock):
