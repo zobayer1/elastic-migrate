@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 from esmigrate.exceptions import MigrationLockedError
-from esmigrate.models.types import UTCDateTime
+from esmigrate.models import UTCDateTime
 
 LOCK_POLL_INTERVAL = 0.5
 LOCK_METADATA = MetaData()

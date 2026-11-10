@@ -13,7 +13,6 @@ from sqlalchemy import (
     Connection,
     Executable,
     MetaData,
-    Table,
     Update,
     delete,
     insert,
@@ -48,8 +47,7 @@ from esmigrate.internals.migration_lock import (
     release_postgresql_lock,
     release_sqlite_lock,
 )
-from esmigrate.models import SchemaHistory, SchemaVersion
-from esmigrate.models.base import Base
+from esmigrate.models import HISTORY_TABLE, SCHEMA_TABLE, Base, SchemaHistory, SchemaVersion
 
 ASYNC_DRIVERS = {
     "sqlite": "sqlite+aiosqlite",
@@ -65,8 +63,6 @@ DRIVER_EXTRAS = {
 }
 
 SCHEMA_VERSION_TABLE = "esm_schema_version"
-SCHEMA_TABLE: Table = Base.metadata.tables[SchemaVersion.__tablename__]
-HISTORY_TABLE: Table = Base.metadata.tables[SchemaHistory.__tablename__]
 
 
 class Layout(StrEnum):

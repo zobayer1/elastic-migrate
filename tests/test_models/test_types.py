@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import DateTime
 from sqlalchemy.dialects import mysql, postgresql, sqlite
 
-from esmigrate.models.types import UTCDateTime
+from esmigrate.models import UTCDateTime
 
 PLUS_SIX = timezone(timedelta(hours=6))
 

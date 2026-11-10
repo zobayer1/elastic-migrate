@@ -6,8 +6,7 @@ from sqlalchemy.dialects import mysql, postgresql, sqlite
 from sqlalchemy.schema import CreateTable
 
 from esmigrate.commons import DEFAULT_NAMESPACE, Direction, Migration, MigVersion, ScriptData
-from esmigrate.internals.db_manager import SCHEMA_TABLE
-from esmigrate.models import SchemaVersion
+from esmigrate.models import SCHEMA_TABLE, SchemaVersion
 
 
 def create_table_sql(dialect):

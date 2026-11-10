@@ -1,3 +1,4 @@
+import json
 import re
 from collections.abc import Iterator
 from urllib.parse import urlparse
@@ -7,8 +8,6 @@ from esmigrate.commons import (
     NDJSON_HEADER,
     Command,
     http_verbs,
-    is_valid_json,
-    is_valid_ndjson,
 )
 from esmigrate.exceptions import (
     InvalidCommandBodyError,
@@ -16,6 +15,18 @@ from esmigrate.exceptions import (
     InvalidCommandScriptError,
     InvalidCommandVerbError,
 )
+
+
+def is_valid_json(content: str) -> bool:
+    try:
+        json.loads(content.strip())
+        return True
+    except ValueError:
+        return False
+
+
+def is_valid_ndjson(content: str) -> bool:
+    return all(is_valid_json(line) for line in content.strip().split("\n"))
 
 
 class ScriptParser:

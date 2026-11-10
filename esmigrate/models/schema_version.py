@@ -2,7 +2,7 @@ import getpass
 from datetime import UTC, datetime
 from typing import Self
 
-from sqlalchemy import LargeBinary, String, Text, UniqueConstraint
+from sqlalchemy import LargeBinary, String, Table, Text, UniqueConstraint
 from sqlalchemy.dialects.mysql import LONGTEXT
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -49,3 +49,6 @@ class SchemaVersion(Base):
             scmver.script = migration.up.path
             scmver.checksum = migration.up.checksum
         return scmver
+
+
+SCHEMA_TABLE: Table = Base.metadata.tables[SchemaVersion.__tablename__]

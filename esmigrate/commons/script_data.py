@@ -1,7 +1,11 @@
 from enum import StrEnum
+from hashlib import sha1
 
-from esmigrate.commons.helpers import make_sha1
 from esmigrate.commons.mig_version import MigVersion
+
+
+def make_sha1(s: str, encoding: str = "utf-8") -> bytes:
+    return sha1(s.encode(encoding)).digest()
 
 
 class Direction(StrEnum):

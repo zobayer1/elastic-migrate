@@ -2,8 +2,7 @@ import pytest
 from sqlalchemy.dialects import mysql, postgresql, sqlite
 from sqlalchemy.schema import CreateIndex, CreateTable
 
-from esmigrate.internals.db_manager import HISTORY_TABLE
-from esmigrate.models import SchemaHistory
+from esmigrate.models import HISTORY_TABLE, SchemaHistory
 
 
 def create_table_sql(dialect):

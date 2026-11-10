@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Index, LargeBinary, String, Text
+from sqlalchemy import Index, LargeBinary, String, Table, Text
 from sqlalchemy.dialects.mysql import LONGTEXT
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -26,3 +26,6 @@ class SchemaHistory(Base):
     execution_time: Mapped[int | None]
     success: Mapped[bool | None]
     query_results: Mapped[str | None] = mapped_column(Text().with_variant(LONGTEXT(), "mysql", "mariadb"))
+
+
+HISTORY_TABLE: Table = Base.metadata.tables[SchemaHistory.__tablename__]

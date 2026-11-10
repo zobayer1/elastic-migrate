@@ -13,7 +13,8 @@ from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from esmigrate import cli
-from esmigrate.commons import Direction, Migration, MigVersion, ScriptData, make_sha1
+from esmigrate.commons import Direction, Migration, MigVersion, ScriptData
+from esmigrate.commons.script_data import make_sha1
 from esmigrate.contexts import ContextConfig
 from esmigrate.exceptions import Errors, InvalidConfigurationError, SchemaVersionSqlDbError
 from esmigrate.internals import SCHEMA_VERSION_TABLE, DBManager

@@ -1,11 +1,6 @@
 from esmigrate.commons.command import JSON_HEADER, NDJSON_HEADER, Command, http_verbs
 from esmigrate.commons.constants import DEFAULT_NAMESPACE, DEFAULT_PROFILE, appname, version
 from esmigrate.commons.formatters import old_timestamp_to_utc, query_error_string, query_results_string
-from esmigrate.commons.helpers import (
-    is_valid_json,
-    is_valid_ndjson,
-    make_sha1,
-)
 from esmigrate.commons.log_setup import (
     DEFAULT_LOG_BACKUP_COUNT,
     DEFAULT_LOG_MAX_BYTES,
@@ -36,9 +31,6 @@ __all__ = [
     "configure_console",
     "configure_file",
     "http_verbs",
-    "is_valid_json",
-    "is_valid_ndjson",
-    "make_sha1",
     "old_timestamp_to_utc",
     "parse_version",
     "query_error_string",
