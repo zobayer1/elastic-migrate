@@ -489,6 +489,28 @@ async def test_db_manager_commits_the_start_of_an_up_run(db_manager, db_url):
     assert entry.executed_by == getpass.getuser()
     assert entry.executed_on is not None
     assert datetime.now(UTC) - entry.executed_on < timedelta(minutes=1)
+    (state,) = await db_manager.find_all_schema()
+    assert (state.type, state.installed_by, state.installed_on) == ("NOSQL", entry.executed_by, entry.executed_on)
+
+
+@pytest.mark.parametrize("direction", [None, Direction.UP])
+async def test_db_manager_records_the_up_script_in_the_state_row(db_manager, direction):
+    """Test fails if the state row does not keep the version, description, path and checksum of the up script"""
+    up = script(MigVersion(1, 2), direction)
+    await db_manager.start_run(Direction.UP, Migration(up=up))
+    (state,) = await db_manager.find_all_schema()
+    assert (state.version, state.version_base, state.version_rank) == (MigVersion(1, 2), 1, 2)
+    assert (state.description, state.script, state.checksum) == ("twitter.esm", up.path, up.checksum)
+    assert state.success is None
+
+
+async def test_db_manager_records_the_up_script_of_a_pair_in_the_state_row(db_manager):
+    """Test fails if the state row of a reversible migration records its down script"""
+    pair = migration()
+    assert pair.up is not None
+    await db_manager.start_run(Direction.UP, pair)
+    (state,) = await db_manager.find_all_schema()
+    assert (state.script, state.checksum) == (pair.up.path, pair.up.checksum)
 
 
 async def test_db_manager_gives_next_rank_and_reuses_undone_ranks(db_with_success_row, db_url):
@@ -551,11 +573,12 @@ async def test_db_manager_restores_the_state_row_after_an_undone_down(db_with_su
 
 
 async def test_db_manager_records_down_only_migration_without_script(db_manager):
-    """Test fails if a down-only migration is not recorded by upgrade with empty script and checksum"""
+    """Test fails if a down-only migration is not recorded by upgrade with its version and empty script and checksum"""
     run = await db_manager.start_run(Direction.UP, migration(up=False))
     await db_manager.finish_run(run, True, 0, "")
     (row,) = await db_manager.find_all_schema()
     (entry,) = await db_manager.find_history()
+    assert (row.version, row.description) == (MigVersion(1, 0), "twitter.esm")
     assert (row.script, row.checksum, row.success) == (None, None, True)
     assert (entry.script, entry.checksum, entry.success) == (None, None, True)
 

@@ -180,6 +180,41 @@ def state_to_history(state: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def migration_to_state(
+    migration: Migration, namespace: str, installed_rank: int, user: str, now: datetime
+) -> SchemaVersion:
+    up = migration.up
+    return SchemaVersion(
+        namespace=namespace,
+        version_base=migration.version.base,
+        version_rank=migration.version.rank,
+        installed_rank=installed_rank,
+        description=migration.description,
+        type="NOSQL",
+        script=up.path if up else None,
+        checksum=up.checksum if up else None,
+        installed_by=user,
+        installed_on=now,
+    )
+
+
+def migration_to_history(
+    direction: Direction, migration: Migration, namespace: str, user: str, now: datetime
+) -> SchemaHistory:
+    script = migration.script_for(direction)
+    return SchemaHistory(
+        namespace=namespace,
+        version_base=migration.version.base,
+        version_rank=migration.version.rank,
+        operation=direction.value,
+        description=migration.description,
+        script=script.path if script else None,
+        checksum=script.checksum if script else None,
+        executed_by=user,
+        executed_on=now,
+    )
+
+
 def copy_old_rows(conn: Connection, layout: Layout, schema: str | None = None) -> None:
     source = qualified_name(conn, SCHEMA_VERSION_TABLE, schema)
     rows = conn.execute(text(f"SELECT * FROM {source}")).mappings().all()
@@ -304,19 +339,10 @@ class DBManager:
                     await release_mysql_lock(conn, name)
 
     async def start_run(self, direction: Direction, migration: Migration) -> ScriptRun:
+        user = getpass.getuser()
+        now = datetime.now(UTC)
         version = migration.version
-        script = migration.script_for(direction)
-        history = SchemaHistory(
-            namespace=self.namespace,
-            version_base=version.base,
-            version_rank=version.rank,
-            operation=direction.value,
-            description=migration.description,
-            script=script.path if script else None,
-            checksum=script.checksum if script else None,
-            executed_by=getpass.getuser(),
-            executed_on=datetime.now(UTC),
-        )
+        history = migration_to_history(direction, migration, self.namespace, user, now)
         async with self._sessionmaker() as session:
             try:
                 latest = await self._find_latest_schema(session, self.namespace)
@@ -325,9 +351,10 @@ class DBManager:
                 if direction is Direction.UP:
                     if await session.get(SchemaVersion, (self.namespace, version.base, version.rank)):
                         raise SchemaVersionSqlDbError(f"Version already installed: {version}")
-                    state = SchemaVersion.from_migration(migration)
-                    state.namespace = self.namespace
-                    state.installed_rank = (latest.installed_rank or 0) + 1 if latest else 1
+                    installed_rank = (latest.installed_rank or 0) + 1 if latest else 1
+                    state = migration_to_state(
+                        migration=migration, namespace=self.namespace, installed_rank=installed_rank, user=user, now=now
+                    )
                     session.add(state)
                 elif latest is None or latest.version != version:
                     raise SchemaVersionSqlDbError(f"Version is not the latest applied: {version}")
