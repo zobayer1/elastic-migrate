@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import make_url, text
 
 from esmigrate.exceptions import Errors
-from esmigrate.internals import SCHEMA_VERSION_TABLE
+from esmigrate.internals import LEGACY_TABLE
 from esmigrate.internals.db_manager import create_engine
 from tests.integration.test_migrations import BULK_DOCUMENTS, CREATE_INDEX, INDEX_DOCUMENT, doc_count, write_schemas
 
@@ -136,7 +136,7 @@ def test_v1_installation_is_copied_by_init_and_continues(esmigrate, db_url, sche
 
     result = esmigrate("init")
     assert result.exit_code == 0, result.output
-    assert f"Copied V1 schema versions, previous table kept as {SCHEMA_VERSION_TABLE}" in result.output
+    assert f"Copied V1 schema versions, previous table kept as {LEGACY_TABLE}" in result.output
     assert "latest version V1.1" in result.output
 
     rows = stored_rows()
@@ -149,7 +149,7 @@ def test_v1_installation_is_copied_by_init_and_continues(esmigrate, db_url, sche
     assert [row.execution_time for row in rows] == [1000, 1000]
     assert [row.installed_on for row in rows] == [value.astimezone(UTC) for value in V1_INSTALLED_ON]
     assert count_rows(db_url, "esm_schema_history") == 2
-    (old,) = asyncio.run(execute(db_url, (f"SELECT version FROM {SCHEMA_VERSION_TABLE} ORDER BY version", {})))
+    (old,) = asyncio.run(execute(db_url, (f"SELECT version FROM {LEGACY_TABLE} ORDER BY version", {})))
     assert old == [("1.0",), ("1.1",)]
 
     result = esmigrate("upgrade")
@@ -184,7 +184,7 @@ def test_v2_installation_is_copied_by_init_and_continues(esmigrate, db_url, sche
 
     result = esmigrate("init")
     assert result.exit_code == 0, result.output
-    assert f"Copied V2 schema versions, previous table kept as {SCHEMA_VERSION_TABLE}" in result.output
+    assert f"Copied V2 schema versions, previous table kept as {LEGACY_TABLE}" in result.output
 
     rows = stored_rows()
     assert [(str(row.version), row.installed_rank, row.success, row.execution_time) for row in rows] == [
@@ -195,7 +195,7 @@ def test_v2_installation_is_copied_by_init_and_continues(esmigrate, db_url, sche
     assert [row.installed_on for row in rows] == [V2_INSTALLED_ON, V2_INSTALLED_ON]
     assert [str(row.version) for row in stored_rows("billing")] == ["1.0"]
     assert count_rows(db_url, "esm_schema_history") == 3
-    assert count_rows(db_url, SCHEMA_VERSION_TABLE) == 3
+    assert count_rows(db_url, LEGACY_TABLE) == 3
 
     result = esmigrate("upgrade")
     assert result.exit_code == 0, result.output
@@ -212,4 +212,4 @@ def test_init_copies_nothing_when_old_versions_collide(esmigrate, db_url):
     assert "default: 1.01 and 1.1 are the same version" in result.output
     assert count_rows(db_url, "esm_schema_state") == 0
     assert count_rows(db_url, "esm_schema_history") == 0
-    assert count_rows(db_url, SCHEMA_VERSION_TABLE) == 2
+    assert count_rows(db_url, LEGACY_TABLE) == 2

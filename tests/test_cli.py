@@ -17,7 +17,7 @@ from esmigrate.commons import Direction, Migration, MigVersion, ScriptData
 from esmigrate.commons.script_data import make_sha1
 from esmigrate.contexts import ContextConfig
 from esmigrate.exceptions import Errors, InvalidConfigurationError, SchemaVersionSqlDbError
-from esmigrate.internals import SCHEMA_VERSION_TABLE, DBManager
+from esmigrate.internals import LEGACY_TABLE, DBManager
 from esmigrate.internals.migration_lock import LOCK_TABLE
 
 ES_HOST = "http://es.example.com:9200"
@@ -359,11 +359,11 @@ def test_cli_init_cmd_copies_old_table(runner, context, create, layout):
         create(context, [("default", "1.0", 1, 1)])
     result = invoke(runner, "init")
     assert result.exit_code == 0, result.output
-    assert f"Copied {layout} schema versions, previous table kept as {SCHEMA_VERSION_TABLE}" in result.output
+    assert f"Copied {layout} schema versions, previous table kept as {LEGACY_TABLE}" in result.output
     assert "latest version V1.0" in result.output
     assert versions(context) == ["1.0"]
     assert [(entry.operation, entry.success) for entry in history_rows(context)] == [("up", True)]
-    assert raw_rows(context, f"SELECT version FROM {SCHEMA_VERSION_TABLE}") == [("1.0",)]
+    assert raw_rows(context, f"SELECT version FROM {LEGACY_TABLE}") == [("1.0",)]
 
 
 def test_cli_init_cmd_does_not_report_a_copy_for_current_tables(runner, context):

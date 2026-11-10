@@ -9,7 +9,7 @@ from esmigrate.models.base import Base
 from esmigrate.models.types import UTCDateTime
 
 
-class SchemaVersion(Base):
+class SchemaState(Base):
     __tablename__ = "esm_schema_state"
     __table_args__ = (UniqueConstraint("namespace", "installed_rank"),)
 
@@ -32,4 +32,4 @@ class SchemaVersion(Base):
         return MigVersion(base=self.version_base, rank=self.version_rank)
 
 
-SCHEMA_TABLE: Table = Base.metadata.tables[SchemaVersion.__tablename__]
+STATE_TABLE: Table = Base.metadata.tables[SchemaState.__tablename__]

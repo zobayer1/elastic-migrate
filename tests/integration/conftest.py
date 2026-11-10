@@ -12,9 +12,9 @@ from sqlalchemy import text
 
 from esmigrate import cli
 from esmigrate.commons import DEFAULT_NAMESPACE
-from esmigrate.internals import SCHEMA_VERSION_TABLE, DBManager
+from esmigrate.internals import LEGACY_TABLE, DBManager
 from esmigrate.internals.db_manager import create_engine
-from esmigrate.models import HISTORY_TABLE, SCHEMA_TABLE
+from esmigrate.models import HISTORY_TABLE, STATE_TABLE
 
 ES_URL = os.getenv("ESMIGRATE_TEST_ES_URL", "http://localhost:9200")
 DB_URLS = {
@@ -39,7 +39,7 @@ async def drop_tables(db_url):
     engine = create_engine(db_url)
     try:
         async with engine.begin() as conn:
-            for table in (SCHEMA_VERSION_TABLE, SCHEMA_TABLE.name, HISTORY_TABLE.name):
+            for table in (LEGACY_TABLE, STATE_TABLE.name, HISTORY_TABLE.name):
                 await conn.execute(text(f"DROP TABLE IF EXISTS {table}"))
     finally:
         await engine.dispose()

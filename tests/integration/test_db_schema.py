@@ -3,7 +3,7 @@ import asyncio
 import pytest
 
 from esmigrate.exceptions import Errors
-from esmigrate.internals import SCHEMA_VERSION_TABLE
+from esmigrate.internals import LEGACY_TABLE
 from tests.integration.conftest import run_statements
 from tests.integration.test_legacy_upgrade import V1_INSTALLED_ON, v1_table_ddl
 from tests.integration.test_migrations import CREATE_INDEX, INDEX_DOCUMENT, doc_count, write_schemas
@@ -74,7 +74,7 @@ def test_v1_table_in_schema_is_copied(esmigrate, profile, db_url, db_schema, tab
     result = esmigrate("init")
     assert result.exit_code == 0, result.output
     assert "latest version V1.0" in result.output
-    assert tables_in(db_schema) == ["esm_schema_history", "esm_schema_state", SCHEMA_VERSION_TABLE]
+    assert tables_in(db_schema) == ["esm_schema_history", "esm_schema_state", LEGACY_TABLE]
     assert tables_in("public") == []
 
 

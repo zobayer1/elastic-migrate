@@ -45,7 +45,7 @@ from esmigrate.exceptions import (
     error_list,
 )
 from esmigrate.internals import (
-    SCHEMA_VERSION_TABLE,
+    LEGACY_TABLE,
     DBManager,
     GlobLoader,
     HTTPHandler,
@@ -236,7 +236,7 @@ async def run_init(cfg: ContextConfig) -> int:
     try:
         async with connect_db(cfg, upgrade=True) as db:
             if db.upgraded_from is not Layout.CURRENT:
-                log.info(f"Copied {db.upgraded_from} schema versions, previous table kept as {SCHEMA_VERSION_TABLE}")
+                log.info(f"Copied {db.upgraded_from} schema versions, previous table kept as {LEGACY_TABLE}")
             latest = await db.find_latest_schema()
     except tuple(DB_ERRORS) as err:
         return fail(err, DB_ERRORS[type(err)])

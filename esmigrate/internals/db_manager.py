@@ -47,7 +47,7 @@ from esmigrate.internals.migration_lock import (
     release_postgresql_lock,
     release_sqlite_lock,
 )
-from esmigrate.models import HISTORY_TABLE, SCHEMA_TABLE, Base, SchemaHistory, SchemaVersion
+from esmigrate.models import HISTORY_TABLE, STATE_TABLE, Base, SchemaHistory, SchemaState
 
 ASYNC_DRIVERS = {
     "sqlite": "sqlite+aiosqlite",
@@ -62,7 +62,7 @@ DRIVER_EXTRAS = {
     "asyncmy": "mysql",
 }
 
-SCHEMA_VERSION_TABLE = "esm_schema_version"
+LEGACY_TABLE = "esm_schema_version"
 
 
 class Layout(StrEnum):
@@ -105,7 +105,7 @@ def create_engine(db_url: str, echo: bool = False) -> AsyncEngine:
 def create_tables_sql(db_url: str, schema: str | None = None) -> str:
     dialect = create_engine(db_url).dialect
     statements: list[str] = []
-    for source in (SCHEMA_TABLE, HISTORY_TABLE):
+    for source in (STATE_TABLE, HISTORY_TABLE):
         table = source.to_metadata(MetaData(), schema=schema) if schema else source
         statements.append(str(CreateTable(table).compile(dialect=dialect)).strip())
         for index in sorted(table.indexes, key=lambda item: str(item.name)):
@@ -132,11 +132,9 @@ def table_has_rows(conn: Connection, table_name: str, schema: str | None = None)
 
 
 def detect_layout(conn: Connection, schema: str | None = None) -> Layout:
-    if table_has_rows(conn, HISTORY_TABLE.name, schema=schema) or not table_has_rows(
-        conn, SCHEMA_VERSION_TABLE, schema
-    ):
+    if table_has_rows(conn, HISTORY_TABLE.name, schema=schema) or not table_has_rows(conn, LEGACY_TABLE, schema):
         return Layout.CURRENT
-    columns = {col["name"] for col in inspect(conn).get_columns(SCHEMA_VERSION_TABLE, schema=schema)}
+    columns = {col["name"] for col in inspect(conn).get_columns(LEGACY_TABLE, schema=schema)}
     return Layout.V2 if "namespace" in columns else Layout.V1
 
 
@@ -182,9 +180,9 @@ def state_to_history(state: Mapping[str, Any]) -> dict[str, Any]:
 
 def migration_to_state(
     migration: Migration, namespace: str, installed_rank: int, user: str, now: datetime
-) -> SchemaVersion:
+) -> SchemaState:
     up = migration.up
-    return SchemaVersion(
+    return SchemaState(
         namespace=namespace,
         version_base=migration.version.base,
         version_rank=migration.version.rank,
@@ -216,7 +214,7 @@ def migration_to_history(
 
 
 def copy_old_rows(conn: Connection, layout: Layout, schema: str | None = None) -> None:
-    source = qualified_name(conn, SCHEMA_VERSION_TABLE, schema)
+    source = qualified_name(conn, LEGACY_TABLE, schema)
     rows = conn.execute(text(f"SELECT * FROM {source}")).mappings().all()
 
     seen: dict[tuple[str, MigVersion], str] = {}
@@ -238,14 +236,14 @@ def copy_old_rows(conn: Connection, layout: Layout, schema: str | None = None) -
         raise SchemaVersionSqlDbError(error_list("Cannot copy existing schema versions:", errors))
 
     states.sort(key=lambda state: (state["namespace"], state["installed_rank"] or 0))
-    conn.execute(insert(SCHEMA_TABLE), states)
+    conn.execute(insert(STATE_TABLE), states)
     conn.execute(insert(HISTORY_TABLE), [state_to_history(state) for state in states])
 
 
 def verify_schema_columns(conn: Connection, schema: str | None = None) -> None:
     inspector = inspect(conn)
     errors: list[str] = []
-    for expected in (SCHEMA_TABLE, HISTORY_TABLE):
+    for expected in (STATE_TABLE, HISTORY_TABLE):
         found = {col["name"].lower() for col in inspector.get_columns(expected.name, schema=schema)}
         missing = {col.name for col in expected.columns} - found
         if missing:
@@ -349,7 +347,7 @@ class DBManager:
                 if latest and not latest.success:
                     raise SchemaVersionSqlDbError(f"Failed previous version: {latest.version}")
                 if direction is Direction.UP:
-                    if await session.get(SchemaVersion, (self.namespace, version.base, version.rank)):
+                    if await session.get(SchemaState, (self.namespace, version.base, version.rank)):
                         raise SchemaVersionSqlDbError(f"Version already installed: {version}")
                     installed_rank = (latest.installed_rank or 0) + 1 if latest else 1
                     state = migration_to_state(
@@ -372,23 +370,23 @@ class DBManager:
         change: Executable
         if run.direction is Direction.UP:
             change = (
-                update(SchemaVersion)
+                update(SchemaState)
                 .where(*state)
                 .values(success=success, execution_time=duration, query_results=query_results)
             )
         elif success:
-            change = delete(SchemaVersion).where(*state)
+            change = delete(SchemaState).where(*state)
         else:
-            change = update(SchemaVersion).where(*state).values(success=False)
+            change = update(SchemaState).where(*state).values(success=False)
         await self._commit_run(change, self._history_result(run, success, duration, query_results))
 
     async def undo_run(self, run: ScriptRun, duration: int, query_results: str) -> None:
         state = self._state_filter(run.version)
         change: Executable
         if run.direction is Direction.UP:
-            change = delete(SchemaVersion).where(*state)
+            change = delete(SchemaState).where(*state)
         else:
-            change = update(SchemaVersion).where(*state).values(success=True)
+            change = update(SchemaState).where(*state).values(success=True)
         await self._commit_run(change, self._history_result(run, False, duration, query_results))
 
     async def _lock_identity(self, conn: AsyncConnection) -> str:
@@ -403,30 +401,30 @@ class DBManager:
             return None
         return await force_release_sqlite_lock(self._engine, self.namespace)
 
-    async def find_schema_by_version(self, version: MigVersion) -> SchemaVersion | None:
+    async def find_schema_by_version(self, version: MigVersion) -> SchemaState | None:
         async with self._sessionmaker() as session:
-            return await session.get(SchemaVersion, (self.namespace, version.base, version.rank))
+            return await session.get(SchemaState, (self.namespace, version.base, version.rank))
 
-    async def find_latest_schema(self) -> SchemaVersion | None:
+    async def find_latest_schema(self) -> SchemaState | None:
         async with self._sessionmaker() as session:
             return await self._find_latest_schema(session, self.namespace)
 
-    async def find_all_schema(self) -> Sequence[SchemaVersion]:
+    async def find_all_schema(self) -> Sequence[SchemaState]:
         async with self._sessionmaker() as session:
-            query = select(SchemaVersion).where(SchemaVersion.namespace == self.namespace)
-            return (await session.scalars(query.order_by(SchemaVersion.installed_rank))).all()
+            query = select(SchemaState).where(SchemaState.namespace == self.namespace)
+            return (await session.scalars(query.order_by(SchemaState.installed_rank))).all()
 
     async def find_applied_versions(self) -> set[MigVersion]:
-        query = select(SchemaVersion.version_base, SchemaVersion.version_rank)
+        query = select(SchemaState.version_base, SchemaState.version_rank)
         async with self._sessionmaker() as session:
-            rows = await session.execute(query.where(SchemaVersion.namespace == self.namespace))
+            rows = await session.execute(query.where(SchemaState.namespace == self.namespace))
             return {MigVersion(base, rank) for base, rank in rows}
 
     async def delete_all_failed_schema(self) -> None:
-        await self._delete(SchemaVersion.success.is_(False))
+        await self._delete(SchemaState.success.is_(False))
 
     async def delete_all_schema(self, cutoff_rank: int = 0) -> None:
-        await self._delete(SchemaVersion.installed_rank >= cutoff_rank)
+        await self._delete(SchemaState.installed_rank >= cutoff_rank)
 
     async def find_history(self) -> Sequence[SchemaHistory]:
         async with self._sessionmaker() as session:
@@ -436,7 +434,7 @@ class DBManager:
     async def _delete(self, condition: ColumnElement[bool]) -> None:
         async with self._sessionmaker() as session:
             try:
-                await session.execute(delete(SchemaVersion).where(SchemaVersion.namespace == self.namespace, condition))
+                await session.execute(delete(SchemaState).where(SchemaState.namespace == self.namespace, condition))
                 await session.commit()
             except SQLAlchemyError as err:
                 await session.rollback()
@@ -454,15 +452,15 @@ class DBManager:
 
     def _state_filter(self, version: MigVersion) -> tuple[ColumnElement[bool], ...]:
         return (
-            SchemaVersion.namespace == self.namespace,
-            SchemaVersion.version_base == version.base,
-            SchemaVersion.version_rank == version.rank,
+            SchemaState.namespace == self.namespace,
+            SchemaState.version_base == version.base,
+            SchemaState.version_rank == version.rank,
         )
 
     @staticmethod
-    async def _find_latest_schema(session: AsyncSession, namespace: str) -> SchemaVersion | None:
-        query = select(SchemaVersion).where(SchemaVersion.namespace == namespace)
-        query = query.order_by(SchemaVersion.installed_rank.desc())
+    async def _find_latest_schema(session: AsyncSession, namespace: str) -> SchemaState | None:
+        query = select(SchemaState).where(SchemaState.namespace == namespace)
+        query = query.order_by(SchemaState.installed_rank.desc())
         return (await session.scalars(query)).first()
 
     @staticmethod

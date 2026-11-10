@@ -15,7 +15,7 @@ from esmigrate.exceptions import (
     SchemaVersionSqlDbError,
 )
 from esmigrate.internals import DBManager, Layout, create_tables_sql
-from esmigrate.internals.db_manager import SCHEMA_VERSION_TABLE, ScriptRun, to_async_url
+from esmigrate.internals.db_manager import LEGACY_TABLE, ScriptRun, to_async_url
 
 V1_TABLE_DDL = """
 CREATE TABLE esm_schema_version (
@@ -354,7 +354,7 @@ async def test_db_manager_refuses_old_layout_without_upgrade(db_url, ddl, rows, 
     with pytest.raises(LegacySchemaTableError, match=f"use the {layout} layout, run `esmigrate init`"):
         async with DBManager.connect(db_url):
             pass
-    assert table_names(db_url) == {SCHEMA_VERSION_TABLE}
+    assert table_names(db_url) == {LEGACY_TABLE}
 
 
 @pytest.mark.parametrize("ddl", [V1_TABLE_DDL, V2_TABLE_DDL])
