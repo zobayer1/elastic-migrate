@@ -1,16 +1,19 @@
-import asyncio
-import functools
-import getpass
 import logging
-import socket
 import sys
 import time
-from collections.abc import AsyncGenerator, Callable, Coroutine
-from contextlib import AbstractAsyncContextManager, asynccontextmanager
-from typing import Any, Concatenate, NoReturn, ParamSpec, TypeVar
 
 import click
 
+from esmigrate.cli.common import (
+    DB_ERRORS,
+    LOG_FILE_KEY,
+    PROFILE_KEY,
+    connect_db,
+    fail,
+    hold_lock,
+    pass_config,
+    run,
+)
 from esmigrate.commons import (
     DEFAULT_PROFILE,
     Command,
@@ -24,7 +27,7 @@ from esmigrate.commons import (
     query_results_string,
     version,
 )
-from esmigrate.contexts import ContextConfig, mask_db_url
+from esmigrate.contexts import ContextConfig
 from esmigrate.exceptions import (
     ElasticsearchConnError,
     ElasticsearchHTTPError,
@@ -37,11 +40,7 @@ from esmigrate.exceptions import (
     InvalidDBConnectionError,
     InvalidSchemaFileError,
     InvalidSchemaPatternError,
-    InvalidSchemaTableError,
-    LegacySchemaTableError,
-    MigrationLockedError,
     SchemaVersionSqlDbError,
-    UserProfileNotFoundError,
     error_list,
 )
 from esmigrate.internals import (
@@ -66,54 +65,12 @@ title = f"""
 
 log = logging.getLogger(__name__)
 
-P = ParamSpec("P")
-R = TypeVar("R")
-PROFILE_KEY = "esmigrate.profile"
-LOG_FILE_KEY = "esmigrate.log_file"
-
-DB_ERRORS: dict[type[Exception], Errors] = {
-    InvalidDBConnectionError: Errors.ERR_DB_CONNECTION_FAILED,
-    InvalidSchemaTableError: Errors.ERR_DB_LEGACY_TABLE,
-    LegacySchemaTableError: Errors.ERR_DB_LEGACY_TABLE,
-    MigrationLockedError: Errors.ERR_DB_LOCKED,
-    SchemaVersionSqlDbError: Errors.ERR_DB_IN_ERROR_STATE,
-}
-
 SCRIPT_ERRORS = (
     InvalidCommandScriptError,
     InvalidCommandVerbError,
     InvalidCommandPathError,
     InvalidCommandBodyError,
 )
-
-
-def fail(err: Exception, code: int) -> int:
-    log.error(f"{type(err).__name__}: {err}")
-    return code
-
-
-def run(coro: Coroutine[Any, Any, int]) -> NoReturn:
-    code = asyncio.run(coro)
-    log.debug(f"Finished {click.get_current_context().info_name} with exit code {code}")
-    sys.exit(code)
-
-
-@asynccontextmanager
-async def migration_lock(cfg: ContextConfig, db: DBManager) -> AsyncGenerator[None, None]:
-    log.debug(f"Acquiring migration lock for namespace {cfg.schema_namespace} (timeout {cfg.lock_timeout}s)")
-    async with db.lock(cfg.lock_timeout):
-        acquired = time.perf_counter()
-        log.debug("Migration lock acquired")
-        try:
-            yield
-        finally:
-            log.debug(f"Migration lock released after {int((time.perf_counter() - acquired) * 1000)} ms")
-
-
-def connect_db(cfg: ContextConfig, upgrade: bool = False) -> AbstractAsyncContextManager[DBManager]:
-    return DBManager.connect(
-        cfg.schema_db, namespace=cfg.schema_namespace, upgrade=upgrade, schema=cfg.schema_db_schema
-    )
 
 
 @click.group(invoke_without_command=True)
@@ -144,43 +101,6 @@ def main(
     ctx.meta[LOG_FILE_KEY] = log_file
     if ctx.invoked_subcommand is None:
         click.echo(click.style(title, fg="green"))
-
-
-def load_config(ctx: click.Context) -> ContextConfig:
-    profile: str = ctx.meta[PROFILE_KEY]
-    log_file: str | None = ctx.meta[LOG_FILE_KEY]
-    log.info(f"Loading profile: {profile}...")
-    try:
-        cfg = ContextConfig().load_for(profile)
-    except UserProfileNotFoundError as err:
-        sys.exit(fail(err, Errors.ERR_PROFILE_NOT_FOUND))
-    except InvalidConfigurationError as err:
-        sys.exit(fail(err, Errors.ERR_INVALID_CONFIGURATION))
-    try:
-        configure_file(log_file or cfg.log_file, cfg.log_rotation, cfg.log_max_bytes, cfg.log_backup_count)
-    except InvalidConfigurationError as err:
-        sys.exit(fail(err, Errors.ERR_INVALID_CONFIGURATION))
-    log.info(f"Profile loaded: {profile}")
-    log.debug(
-        f"esmigrate {version} {ctx.info_name}: profile={profile} namespace={cfg.schema_namespace} "
-        f"elastic_host={cfg.es_host} schema_db={mask_db_url(cfg.schema_db)} schema_db_schema={cfg.schema_db_schema} "
-        f"user={getpass.getuser()} "
-        f"host={socket.gethostname()}"
-    )
-    if not cfg.es_verify_certs:
-        log.warning(
-            "TLS certificate verification is disabled (elastic_verify_certs: false), "
-            "connections to Elasticsearch are not authenticated"
-        )
-    return cfg
-
-
-def pass_config(command: Callable[Concatenate[ContextConfig, P], R]) -> Callable[P, R]:
-    @functools.wraps(command)
-    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-        return command(load_config(click.get_current_context()), *args, **kwargs)
-
-    return wrapper
 
 
 @main.command(help="Create the schema tables, copying rows from v1 and v2 tables if present")
@@ -263,7 +183,7 @@ async def run_upgrade(cfg: ContextConfig, schema_version: str) -> int:
     except ValueError as err:
         return fail(err, Errors.ERR_INVALID_SCMVER)
     try:
-        async with connect_db(cfg) as db, migration_lock(cfg, db):
+        async with connect_db(cfg) as db, hold_lock(cfg, db):
             return await upgrade_schema(cfg, db, requested)
     except tuple(DB_ERRORS) as err:
         return fail(err, DB_ERRORS[type(err)])
@@ -380,7 +300,7 @@ async def upgrade_schema(cfg: ContextConfig, db: DBManager, requested: MigVersio
 
 async def run_rollback(cfg: ContextConfig) -> int:
     try:
-        async with connect_db(cfg) as db, migration_lock(cfg, db):
+        async with connect_db(cfg) as db, hold_lock(cfg, db):
             latest = await db.find_latest_schema()
             if latest and not latest.success:
                 log.info(f"Schema database has error entry for version {latest.version}")
@@ -395,7 +315,7 @@ async def run_rollback(cfg: ContextConfig) -> int:
 
 async def run_reset(cfg: ContextConfig) -> int:
     try:
-        async with connect_db(cfg) as db, migration_lock(cfg, db):
+        async with connect_db(cfg) as db, hold_lock(cfg, db):
             await db.delete_all_schema()
     except tuple(DB_ERRORS) as err:
         return fail(err, DB_ERRORS[type(err)])
