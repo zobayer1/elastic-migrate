@@ -380,11 +380,6 @@ class DBManager:
             return None
         return await force_release_sqlite_lock(self._engine, self.namespace)
 
-    async def schema_version_exists(self) -> bool:
-        async with self._engine.connect() as conn:
-            tables = await conn.run_sync(lambda sync_conn: inspect(sync_conn).get_table_names(schema=self.schema))
-        return SCHEMA_TABLE.name in tables
-
     async def find_schema_by_version(self, version: MigVersion) -> SchemaVersion | None:
         async with self._sessionmaker() as session:
             return await session.get(SchemaVersion, (self.namespace, version.base, version.rank))

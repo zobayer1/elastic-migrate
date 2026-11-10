@@ -279,7 +279,6 @@ async def test_db_manager_wraps_driver_argument_errors():
 
 async def test_db_manager_creates_state_and_history_tables(db_manager, db_url):
     """Test fails if connect does not create both tables, and only them, on an empty database"""
-    assert await db_manager.schema_version_exists()
     assert db_manager.upgraded_from is Layout.CURRENT
     assert table_names(db_url) == {"esm_schema_state", "esm_schema_history"}
 
@@ -297,9 +296,9 @@ async def test_db_manager_uses_configured_schema(db_url):
     """Test fails if the tables are not created and queried in the configured schema"""
     async with DBManager.connect(db_url, schema="main") as db:
         assert db.schema == "main"
-        assert await db.schema_version_exists()
         await record(db)
         assert [row.version for row in await db.find_all_schema()] == [MigVersion(1, 0)]
+    assert table_names(db_url) == {"esm_schema_state", "esm_schema_history"}
 
 
 async def test_db_manager_reports_missing_schema(db_url):

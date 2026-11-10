@@ -40,9 +40,7 @@ def loader_for(monkeypatch, pattern):
 @pytest.fixture(scope="module")
 def glob_loader():
     """pytest fixture for providing default GlobLoader object"""
-    _loader = GlobLoader()
-    _loader.init_ctx(ContextConfig())
-    return _loader
+    return GlobLoader(ContextConfig())
 
 
 def test_scan_dir_raises_not_a_directory_error(glob_loader):
