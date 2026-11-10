@@ -9,10 +9,10 @@ from esmigrate.commons.helpers import (
     is_valid_json,
     is_valid_ndjson,
     make_sha1,
-    parse_version,
 )
+from esmigrate.commons.mig_version import MAX_VERSION_PART, MigVersion, parse_version
 from esmigrate.commons.migration import Migration
-from esmigrate.commons.script_data import MAX_VERSION_PART, Direction, MigVersion, Operation, ScriptData
+from esmigrate.commons.script_data import Direction, Operation, ScriptData
 
 http_verbs = ["GET", "PUT", "POST", "DELETE"]
 JSON_HEADER = {"Content-Type": "application/json"}

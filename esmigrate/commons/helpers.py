@@ -1,5 +1,4 @@
 import json
-import re
 from hashlib import sha1
 
 
@@ -13,13 +12,6 @@ def is_valid_json(content: str) -> bool:
 
 def is_valid_ndjson(content: str) -> bool:
     return all(is_valid_json(line) for line in content.strip().split("\n"))
-
-
-def parse_version(text: str) -> tuple[int, int]:
-    m = re.fullmatch(r"(\d+)(?:\.(\d+))?", text.strip())
-    if m is None:
-        raise ValueError(f"Invalid version: {text}")
-    return int(m.group(1)), int(m.group(2) or 0)
 
 
 def make_sha1(s: str, encoding: str = "utf-8") -> bytes:
