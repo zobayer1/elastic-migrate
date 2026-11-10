@@ -11,8 +11,9 @@ ElasticMigrate (`esmigrate` CLI, package name `elastic-migrate`) is a Flyway-sty
 - **Minimal comments in source code.** The code is simple; tests do the explaining. Add a comment only when something is genuinely non-obvious. Explanations, design notes and user guides belong in `docs/`.
 - **Maximum test coverage.** This module is used in enterprise, government-level applications. Every change ships with tests covering all new/changed branches, including error paths and exit codes; never lower coverage.
 - **Plan before large changes.** For anything beyond a small fix, first write a plan and create/update the GitHub issue(s); implement only after that.
-- Intermediate commits on `modernize` may leave tests broken; the branch must be green before the final PR.
-- **Commits:** author `Zobayer Hasan <zobayer1@gmail.com>`; end every message with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` and nothing else (no `Claude-Session` links). Commit messages only — no trailer or AI attribution in issue/PR bodies or comments. Show the proposed commit message to the user and wait for approval before committing. Reference issues with `Closes #N` / `Refs #N`.
+- **Small commits.** Split an issue's tasks into several small commits in a sensible order, each with its own tests, instead of one large implementation commit followed by the tests. The branch must be green before its PR.
+- **Commits:** author `Zobayer Hasan <zobayer1@gmail.com>`. Commits made by Claude end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` and nothing else (no `Claude-Session` links); when the user commits a drafted message themselves, the trailer is optional. No trailer or AI attribution in issue/PR bodies or comments. Show the proposed commit message to the user and wait for approval before committing.
+- **Commit messages:** a short imperative subject and a short body saying what changed and why. Do not repeat requirements that are already written in the issue; reference it instead, with `Closes #N` on the commit that completes the issue and `Refs #N` on the others.
 
 ## Commands
 
@@ -88,7 +89,7 @@ Key behaviors:
 - Docs live in `docs/` as MyST Markdown. `docs/_ext/latest_release.py` renders the Downloads page from the GitHub Releases API at build time (offline local builds get a fallback; CI builds fail without release data); it is tested in `tests/test_docs.py`. The public signing key is published as `docs/_static/zobayer1.asc`. Every ```` ```json ```` block containing `profiles` is loaded by `tests/test_docs.py` (dummy values for `${VAR}`, fake certificate files), so documented config must stay valid; put deliberately invalid examples in ```` ```text ```` blocks. Verify commands and facts against the code before documenting them.
 - Every test has a one-line docstring of the form `"""Test fails if ..."""`.
 - CLI tests use `click.testing.CliRunner` and a `context` fixture that patches `ContextConfig.load_for` with a profile pointing at a temporary SQLite DB, a temporary `schema_dir` and a fake ES host; they run real commands end to end and assert `result.exit_code` against `Errors.*` plus the stored rows.
-- Git: short imperative commit subjects. Modernization work happens on the `modernize` branch.
+- Git: issue work happens on a `feature/<issue>_<topic>` branch (e.g. `feature/277_history_table`) merged into `main` through a PR with a merge commit; small fixes go to `main` directly when the user asks. A PR takes the main commit's subject as its title and a short summary, `Closes #N` and the Tests/Coverages/Documentations checklist as its body, with the user assigned and the milestone set.
 
 ## Modernization decisions
 
