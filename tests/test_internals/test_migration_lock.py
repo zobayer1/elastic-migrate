@@ -43,12 +43,6 @@ def dead_pid():
     return process.pid
 
 
-@pytest.fixture
-def db_url(tmp_path):
-    """pytest fixture for a file-backed SQLite URL in a temporary directory"""
-    return f"sqlite:///{tmp_path / 'esmigrate.db'}"
-
-
 async def lock_rows(db):
     async with db._engine.connect() as conn:
         return (await conn.execute(select(LOCK_TABLE))).mappings().all()
