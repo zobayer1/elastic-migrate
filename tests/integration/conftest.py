@@ -13,7 +13,7 @@ from sqlalchemy import text
 from esmigrate import cli
 from esmigrate.commons import DEFAULT_NAMESPACE
 from esmigrate.internals import LEGACY_TABLE, DBManager
-from esmigrate.internals.db_manager import create_engine
+from esmigrate.internals.db_engine import create_engine
 from esmigrate.models import HISTORY_TABLE, STATE_TABLE
 
 ES_URL = os.getenv("ESMIGRATE_TEST_ES_URL", "http://localhost:9200")

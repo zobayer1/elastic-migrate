@@ -7,7 +7,7 @@ from sqlalchemy import make_url, text
 
 from esmigrate.exceptions import Errors
 from esmigrate.internals import LEGACY_TABLE
-from esmigrate.internals.db_manager import create_engine
+from esmigrate.internals.db_engine import create_engine
 from tests.integration.test_migrations import BULK_DOCUMENTS, CREATE_INDEX, INDEX_DOCUMENT, doc_count, write_schemas
 
 V1_TYPES = {

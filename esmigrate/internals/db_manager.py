@@ -8,34 +8,30 @@ from enum import StrEnum
 from typing import Any, Self
 
 from sqlalchemy import (
-    URL,
     ColumnElement,
     Connection,
     Executable,
-    MetaData,
     Update,
     delete,
     insert,
     inspect,
     literal,
-    make_url,
     select,
     table,
     text,
     update,
 )
-from sqlalchemy.exc import ArgumentError, InvalidRequestError, NoSuchModuleError, SQLAlchemyError
-from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.schema import CreateIndex, CreateTable
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession, async_sessionmaker
 
 from esmigrate.commons import DEFAULT_NAMESPACE, Direction, Migration, MigVersion, Operation, old_timestamp_to_utc
 from esmigrate.exceptions import (
     InvalidDBConnectionError,
-    InvalidSchemaTableError,
     LegacySchemaTableError,
     SchemaVersionSqlDbError,
     error_list,
 )
+from esmigrate.internals.db_engine import check_schema_exists, create_engine, verify_schema_columns
 from esmigrate.internals.migration_lock import (
     acquire_mysql_lock,
     acquire_postgresql_lock,
@@ -48,19 +44,6 @@ from esmigrate.internals.migration_lock import (
     release_sqlite_lock,
 )
 from esmigrate.models import HISTORY_TABLE, STATE_TABLE, Base, SchemaHistory, SchemaState
-
-ASYNC_DRIVERS = {
-    "sqlite": "sqlite+aiosqlite",
-    "postgres": "postgresql+asyncpg",
-    "postgresql": "postgresql+asyncpg",
-    "mysql": "mysql+asyncmy",
-    "mariadb": "mysql+asyncmy",
-}
-
-DRIVER_EXTRAS = {
-    "asyncpg": "postgres",
-    "asyncmy": "mysql",
-}
 
 LEGACY_TABLE = "esm_schema_version"
 
@@ -78,50 +61,10 @@ class ScriptRun:
     history_id: int
 
 
-def to_async_url(db_url: str) -> URL:
-    try:
-        url = make_url(db_url)
-    except ArgumentError as err:
-        raise InvalidDBConnectionError(str(err)) from err
-    if "+" in url.drivername:
-        return url
-    if url.drivername not in ASYNC_DRIVERS:
-        raise InvalidDBConnectionError(f"Unsupported database: {url.drivername}")
-    return url.set(drivername=ASYNC_DRIVERS[url.drivername])
-
-
-def create_engine(db_url: str, echo: bool = False) -> AsyncEngine:
-    url = to_async_url(db_url)
-    try:
-        return create_async_engine(url, echo=echo, hide_parameters=True)
-    except ModuleNotFoundError as err:
-        extra = DRIVER_EXTRAS.get(err.name or "")
-        hint = f", install elastic-migrate[{extra}]" if extra else ""
-        raise InvalidDBConnectionError(f"Database driver not installed: {err.name}{hint}") from err
-    except (InvalidRequestError, NoSuchModuleError) as err:
-        raise InvalidDBConnectionError(f"Unsupported database driver: {url.drivername}, {err}") from err
-
-
-def create_tables_sql(db_url: str, schema: str | None = None) -> str:
-    dialect = create_engine(db_url).dialect
-    statements: list[str] = []
-    for source in (STATE_TABLE, HISTORY_TABLE):
-        table = source.to_metadata(MetaData(), schema=schema) if schema else source
-        statements.append(str(CreateTable(table).compile(dialect=dialect)).strip())
-        for index in sorted(table.indexes, key=lambda item: str(item.name)):
-            statements.append(str(CreateIndex(index).compile(dialect=dialect)))
-    return ";\n\n".join(statements) + ";"
-
-
 def qualified_name(conn: Connection, table: str, schema: str | None) -> str:
     preparer = conn.dialect.identifier_preparer
     name = preparer.quote(table)
     return f"{preparer.quote_schema(schema)}.{name}" if schema else name
-
-
-def check_schema_exists(conn: Connection, schema: str | None) -> None:
-    if schema is not None and schema not in inspect(conn).get_schema_names():
-        raise InvalidDBConnectionError(f"Database schema {schema} does not exist")
 
 
 def table_has_rows(conn: Connection, table_name: str, schema: str | None = None) -> bool:
@@ -238,18 +181,6 @@ def copy_old_rows(conn: Connection, layout: Layout, schema: str | None = None) -
     states.sort(key=lambda state: (state["namespace"], state["installed_rank"] or 0))
     conn.execute(insert(STATE_TABLE), states)
     conn.execute(insert(HISTORY_TABLE), [state_to_history(state) for state in states])
-
-
-def verify_schema_columns(conn: Connection, schema: str | None = None) -> None:
-    inspector = inspect(conn)
-    errors: list[str] = []
-    for expected in (STATE_TABLE, HISTORY_TABLE):
-        found = {col["name"].lower() for col in inspector.get_columns(expected.name, schema=schema)}
-        missing = {col.name for col in expected.columns} - found
-        if missing:
-            errors.append(f"{expected.name}: {', '.join(sorted(missing))}")
-    if errors:
-        raise InvalidSchemaTableError(error_list("Schema tables are missing columns:", errors))
 
 
 class DBManager:
