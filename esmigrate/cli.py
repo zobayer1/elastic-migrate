@@ -20,7 +20,6 @@ from esmigrate.commons import (
     appname,
     query_error_string,
     query_results_string,
-    title,
     version,
 )
 from esmigrate.commons.log_setup import configure_console, configure_file
@@ -54,6 +53,16 @@ from esmigrate.internals import (
     ScriptParser,
     create_tables_sql,
 )
+
+title = f"""
+  ███████╗███████╗    ███╗   ███╗██╗ ██████╗ ██████╗  █████╗ ████████╗███████╗
+  ██╔════╝██╔════╝    ████╗ ████║██║██╔════╝ ██╔══██╗██╔══██╗╚══██╔══╝██╔════╝
+  █████╗  ███████╗    ██╔████╔██║██║██║  ███╗██████╔╝███████║   ██║   █████╗
+  ██╔══╝  ╚════██║    ██║╚██╔╝██║██║██║   ██║██╔══██╗██╔══██║   ██║   ██╔══╝
+  ███████╗███████║    ██║ ╚═╝ ██║██║╚██████╔╝██║  ██║██║  ██║   ██║   ███████╗
+  ╚══════╝╚══════╝    ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ╚══════╝  {version}
+  Elasticsearch migrations made easy!
+"""
 
 log = logging.getLogger(__name__)
 

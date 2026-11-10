@@ -2,9 +2,8 @@ import json
 
 import pytest
 
-from esmigrate.commons import local_config_file_path, user_config_file_path
 from esmigrate.contexts import ContextConfig
-from esmigrate.contexts.context_config import mask_db_url
+from esmigrate.contexts.context_config import local_config_file_path, mask_db_url, user_config_file_path
 from esmigrate.exceptions import (
     InvalidConfigurationError,
     UserProfileNotFoundError,

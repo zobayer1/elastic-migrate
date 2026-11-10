@@ -5,10 +5,11 @@ from json.decoder import JSONDecodeError
 from typing import Any, Self, cast
 from urllib.parse import urlsplit
 
+from platformdirs import user_config_dir
 from sqlalchemy import make_url
 from sqlalchemy.exc import ArgumentError
 
-from esmigrate.commons import DEFAULT_NAMESPACE, DEFAULT_PROFILE, local_config_file_path, user_config_file_path
+from esmigrate.commons import DEFAULT_NAMESPACE, DEFAULT_PROFILE, appname
 from esmigrate.commons.log_setup import DEFAULT_LOG_BACKUP_COUNT, DEFAULT_LOG_MAX_BYTES, LOG_ROTATIONS
 from esmigrate.exceptions import (
     InvalidConfigurationError,
@@ -22,6 +23,9 @@ DEFAULT_SCHEMA_PATTERN = (
     "V(?P<version>[\\d]+)_(?P<sequence>[\\d]+)__(?P<name>[\\w]+)(?:\\.(?P<direction>up|down))?\\.(?P<extension>[\\w]+)"
 )
 DEFAULT_SCHEMA_PATTERN_GROUPS = ("version", "sequence", "name", "extension")
+
+local_config_file_path = os.path.join(os.getcwd(), "config.json")
+user_config_file_path = os.path.join(user_config_dir(appname=appname), "config.json")
 
 
 def interpolate(value: Any, field: str) -> Any:

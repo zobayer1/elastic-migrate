@@ -1,3 +1,8 @@
+JSON_HEADER = {"Content-Type": "application/json"}
+NDJSON_HEADER = {"Content-Type": "application/x-ndjson"}
+http_verbs = ["GET", "PUT", "POST", "DELETE"]
+
+
 class Command:
     def __init__(self, verb: str, path: str, body: str | None = None, head: dict[str, str] | None = None) -> None:
         self.verb = verb

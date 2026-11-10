@@ -9,8 +9,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from esmigrate.commons import local_config_file_path
 from esmigrate.contexts import ContextConfig
+from esmigrate.contexts.context_config import local_config_file_path
 
 DOCS = Path(__file__).parents[1] / "docs"
 JSON_BLOCK = re.compile(r"```json\n(.*?)```", re.DOTALL)
