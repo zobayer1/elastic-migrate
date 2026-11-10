@@ -4,14 +4,8 @@ from logging.handlers import RotatingFileHandler, WatchedFileHandler
 
 import pytest
 
-from esmigrate.commons.log_setup import (
-    CONSOLE_HANDLER,
-    FILE_HANDLER,
-    LOGGER_NAME,
-    ConsoleFormatter,
-    configure_console,
-    configure_file,
-)
+from esmigrate.commons import configure_console, configure_file
+from esmigrate.commons.log_setup import CONSOLE_HANDLER, FILE_HANDLER, LOGGER_NAME, ConsoleFormatter
 from esmigrate.exceptions import InvalidConfigurationError
 
 

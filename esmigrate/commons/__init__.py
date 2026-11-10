@@ -6,14 +6,24 @@ from esmigrate.commons.helpers import (
     is_valid_ndjson,
     make_sha1,
 )
+from esmigrate.commons.log_setup import (
+    DEFAULT_LOG_BACKUP_COUNT,
+    DEFAULT_LOG_MAX_BYTES,
+    LOG_ROTATIONS,
+    configure_console,
+    configure_file,
+)
 from esmigrate.commons.mig_version import MAX_VERSION_PART, MigVersion, parse_version
 from esmigrate.commons.migration import Migration
 from esmigrate.commons.script_data import Direction, Operation, ScriptData
 
 __all__ = [
+    "DEFAULT_LOG_BACKUP_COUNT",
+    "DEFAULT_LOG_MAX_BYTES",
     "DEFAULT_NAMESPACE",
     "DEFAULT_PROFILE",
     "JSON_HEADER",
+    "LOG_ROTATIONS",
     "MAX_VERSION_PART",
     "NDJSON_HEADER",
     "Command",
@@ -23,6 +33,8 @@ __all__ = [
     "Operation",
     "ScriptData",
     "appname",
+    "configure_console",
+    "configure_file",
     "http_verbs",
     "is_valid_json",
     "is_valid_ndjson",

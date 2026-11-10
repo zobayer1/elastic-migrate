@@ -9,8 +9,14 @@ from platformdirs import user_config_dir
 from sqlalchemy import make_url
 from sqlalchemy.exc import ArgumentError
 
-from esmigrate.commons import DEFAULT_NAMESPACE, DEFAULT_PROFILE, appname
-from esmigrate.commons.log_setup import DEFAULT_LOG_BACKUP_COUNT, DEFAULT_LOG_MAX_BYTES, LOG_ROTATIONS
+from esmigrate.commons import (
+    DEFAULT_LOG_BACKUP_COUNT,
+    DEFAULT_LOG_MAX_BYTES,
+    DEFAULT_NAMESPACE,
+    DEFAULT_PROFILE,
+    LOG_ROTATIONS,
+    appname,
+)
 from esmigrate.exceptions import (
     InvalidConfigurationError,
     UserProfileNotFoundError,

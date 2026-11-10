@@ -18,13 +18,13 @@ from esmigrate.commons import (
     Migration,
     MigVersion,
     appname,
+    configure_console,
+    configure_file,
     query_error_string,
     query_results_string,
     version,
 )
-from esmigrate.commons.log_setup import configure_console, configure_file
-from esmigrate.contexts import ContextConfig
-from esmigrate.contexts.context_config import mask_db_url
+from esmigrate.contexts import ContextConfig, mask_db_url
 from esmigrate.exceptions import (
     ElasticsearchConnError,
     ElasticsearchHTTPError,
