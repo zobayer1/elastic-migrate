@@ -2,7 +2,8 @@ import json
 
 import httpx
 
-from esmigrate.commons import Command, query_error_string, query_results_string
+from esmigrate.cli.execution import query_error_string, query_results_string
+from esmigrate.commons import Command
 from esmigrate.exceptions import ElasticsearchConnError
 
 

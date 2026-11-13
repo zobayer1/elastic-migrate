@@ -1,6 +1,5 @@
 import logging
 import sys
-import time
 
 import click
 
@@ -14,42 +13,23 @@ from esmigrate.cli.common import (
     pass_config,
     run,
 )
+from esmigrate.cli.upgrade import upgrade
 from esmigrate.commons import (
     DEFAULT_PROFILE,
-    Command,
-    Direction,
-    Migration,
-    MigVersion,
     appname,
     configure_console,
     configure_file,
-    query_error_string,
-    query_results_string,
     version,
 )
 from esmigrate.contexts import ContextConfig
 from esmigrate.exceptions import (
-    ElasticsearchConnError,
-    ElasticsearchHTTPError,
     Errors,
-    InvalidCommandBodyError,
-    InvalidCommandPathError,
-    InvalidCommandScriptError,
-    InvalidCommandVerbError,
     InvalidConfigurationError,
     InvalidDBConnectionError,
-    InvalidSchemaFileError,
-    InvalidSchemaPatternError,
-    SchemaVersionSqlDbError,
-    error_list,
 )
 from esmigrate.internals import (
     LEGACY_TABLE,
-    DBManager,
-    GlobLoader,
-    HTTPHandler,
     Layout,
-    ScriptParser,
     create_tables_sql,
 )
 
@@ -64,13 +44,6 @@ title = f"""
 """
 
 log = logging.getLogger(__name__)
-
-SCRIPT_ERRORS = (
-    InvalidCommandScriptError,
-    InvalidCommandVerbError,
-    InvalidCommandPathError,
-    InvalidCommandBodyError,
-)
 
 
 @click.group(invoke_without_command=True)
@@ -103,6 +76,9 @@ def main(
         click.echo(click.style(title, fg="green"))
 
 
+main.add_command(upgrade)
+
+
 @main.command(help="Create the schema tables, copying rows from v1 and v2 tables if present")
 @click.help_option(help="Show help index and exit")
 @click.option("--print-sql", is_flag=True, help="Print the SQL that creates the schema tables, without connecting")
@@ -116,14 +92,6 @@ def init(cfg: ContextConfig, print_sql: bool = False) -> None:
 @pass_config
 def config(cfg: ContextConfig) -> None:
     click.echo(f"{cfg!r}")
-
-
-@main.command(help="Upgrade to latest or specified schema version")
-@click.help_option(help="Show help index and exit")
-@click.option("-s", "--schema-version", default="latest", help="Target schema version, e.g. '1.2' or 'latest'")
-@pass_config
-def upgrade(cfg: ContextConfig, schema_version: str = "latest") -> None:
-    run(run_upgrade(cfg, schema_version))
 
 
 @main.command(help="Revert to last successful schema version")
@@ -173,128 +141,6 @@ async def print_tables_sql(cfg: ContextConfig) -> int:
     except InvalidDBConnectionError as err:
         return fail(err, Errors.ERR_DB_CONNECTION_FAILED)
     click.echo(sql)
-    return 0
-
-
-async def run_upgrade(cfg: ContextConfig, schema_version: str) -> int:
-    log.debug(f"Upgrade target: {schema_version}")
-    try:
-        requested = None if schema_version == "latest" else MigVersion.parse(schema_version)
-    except ValueError as err:
-        return fail(err, Errors.ERR_INVALID_SCMVER)
-    try:
-        async with connect_db(cfg) as db, hold_lock(cfg, db):
-            return await upgrade_schema(cfg, db, requested)
-    except tuple(DB_ERRORS) as err:
-        return fail(err, DB_ERRORS[type(err)])
-    except InvalidConfigurationError as err:
-        return fail(err, Errors.ERR_INVALID_CONFIGURATION)
-
-
-def parse_scripts(direction: Direction, migrations: list[Migration]) -> list[tuple[Migration, list[Command]]]:
-    parser = ScriptParser()
-    parsed: list[tuple[Migration, list[Command]]] = []
-    errors: list[str] = []
-    for migration in migrations:
-        script = migration.script_for(direction)
-        if script is None:
-            parsed.append((migration, []))
-            continue
-        try:
-            parsed.append((migration, list(parser.get_commands(script.content))))
-        except SCRIPT_ERRORS as err:
-            errors.append(f"{script.path}: {err}")
-    if errors:
-        raise InvalidCommandScriptError(error_list("Invalid migration scripts:", errors))
-    return parsed
-
-
-async def apply_schema(
-    db: DBManager, http_handler: HTTPHandler, direction: Direction, entry: Migration, commands: list[Command]
-) -> int:
-    log.info(f"Processing schema {entry.description}")
-    script = entry.script_for(direction)
-    if script:
-        log.debug(f"Schema {entry.version} {direction}: script={script.path} checksum={script.checksum.hex()}")
-    else:
-        log.info(f"Schema {entry.version} has no {direction} script, recording it without requests")
-    run = await db.start_run(direction, entry)
-    tic = time.perf_counter()
-    error_code = 0
-    undo = False
-    query_results: list[str] = []
-    for command in commands:
-        try:
-            response = await http_handler.make_requests(command)
-        except ElasticsearchConnError as err:
-            undo = err.never_reached and not query_results
-            query_results.append(query_error_string(command, err))
-            error_code = fail(err, Errors.ERR_ES_CONNERROR)
-            break
-        except ElasticsearchHTTPError as err:
-            query_results.append(query_results_string(command, err.response))
-            error_code = fail(err, Errors.ERR_ES_HTTPERROR)
-            break
-        query_results.append(query_results_string(command, response))
-    duration = int((time.perf_counter() - tic) * 1000)
-    results = ";".join(query_results)
-    if undo:
-        await db.undo_run(run, duration, results)
-    else:
-        await db.finish_run(run, error_code == 0, duration, results)
-    log.debug(f"Schema {entry.version} {direction} {'succeeded' if error_code == 0 else 'failed'} in {duration} ms")
-    if error_code == 0:
-        log.info(f"Schema {entry.description} executed successfully")
-    return error_code
-
-
-async def upgrade_schema(cfg: ContextConfig, db: DBManager, requested: MigVersion | None) -> int:
-    latest_db_entry = await db.find_latest_schema()
-    if latest_db_entry and not latest_db_entry.success:
-        state = "failed" if latest_db_entry.success is False else "was interrupted"
-        err = SchemaVersionSqlDbError(
-            f"Version {latest_db_entry.version} {state}, see `esmigrate status` and resolve it with `esmigrate force`"
-        )
-        return fail(err, Errors.ERR_DB_IN_ERROR_STATE)
-    latest_db_version = latest_db_entry.version if latest_db_entry else MigVersion(0, 0)
-    try:
-        schema_entries = GlobLoader(cfg).load_migrations(cfg.schema_path)
-    except NotADirectoryError as err:
-        return fail(err, Errors.ERR_INVALID_SCHEMA_DIRECTORY)
-    except (InvalidSchemaPatternError, InvalidSchemaFileError) as err:
-        return fail(err, Errors.ERR_INVALID_SCHEMA_FILE)
-    if not schema_entries:
-        log.info("No schema file found, nothing to do")
-        return 0
-    applied = await db.find_applied_versions()
-    skipped = [entry for entry in schema_entries if entry.version < latest_db_version and entry.version not in applied]
-    if skipped:
-        title = f"Migrations below the latest applied version {latest_db_version} are skipped:"
-        files = [
-            f"{entry.version}: {', '.join(script.path for script in (entry.up, entry.down) if script)}"
-            for entry in skipped
-        ]
-        log.warning(error_list(title, files))
-    target = schema_entries[-1].version if requested is None else requested
-    pending = [entry for entry in schema_entries if latest_db_version < entry.version <= target]
-    if not pending:
-        if requested is None:
-            log.info(f"Schema database is up to date at version {latest_db_version}, nothing to do")
-        else:
-            log.info(
-                f"No migrations to apply up to version {requested} (database at {latest_db_version}), nothing to do"
-            )
-        return 0
-    try:
-        parsed = parse_scripts(Direction.UP, pending)
-    except InvalidCommandScriptError as err:
-        return fail(err, Errors.ERR_INVALID_SCHEMA_COMMAND)
-    async with HTTPHandler(cfg) as http_handler:
-        for entry, commands in parsed:
-            code = await apply_schema(db, http_handler, Direction.UP, entry, commands)
-            if code:
-                return code
-    log.info(f"Schema database upgraded to {pending[-1].version}")
     return 0
 
 

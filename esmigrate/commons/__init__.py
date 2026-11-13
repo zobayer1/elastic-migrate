@@ -1,6 +1,5 @@
 from esmigrate.commons.command import JSON_HEADER, NDJSON_HEADER, Command, http_verbs
 from esmigrate.commons.constants import DEFAULT_NAMESPACE, DEFAULT_PROFILE, appname, version
-from esmigrate.commons.formatters import query_error_string, query_results_string
 from esmigrate.commons.log_setup import (
     DEFAULT_LOG_BACKUP_COUNT,
     DEFAULT_LOG_MAX_BYTES,
@@ -32,7 +31,5 @@ __all__ = [
     "configure_file",
     "http_verbs",
     "parse_version",
-    "query_error_string",
-    "query_results_string",
     "version",
 ]
