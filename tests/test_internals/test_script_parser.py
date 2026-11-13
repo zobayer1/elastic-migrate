@@ -90,7 +90,7 @@ def test_script_parser_with_single_command(script_parser, parameter):
 @pytest.mark.parametrize("parameter", ["", "  \n\t\n  "], indirect=["parameter"])
 def test_script_parser_raises_invalid_command_script_for_empty_script(script_parser, parameter):
     """Test fails if get_commands does not raise a script error for empty scripts"""
-    with pytest.raises(InvalidCommandScriptError, match="does not contain any command"):
+    with pytest.raises(InvalidCommandScriptError, match="Script has no requests"):
         list(script_parser.get_commands(parameter))
 
 

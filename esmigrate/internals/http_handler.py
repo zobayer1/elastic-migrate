@@ -6,7 +6,7 @@ from typing import Self
 
 import httpx
 
-from esmigrate.commons import Command, http_verbs
+from esmigrate.commons import Command, http_verbs, http_verbs_text
 from esmigrate.contexts import ContextConfig
 from esmigrate.exceptions import (
     ContextObjectNotSetError,
@@ -85,7 +85,7 @@ class HTTPHandler:
             raise ContextObjectNotSetError("HTTP client is not open, use `async with HTTPHandler(ctx)`")
 
         if command.verb not in http_verbs:
-            raise InvalidCommandVerbError(f"Unexpected verb found: {command.verb}")
+            raise InvalidCommandVerbError(f"Unsupported verb {command.verb!r}, use {http_verbs_text}")
 
         sent = len(command.body.encode()) if command.body else 0
         started = time.perf_counter()
@@ -106,7 +106,8 @@ class HTTPHandler:
             never_reached = request_never_reached(err, tls_error)
             if tls_error is not None:
                 message = (
-                    f"TLS error: {tls_error}, check elastic_ca_certs, elastic_verify_certs and client certificates"
+                    f"Cannot establish a TLS connection: {tls_error}, "
+                    "check elastic_ca_certs, elastic_verify_certs and the client certificates"
                 )
                 raise ElasticsearchConnError(message, never_reached) from err
             raise ElasticsearchConnError(f"{type(err).__name__}: {err}", never_reached) from err

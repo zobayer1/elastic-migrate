@@ -211,8 +211,8 @@ async def test_db_manager_refuses_copy_of_unusable_versions(db_url):
     assert str(raised.value) == (
         "Cannot copy existing schema versions:\n"
         "  default: 1.01 and 1.1 are the same version\n"
-        "  default: Schema version 99999999999.0 is out of range: [0, 2147483647]\n"
-        "  default: Invalid version: abc"
+        "  default: Version 99999999999.0 is out of range [0, 2147483647]\n"
+        "  default: Invalid version 'abc'"
     )
     assert state_rows(db_url) == []
     assert history_rows(db_url) == []
@@ -224,7 +224,7 @@ async def test_db_manager_wraps_copy_errors(db_url, mocker):
     create_old_table(db_url, V1_TABLE_DDL, V1_ROWS)
     error = OperationalError("INSERT", {}, Exception("disk I/O error"))
     mocker.patch("esmigrate.internals.db_manager.copy_old_rows", side_effect=error)
-    with pytest.raises(SchemaVersionSqlDbError, match="Copying existing schema versions failed"):
+    with pytest.raises(SchemaVersionSqlDbError, match="Cannot copy existing schema versions"):
         async with DBManager.connect(db_url, upgrade=True):
             pass
 

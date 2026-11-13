@@ -1,4 +1,4 @@
-from esmigrate.commons.command import JSON_HEADER, NDJSON_HEADER, Command, http_verbs
+from esmigrate.commons.command import JSON_HEADER, NDJSON_HEADER, Command, http_verbs, http_verbs_text
 from esmigrate.commons.constants import DEFAULT_NAMESPACE, DEFAULT_PROFILE, appname, version
 from esmigrate.commons.log_setup import (
     DEFAULT_LOG_BACKUP_COUNT,
@@ -30,6 +30,7 @@ __all__ = [
     "configure_console",
     "configure_file",
     "http_verbs",
+    "http_verbs_text",
     "parse_version",
     "version",
 ]

@@ -24,13 +24,13 @@ def pair_scripts(scripts: Iterable[ScriptData]) -> list[Migration]:
         ups = [script for script in group if script.direction is Direction.UP]
         downs = [script for script in group if script.direction is Direction.DOWN]
         if version == ZERO_VERSION:
-            errors.append(f"{version}: version 0.0 is not allowed ({files})")
+            errors.append(f"{version}: Not allowed, 0.0 means nothing is applied ({files})")
         elif plain and (ups or downs):
-            errors.append(f"{version}: plain and up/down files mixed, a plain file must be the only one ({files})")
+            errors.append(f"{version}: Plain and up/down files mixed, a plain file must be the only one ({files})")
         elif max(len(plain), len(ups), len(downs)) > 1:
-            errors.append(f"{version}: duplicate version ({files})")
+            errors.append(f"{version}: Duplicate version ({files})")
         elif ups and downs and ups[0].description != downs[0].description:
-            errors.append(f"{version}: up and down script names must match ({files})")
+            errors.append(f"{version}: Up and down script names must match ({files})")
         else:
             up = (plain or ups or [None])[0]
             migrations.append(Migration(up=up, down=downs[0] if downs else None))
@@ -46,7 +46,7 @@ class GlobLoader:
 
     def scan_dir(self, schema_dir: str) -> list[ScriptData]:
         if not schema_dir or not os.path.isdir(schema_dir):
-            raise NotADirectoryError(f"Not a valid directory: {schema_dir}")
+            raise NotADirectoryError(f"schema_dir is not a directory: {schema_dir}")
 
         schema_ext = self._ctx.schema_ext if self._ctx.schema_ext.startswith(".") else f".{self._ctx.schema_ext}"
 
@@ -56,23 +56,23 @@ class GlobLoader:
             _file = os.path.basename(_path)
             m = self._ctx.schema_regex.fullmatch(_file)
             if m is None or None in (m["version"], m["sequence"], m["name"], m["extension"]):
-                errors.append(f"{_file}: does not match the configured pattern")
+                errors.append(f"{_file}: Does not match the configured pattern")
                 continue
             try:
                 _version = MigVersion(int(m["version"]), int(m["sequence"]))
             except ValueError:
-                errors.append(f"{_file}: invalid version, each part must be a whole number up to {MAX_VERSION_PART}")
+                errors.append(f"{_file}: Invalid version, each part must be a whole number up to {MAX_VERSION_PART}")
                 continue
             _raw_direction = m.groupdict().get("direction")
             try:
                 _direction = Direction(_raw_direction) if _raw_direction else None
             except ValueError:
-                errors.append(f"{_file}: invalid direction '{_raw_direction}', must be up or down")
+                errors.append(f"{_file}: Invalid direction {_raw_direction!r}, use up or down")
                 continue
             matched.append((_path, _version, m["name"], m["extension"], _direction))
 
         if errors:
-            raise InvalidSchemaPatternError(error_list("Illegal file names:", errors))
+            raise InvalidSchemaPatternError(error_list("Invalid file names:", errors))
 
         file_items: list[ScriptData] = []
         for _path, _version, _name, _ext, _direction in matched:
@@ -80,7 +80,7 @@ class GlobLoader:
                 with open(_path, encoding="utf-8") as schema_file:
                     _content = schema_file.read()
             except Exception as err:
-                raise InvalidSchemaFileError(f"Error reading file: {_path}, {err!s}") from err
+                raise InvalidSchemaFileError(f"Cannot read script {os.path.relpath(_path, schema_dir)}: {err}") from err
 
             file_items.append(
                 ScriptData(

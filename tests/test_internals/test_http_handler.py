@@ -236,7 +236,10 @@ async def test_http_handler_reports_tls_errors(http_handler, mocker):
     error = httpx.ConnectError("handshake failed")
     error.__cause__ = ssl.SSLCertVerificationError(1, "certificate verify failed: unable to get local issuer")
     mocker.patch.object(http_handler._client, "request", side_effect=error)
-    with pytest.raises(ElasticsearchConnError, match=r"TLS error: .*certificate verify failed.*elastic_ca_certs"):
+    with pytest.raises(
+        ElasticsearchConnError,
+        match=r"Cannot establish a TLS connection: .*certificate verify failed.*elastic_ca_certs",
+    ):
         await http_handler.make_requests(Command("GET", "/twitter"))
 
 
@@ -251,7 +254,7 @@ async def test_http_handler_reports_raw_ssl_errors(http_handler, mocker):
     """Test fails if a TLS 1.3 alert raised as a bare ssl.SSLError after the handshake escapes unwrapped"""
     error = ssl.SSLError(1, "[SSL: TLSV13_ALERT_CERTIFICATE_REQUIRED] tlsv13 alert certificate required")
     mocker.patch.object(http_handler._client, "request", side_effect=error)
-    with pytest.raises(ElasticsearchConnError, match=r"TLS error: .*certificate required"):
+    with pytest.raises(ElasticsearchConnError, match=r"Cannot establish a TLS connection: .*certificate required"):
         await http_handler.make_requests(Command("GET", "/twitter"))
 
 
@@ -296,6 +299,6 @@ async def test_http_handler_marks_wrapped_tls_errors(http_handler, mocker, error
     """Test fails if a TLS cause is not reported as a TLS error with the right never-reached flag"""
     error.__cause__ = cause
     mocker.patch.object(http_handler._client, "request", side_effect=error)
-    with pytest.raises(ElasticsearchConnError, match="TLS error") as raised:
+    with pytest.raises(ElasticsearchConnError, match="Cannot establish a TLS connection") as raised:
         await http_handler.make_requests(Command("GET", "/twitter"))
     assert raised.value.never_reached is never_reached

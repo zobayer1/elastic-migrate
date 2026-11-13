@@ -66,7 +66,7 @@ async def test_db_manager_reports_missing_unknown_module(mocker):
     """Test fails if a missing module without a known extra is not reported"""
     missing = ModuleNotFoundError("No module named 'unknown'", name="unknown")
     mocker.patch("esmigrate.internals.db_engine.create_async_engine", side_effect=missing)
-    with pytest.raises(InvalidDBConnectionError, match=r"Database driver not installed: unknown$"):
+    with pytest.raises(InvalidDBConnectionError, match=r"Database driver 'unknown' is not installed$"):
         async with DBManager.connect("postgresql://user@host/db"):
             pass
 
@@ -135,7 +135,7 @@ async def test_db_manager_uses_configured_schema(db_url):
 
 async def test_db_manager_reports_missing_schema(db_url):
     """Test fails if a schema that does not exist is not reported as a connection error"""
-    with pytest.raises(InvalidDBConnectionError, match="Database schema missing_schema does not exist"):
+    with pytest.raises(InvalidDBConnectionError, match="Database schema 'missing_schema' does not exist"):
         async with DBManager.connect(db_url, schema="missing_schema"):
             pass
 
@@ -288,7 +288,7 @@ async def test_db_manager_records_down_only_migration_without_script(db_manager)
 @pytest.mark.parametrize("direction", list(Direction))
 async def test_db_manager_refuses_to_start_after_a_failed_row(db_with_failed_row, db_url, direction):
     """Test fails if any run can start while the latest row is failed"""
-    with pytest.raises(SchemaVersionSqlDbError, match=r"Failed previous version: 1\.0"):
+    with pytest.raises(SchemaVersionSqlDbError, match=r"Version 1\.0 failed or was interrupted"):
         await db_with_failed_row.start_run(direction, migration("1.0" if direction is Direction.DOWN else "1.1"))
     assert len(history_rows(db_url)) == 1
 
@@ -297,14 +297,14 @@ async def test_db_manager_refuses_to_start_after_a_failed_row(db_with_failed_row
 async def test_db_manager_refuses_to_start_after_an_interrupted_row(db_manager, db_url, direction):
     """Test fails if any run can start while the latest row was interrupted"""
     await db_manager.start_run(Direction.UP, migration())
-    with pytest.raises(SchemaVersionSqlDbError, match=r"Failed previous version: 1\.0"):
+    with pytest.raises(SchemaVersionSqlDbError, match=r"Version 1\.0 failed or was interrupted"):
         await db_manager.start_run(direction, migration("1.0" if direction is Direction.DOWN else "1.1"))
     assert len(history_rows(db_url)) == 1
 
 
 async def test_db_manager_refuses_to_start_an_installed_version(db_with_success_row):
     """Test fails if an up run can start for a version that is already applied"""
-    with pytest.raises(SchemaVersionSqlDbError, match=r"Version already installed: 1\.0"):
+    with pytest.raises(SchemaVersionSqlDbError, match=r"Version 1\.0 is already applied"):
         await db_with_success_row.start_run(Direction.UP, migration())
 
 
@@ -313,7 +313,7 @@ async def test_db_manager_refuses_a_down_run_below_the_latest_version(db_manager
     """Test fails if a down run can start for a version that is not the latest applied one"""
     for version in versions:
         await record(db_manager, version)
-    with pytest.raises(SchemaVersionSqlDbError, match=r"Version is not the latest applied: 1\.0"):
+    with pytest.raises(SchemaVersionSqlDbError, match=r"Version 1\.0 is not the latest applied version"):
         await db_manager.start_run(Direction.DOWN, migration())
     assert [row[4] for row in state_rows(db_url)] == [1] * len(versions)
 

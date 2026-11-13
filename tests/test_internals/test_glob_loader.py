@@ -6,11 +6,11 @@ from esmigrate.exceptions import InvalidSchemaFileError, InvalidSchemaPatternErr
 from esmigrate.internals import GlobLoader, pair_scripts
 
 BASE_PATTERN = r"V(?P<version>\d+)_(?P<sequence>\d+)__(?P<name>\w+)\.(?P<extension>esm)"
-NO_MATCH = "does not match the configured pattern"
-MIXED = "plain and up/down files mixed, a plain file must be the only one"
-DUPLICATE = "duplicate version"
-NAMES_DIFFER = "up and down script names must match"
-ZERO = "version 0.0 is not allowed"
+NO_MATCH = "Does not match the configured pattern"
+MIXED = "Plain and up/down files mixed, a plain file must be the only one"
+DUPLICATE = "Duplicate version"
+NAMES_DIFFER = "Up and down script names must match"
+ZERO = "Not allowed, 0.0 means nothing is applied"
 
 
 def make_script(version, name, direction, extension):
@@ -87,7 +87,7 @@ def test_scan_dir_stores_paths_relative_to_schema_dir(glob_loader, fs):
 def test_scan_dir_rejects_versions_exceeding_integer_columns(glob_loader, fs, name):
     """Test fails if version parts larger than a 32-bit INTEGER column are accepted"""
     fs.create_file(f"./schema_dir/{name}")
-    with pytest.raises(InvalidSchemaPatternError, match="invalid version"):
+    with pytest.raises(InvalidSchemaPatternError, match="Invalid version"):
         glob_loader.scan_dir("./schema_dir")
 
 
@@ -173,9 +173,9 @@ def test_scan_dir_lists_every_illegal_file_name(glob_loader, fs):
     with pytest.raises(InvalidSchemaPatternError) as err:
         glob_loader.scan_dir("./schema_dir")
     assert str(err.value) == (
-        "Illegal file names:\n"
+        "Invalid file names:\n"
         f"  V1__bad.esm: {NO_MATCH}\n"
-        f"  V2147483648_0__big.esm: invalid version, each part must be a whole number up to {MAX_VERSION_PART}\n"
+        f"  V2147483648_0__big.esm: Invalid version, each part must be a whole number up to {MAX_VERSION_PART}\n"
         f"  V9__bad.esm: {NO_MATCH}"
     )
 
@@ -188,7 +188,7 @@ def test_scan_dir_lists_illegal_file_names_regardless_of_listing_order(glob_load
     mocker.patch("esmigrate.internals.glob_loader.glob.glob", return_value=paths)
     with pytest.raises(InvalidSchemaPatternError) as err:
         glob_loader.scan_dir("./schema_dir")
-    assert str(err.value) == f"Illegal file names:\n  V1__a.esm: {NO_MATCH}\n  V9__b.esm: {NO_MATCH}"
+    assert str(err.value) == f"Invalid file names:\n  V1__a.esm: {NO_MATCH}\n  V9__b.esm: {NO_MATCH}"
 
 
 def test_scan_dir_reports_file_names_before_reading_files(glob_loader, fs):
@@ -203,7 +203,7 @@ def test_scan_dir_stops_at_the_first_unreadable_file(glob_loader, fs):
     """Test fails if a read error does not name the first unreadable file only"""
     fs.create_file("./schema_dir/V1_0__first.esm", contents="dummy", st_size=10000)
     fs.create_file("./schema_dir/V1_1__second.esm", contents="dummy", st_size=10000)
-    with pytest.raises(InvalidSchemaFileError, match="Error reading file") as err:
+    with pytest.raises(InvalidSchemaFileError, match="Cannot read script") as err:
         glob_loader.scan_dir("./schema_dir")
     assert "V1_0__first.esm" in str(err.value)
     assert "V1_1__second.esm" not in str(err.value)
@@ -254,7 +254,7 @@ def test_scan_dir_lists_invalid_direction_capture(fs, monkeypatch):
     with pytest.raises(InvalidSchemaPatternError) as err:
         loader.scan_dir("./schema_dir")
     assert str(err.value) == (
-        "Illegal file names:\n  V1_0__a.sideways.esm: invalid direction 'sideways', must be up or down"
+        "Invalid file names:\n  V1_0__a.sideways.esm: Invalid direction 'sideways', use up or down"
     )
 
 
@@ -289,7 +289,7 @@ def test_scan_dir_rejects_match_without_a_required_group(fs, monkeypatch, patter
     fs.create_file(f"./schema_dir/{file_name}")
     with pytest.raises(InvalidSchemaPatternError) as err:
         loader.scan_dir("./schema_dir")
-    assert str(err.value) == f"Illegal file names:\n  {file_name}: {NO_MATCH}"
+    assert str(err.value) == f"Invalid file names:\n  {file_name}: {NO_MATCH}"
 
 
 def test_scan_dir_supports_top_level_alternation(fs, monkeypatch):

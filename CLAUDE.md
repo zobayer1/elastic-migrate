@@ -79,6 +79,19 @@ Key behaviors:
 - Custom exceptions live in `esmigrate/exceptions/__init__.py`: subclass `RuntimeError`, one-line docstring `"""Raised when ..."""` plus `pass` (or a small `__init__` when they carry data, like `ElasticsearchHTTPError.response`), kept alphabetical and listed in `__all__`.
 - Comments are sparse (see Working rules).
 
+## Message style
+
+Every new or changed text follows these patterns (#285).
+
+- **Vocabulary:** a *migration* is one version with its scripts, a *script* is one file, a *version* is printed bare (`1.10`, never `V1.10`), the SQL database is the *schema database*, and Elasticsearch is capitalized.
+- **Exception messages** (printed as `<ExceptionName>: <message>`): one sentence in sentence case, no trailing period, subject first: `<subject> <problem>[, <hint>]`.
+  - Profile errors name the field first: `<field> must …, got <value!r>` (`elastic_host must use http or https, got 'ftp://es'`); fields that exclude each other: `<a> and <b> cannot be used together`.
+  - A wrapped cause: `Cannot <verb> <object>: <cause>` (`Cannot read script V1_0__a.esm: …`, `Cannot connect to the schema database: …`).
+  - A hint follows a comma, in the imperative, with commands in backticks: `…, run \`esmigrate init\` to upgrade`, `Unsupported verb 'get', use GET, PUT, POST or DELETE`.
+  - Versions are the subject: `Version 1.0 is already applied`, `Version 1.0 failed or was interrupted, see \`esmigrate status\``.
+  - User-supplied strings use `!r` (`Profile 'x' not found in any configuration file`); versions, paths, numbers, profile field names and `SCHEMA_PATTERN` stay bare.
+- **Error lists** (`exceptions.error_list`): the title is `Invalid <things>:` for validation or `Cannot <verb> <object>:` for a failed operation, then one `<subject>: <Problem>` item per line, in sentence case like the exception messages embedded in them (`V1_0__a.esm: Does not match the configured pattern`, `1.0: Duplicate version (V1_0__a.esm, V1_0__b.esm)`).
+
 ## Testing conventions
 
 - Tests mirror the package layout: `tests/test_<subpackage>/test_<module>.py`; the CLI tests in `tests/test_cli/` have one file per command module, keep tests that span commands (profile loading, old layouts, connection errors, locks) in `test_common.py`, and share fixtures in `conftest.py` and helpers (`invoke`, `seed`, `write_schema`, …) in `helpers.py`.

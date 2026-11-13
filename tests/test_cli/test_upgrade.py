@@ -376,8 +376,8 @@ def test_cli_upgrade_cmd_lists_invalid_pairs_before_any_request(runner, context,
     write_schema(schema_dir, "V3_0__create_twitter.esm")
     result = invoke(runner, "upgrade")
     assert result.exit_code == Errors.ERR_INVALID_SCHEMA_FILE
-    assert "1.0: plain and up/down files mixed" in result.output
-    assert "2.0: up and down script names must match" in result.output
+    assert "1.0: Plain and up/down files mixed" in result.output
+    assert "2.0: Up and down script names must match" in result.output
     assert len(respx_mock.calls) == 0
     assert not stored_rows(context)
 
@@ -387,7 +387,7 @@ def test_cli_upgrade_cmd_rejects_version_zero_file(runner, context, schema_dir, 
     write_schema(schema_dir, "V0_0__a.esm")
     result = invoke(runner, "upgrade")
     assert result.exit_code == Errors.ERR_INVALID_SCHEMA_FILE
-    assert "0.0: version 0.0 is not allowed" in result.output
+    assert "0.0: Not allowed, 0.0 means nothing is applied" in result.output
     assert len(respx_mock.calls) == 0
 
 
@@ -409,7 +409,10 @@ def test_cli_upgrade_cmd_rejects_up_script_that_does_not_parse(runner, context, 
     write_schema(schema_dir, "V1_0__create_twitter.up.esm", "THIS IS NOT A COMMAND")
     result = invoke(runner, "upgrade")
     assert result.exit_code == Errors.ERR_INVALID_SCHEMA_COMMAND
-    assert "V1_0__create_twitter.up.esm: Unexpected command found: THIS" in result.output
+    assert (
+        "V1_0__create_twitter.up.esm: Script must start with a GET, PUT, POST or DELETE line, found 'THIS'"
+        in result.output
+    )
     assert stored_rows(context) == []
     assert len(respx_mock.calls) == 0
 
@@ -420,7 +423,7 @@ def test_cli_upgrade_cmd_fails_for_empty_up_script(runner, context, schema_dir, 
     write_schema(schema_dir, name, "")
     result = invoke(runner, "upgrade")
     assert result.exit_code == Errors.ERR_INVALID_SCHEMA_COMMAND
-    assert f"{name}: Script does not contain any command" in result.output
+    assert f"{name}: Script has no requests" in result.output
     assert stored_rows(context) == []
     assert len(respx_mock.calls) == 0
 
@@ -519,8 +522,13 @@ def test_cli_upgrade_cmd_lists_every_script_that_does_not_parse(runner, context,
     result = invoke(runner, "upgrade")
     assert result.exit_code == Errors.ERR_INVALID_SCHEMA_COMMAND
     assert "InvalidCommandScriptError: Invalid migration scripts:" in result.output
-    assert "  V1_1__wrong_verb.esm: Unexpected command found: PATCH" in result.output
-    assert "  V1_3__absolute_url.esm: Unexpected URL scheme found: http://other.example.com/twitter" in result.output
+    assert (
+        "  V1_1__wrong_verb.esm: Script must start with a GET, PUT, POST or DELETE line, found 'PATCH'" in result.output
+    )
+    assert (
+        "  V1_3__absolute_url.esm: Absolute URL not allowed: 'http://other.example.com/twitter', "
+        "use a path such as /index" in result.output
+    )
     assert "V1_4__down_only" not in result.output
     assert len(respx_mock.calls) == 0
     assert stored_rows(context) == []

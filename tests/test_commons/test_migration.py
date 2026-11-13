@@ -46,7 +46,7 @@ def test_migration_with_only_down_takes_its_details_from_down():
 
 def test_migration_requires_at_least_one_script():
     """Test fails if a migration can be built without any script"""
-    with pytest.raises(ValueError, match="cannot be empty"):
+    with pytest.raises(ValueError, match="needs an up or a down script"):
         Migration()
 
 

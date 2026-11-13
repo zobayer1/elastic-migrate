@@ -57,7 +57,7 @@ def test_missing_schema_is_a_connection_error(esmigrate, profile):
     profile(schema_db_schema="esm_it_does_not_exist")
     result = esmigrate("init")
     assert result.exit_code == Errors.ERR_DB_CONNECTION_FAILED, result.output
-    assert "Database schema esm_it_does_not_exist does not exist" in result.output
+    assert "Database schema 'esm_it_does_not_exist' does not exist" in result.output
 
 
 @pytest.mark.parametrize("db_url", ["postgresql"], indirect=True)

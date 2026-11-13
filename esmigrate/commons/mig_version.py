@@ -9,7 +9,7 @@ MAX_VERSION_PART = 2147483647
 def parse_version(text: str) -> tuple[int, int]:
     m = re.fullmatch(r"(\d+)(?:\.(\d+))?", text.strip())
     if m is None:
-        raise ValueError(f"Invalid version: {text}")
+        raise ValueError(f"Invalid version {text!r}")
     return int(m.group(1)), int(m.group(2) or 0)
 
 
@@ -26,7 +26,7 @@ class MigVersion:
             or self.rank > MAX_VERSION_PART
         ):
             raise ValueError(
-                f"Schema version {self.base}.{self.rank} is out of range: [{MIN_VERSION_PART}, {MAX_VERSION_PART}]"
+                f"Version {self.base}.{self.rank} is out of range [{MIN_VERSION_PART}, {MAX_VERSION_PART}]"
             )
 
     def __str__(self) -> str:

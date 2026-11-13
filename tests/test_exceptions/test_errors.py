@@ -60,7 +60,10 @@ def test_process_exits_when_schema_dir_is_missing(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize(
     ("pattern", "message"),
-    [("(", "Invalid SCHEMA_PATTERN"), ("V(?P<version>\\d+)", "missing required named groups")],
+    [
+        ("(", "SCHEMA_PATTERN is not a valid regular expression"),
+        ("V(?P<version>\\d+)", "SCHEMA_PATTERN is missing the named groups"),
+    ],
 )
 def test_process_exit_status_matches_unusable_schema_pattern(tmp_path, monkeypatch, pattern, message):
     """Test fails if an unusable SCHEMA_PATTERN does not exit with Errors.ERR_INVALID_CONFIGURATION"""

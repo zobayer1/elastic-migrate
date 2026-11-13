@@ -24,11 +24,11 @@ def to_async_url(db_url: str) -> URL:
     try:
         url = make_url(db_url)
     except ArgumentError as err:
-        raise InvalidDBConnectionError(str(err)) from err
+        raise InvalidDBConnectionError(f"schema_db is not a valid database URL: {err}") from err
     if "+" in url.drivername:
         return url
     if url.drivername not in ASYNC_DRIVERS:
-        raise InvalidDBConnectionError(f"Unsupported database: {url.drivername}")
+        raise InvalidDBConnectionError(f"Unsupported database {url.drivername!r}, use sqlite, postgresql or mysql")
     return url.set(drivername=ASYNC_DRIVERS[url.drivername])
 
 
@@ -39,9 +39,9 @@ def create_engine(db_url: str, echo: bool = False) -> AsyncEngine:
     except ModuleNotFoundError as err:
         extra = DRIVER_EXTRAS.get(err.name or "")
         hint = f", install elastic-migrate[{extra}]" if extra else ""
-        raise InvalidDBConnectionError(f"Database driver not installed: {err.name}{hint}") from err
+        raise InvalidDBConnectionError(f"Database driver {err.name!r} is not installed{hint}") from err
     except (InvalidRequestError, NoSuchModuleError) as err:
-        raise InvalidDBConnectionError(f"Unsupported database driver: {url.drivername}, {err}") from err
+        raise InvalidDBConnectionError(f"Unsupported database driver {url.drivername!r}: {err}") from err
 
 
 def create_tables_sql(db_url: str, schema: str | None = None) -> str:
@@ -57,7 +57,7 @@ def create_tables_sql(db_url: str, schema: str | None = None) -> str:
 
 def check_schema_exists(conn: Connection, schema: str | None) -> None:
     if schema is not None and schema not in inspect(conn).get_schema_names():
-        raise InvalidDBConnectionError(f"Database schema {schema} does not exist")
+        raise InvalidDBConnectionError(f"Database schema {schema!r} does not exist")
 
 
 def verify_schema_columns(conn: Connection, schema: str | None = None) -> None:

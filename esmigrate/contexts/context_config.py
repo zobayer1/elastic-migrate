@@ -72,17 +72,17 @@ def parse_host(value: object) -> str:
         url = urlsplit(value)
         port = url.port
     except ValueError as err:
-        raise InvalidConfigurationError(f"elastic_host is not a valid URL: {value!r}, {err}") from err
+        raise InvalidConfigurationError(f"elastic_host must be a valid URL, got {value!r}: {err}") from err
     if url.scheme not in ("http", "https"):
         raise InvalidConfigurationError(f"elastic_host must use http or https, got {value!r}")
     if not url.hostname:
-        raise InvalidConfigurationError(f"elastic_host has no host name: {value!r}")
+        raise InvalidConfigurationError(f"elastic_host must include a host name, got {value!r}")
     if url.username is not None or url.password is not None:
         raise InvalidConfigurationError(
             "elastic_host must not contain credentials, use elastic_username/elastic_password"
         )
     if port == 0:
-        raise InvalidConfigurationError(f"elastic_host has an invalid port: {value!r}")
+        raise InvalidConfigurationError(f"elastic_host must have a valid port, got {value!r}")
     return value
 
 
@@ -152,12 +152,10 @@ class ContextConfig:
         try:
             self.schema_regex = re.compile(self.schema_pattern)
         except re.error as err:
-            raise InvalidConfigurationError(f"Invalid SCHEMA_PATTERN: {err}") from err
+            raise InvalidConfigurationError(f"SCHEMA_PATTERN is not a valid regular expression: {err}") from err
         missing_groups = [group for group in DEFAULT_SCHEMA_PATTERN_GROUPS if group not in self.schema_regex.groupindex]
         if missing_groups:
-            raise InvalidConfigurationError(
-                f"missing required named groups: {', '.join(missing_groups)} in SCHEMA_PATTERN"
-            )
+            raise InvalidConfigurationError(f"SCHEMA_PATTERN is missing the named groups {', '.join(missing_groups)}")
 
     def load_for(self, profile: str = DEFAULT_PROFILE) -> Self:
         profile = str(profile).strip()
@@ -180,10 +178,10 @@ class ContextConfig:
                         break
 
         if self.profile is None:
-            raise UserProfileNotFoundError(f"Requested profile '{profile}' could not be loaded")
+            raise UserProfileNotFoundError(f"Profile {profile!r} not found in any configuration file")
         self._apply({field: interpolate(value, field) for field, value in merged.items()})
         if not self.schema_dir:
-            raise InvalidConfigurationError(f"schema_dir is required in profile '{profile}'")
+            raise InvalidConfigurationError(f"schema_dir is required in profile {profile!r}")
 
         return self
 
@@ -214,7 +212,7 @@ class ContextConfig:
             raise InvalidConfigurationError("schema_db_schema is not supported for SQLite schema databases")
         if backend == "postgresql" and "options" in url.query:
             raise InvalidConfigurationError(
-                "schema_db URL options are not supported, set the PostgreSQL schema with schema_db_schema"
+                "schema_db must not set the PostgreSQL options parameter, use schema_db_schema"
             )
 
     def _apply_logging(self, data: dict[str, Any]) -> None:
@@ -242,7 +240,9 @@ class ContextConfig:
         if (self.es_username is None) != (self.es_password is None):
             raise InvalidConfigurationError("elastic_username and elastic_password must be set together")
         if self.es_username is not None and self.es_api_key is not None:
-            raise InvalidConfigurationError("Use either elastic_username/elastic_password or elastic_api_key, not both")
+            raise InvalidConfigurationError(
+                "elastic_username/elastic_password and elastic_api_key cannot be used together"
+            )
         if (self.es_client_key or self.es_client_key_password) and not self.es_client_cert:
             raise InvalidConfigurationError(
                 "elastic_client_key and elastic_client_key_password need elastic_client_cert"
@@ -250,7 +250,7 @@ class ContextConfig:
         has_header_auth = any(key.lower() == "authorization" for key in self.headers)
         if has_header_auth and (self.es_username is not None or self.es_api_key is not None):
             raise InvalidConfigurationError(
-                "An Authorization header in elastic_headers conflicts with elastic auth fields"
+                "elastic_headers must not set Authorization when elastic_username or elastic_api_key is set"
             )
         if self.es_ca_certs and not self.es_verify_certs:
             raise InvalidConfigurationError("elastic_ca_certs has no effect when elastic_verify_certs is false")
@@ -258,7 +258,7 @@ class ContextConfig:
     @property
     def schema_path(self) -> str:
         if not self.schema_dir:
-            raise InvalidConfigurationError("schema_dir is not configured")
+            raise InvalidConfigurationError("schema_dir is required")
         return self.schema_dir
 
     def masked_headers(self) -> dict[str, str]:

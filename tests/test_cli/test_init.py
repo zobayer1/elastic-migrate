@@ -97,7 +97,7 @@ def test_cli_init_cmd_print_sql_fails_with_db_error(runner, context):
     context.schema_db = "oracle://user@host/db"
     result = invoke(runner, "init", "--print-sql")
     assert result.exit_code == Errors.ERR_DB_CONNECTION_FAILED
-    assert "InvalidDBConnectionError: Unsupported database: oracle" in result.stderr
+    assert "InvalidDBConnectionError: Unsupported database 'oracle', use sqlite, postgresql or mysql" in result.stderr
     assert result.stdout == ""
 
 

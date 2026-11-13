@@ -24,7 +24,7 @@ def test_cli_passes_schema_to_database(runner, context, tmp_path):
     context.schema_db_schema = "missing_schema"
     result = invoke(runner, "init")
     assert result.exit_code == Errors.ERR_DB_CONNECTION_FAILED
-    assert "Database schema missing_schema does not exist" in result.output
+    assert "Database schema 'missing_schema' does not exist" in result.output
 
 
 def test_cli_audit_masks_database_password(runner, context, tmp_path):

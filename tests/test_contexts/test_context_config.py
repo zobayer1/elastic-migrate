@@ -22,7 +22,7 @@ def write_profile(fs, **fields):
 def test_context_fails_with_invalid_schema_pattern_regex(monkeypatch, pattern):
     """Test fails if an invalid regular expression in SCHEMA_PATTERN is not a configuration error"""
     monkeypatch.setenv("SCHEMA_PATTERN", pattern)
-    with pytest.raises(InvalidConfigurationError, match="Invalid SCHEMA_PATTERN"):
+    with pytest.raises(InvalidConfigurationError, match="SCHEMA_PATTERN is not a valid regular expression"):
         ContextConfig()
 
 
@@ -42,7 +42,7 @@ def test_context_fails_when_schema_pattern_misses_required_groups(monkeypatch, p
     monkeypatch.setenv("SCHEMA_PATTERN", pattern)
     with pytest.raises(InvalidConfigurationError) as err:
         ContextConfig()
-    assert str(err.value) == f"missing required named groups: {missing} in SCHEMA_PATTERN"
+    assert str(err.value) == f"SCHEMA_PATTERN is missing the named groups {missing}"
 
 
 @pytest.mark.parametrize(
@@ -163,7 +163,7 @@ def test_context_requires_schema_dir(fs, profile_data):
 
 def test_context_schema_path_requires_schema_dir():
     """Test fails if schema_path silently falls back when schema_dir is unset"""
-    with pytest.raises(InvalidConfigurationError, match="schema_dir is not configured"):
+    with pytest.raises(InvalidConfigurationError, match="schema_dir is required"):
         _ = ContextConfig().schema_path
 
 
@@ -190,9 +190,9 @@ def test_context_accepts_valid_hosts(fs, host):
     [
         ("localhost:9200", "http or https"),
         ("ftp://es.example.com", "http or https"),
-        ("https://", "no host name"),
-        ("https://es.example.com:99999", "not a valid URL"),
-        ("https://es.example.com:0", "invalid port"),
+        ("https://", "must include a host name"),
+        ("https://es.example.com:99999", "must be a valid URL"),
+        ("https://es.example.com:0", "must have a valid port"),
         ("https://elastic:secret@es.example.com", "must not contain credentials"),
         (9200, "must be a string"),
     ],
@@ -274,7 +274,7 @@ def test_context_allows_disabled_certificate_verification(fs):
     [
         ({"elastic_username": "migrator"}, "must be set together"),
         ({"elastic_password": "pw"}, "must be set together"),
-        ({"elastic_username": "u", "elastic_password": "p", "elastic_api_key": "k"}, "not both"),
+        ({"elastic_username": "u", "elastic_password": "p", "elastic_api_key": "k"}, "cannot be used together"),
         ({"elastic_client_key": "/certs/client.key"}, "need elastic_client_cert"),
         ({"elastic_client_key_password": "pw"}, "need elastic_client_cert"),
         ({"elastic_ca_certs": "/certs/missing.pem"}, "file does not exist"),
@@ -323,7 +323,7 @@ def test_context_masks_secrets(fs):
 def test_context_rejects_authorization_header_with_auth_fields(fs, auth):
     """Test fails if an Authorization header is combined with elastic auth fields"""
     write_profile(fs, schema_dir="s", elastic_headers={"authorization": "Basic x"}, **auth)
-    with pytest.raises(InvalidConfigurationError, match="conflicts with elastic auth fields"):
+    with pytest.raises(InvalidConfigurationError, match="must not set Authorization"):
         ContextConfig().load_for("test")
 
 
@@ -417,7 +417,10 @@ def test_context_loads_schema_db_schema(fs, monkeypatch):
     ("fields", "message"),
     [
         ({"schema_db": "sqlite:///x.db", "schema_db_schema": "app"}, "not supported for SQLite"),
-        ({"schema_db": "postgresql://u@db/app?options=-csearch_path%3Dapp"}, "set the PostgreSQL schema with"),
+        (
+            {"schema_db": "postgresql://u@db/app?options=-csearch_path%3Dapp"},
+            "must not set the PostgreSQL options parameter",
+        ),
         ({"schema_db_schema": 5}, "schema_db_schema must be a string"),
     ],
 )

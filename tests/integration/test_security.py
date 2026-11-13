@@ -82,7 +82,7 @@ def test_untrusted_server_certificate_is_a_tls_error(esmigrate, profile, certs, 
     profile(**settings)
     result = esmigrate("upgrade")
     assert result.exit_code == Errors.ERR_ES_CONNERROR, result.output
-    assert "TLS error" in result.output
+    assert "Cannot establish a TLS connection" in result.output
     assert "certificate verify failed" in result.output
 
 
@@ -116,7 +116,7 @@ def test_mutual_tls_without_client_certificate_is_rejected(esmigrate, profile, c
     profile(**password_auth(certs, elastic_host=ES_MTLS_URL))
     result = esmigrate("upgrade")
     assert result.exit_code == Errors.ERR_ES_CONNERROR, result.output
-    assert "TLS error" in result.output
+    assert "Cannot establish a TLS connection" in result.output
 
 
 def test_audit_log_contains_no_secrets_or_bodies(esmigrate, profile, certs, migration, tmp_path):

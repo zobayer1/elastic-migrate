@@ -114,7 +114,9 @@ class DBManager:
                     await conn.run_sync(check_schema_exists, schema)
                     layout = await conn.run_sync(detect_layout, schema)
             except (SQLAlchemyError, OSError, TypeError) as err:
-                raise InvalidDBConnectionError(f"{type(err).__name__}: {err}") from err
+                raise InvalidDBConnectionError(
+                    f"Cannot connect to the schema database: {type(err).__name__}: {err}"
+                ) from err
             if layout is not Layout.CURRENT and not upgrade:
                 raise LegacySchemaTableError(f"Schema tables use the {layout} layout, run `esmigrate init` to upgrade")
             try:
@@ -123,14 +125,15 @@ class DBManager:
                     await conn.run_sync(verify_schema_columns, schema)
             except SQLAlchemyError as err:
                 raise InvalidDBConnectionError(
-                    f"{err}, use `esmigrate init --print-sql` if this account cannot create tables"
+                    f"Cannot create the schema tables: {err}, "
+                    "use `esmigrate init --print-sql` if this account cannot create tables"
                 ) from err
             if layout is not Layout.CURRENT:
                 try:
                     async with engine.begin() as conn:
                         await conn.run_sync(copy_old_rows, layout, schema)
                 except SQLAlchemyError as err:
-                    raise SchemaVersionSqlDbError(f"Copying existing schema versions failed: {err}") from err
+                    raise SchemaVersionSqlDbError(f"Cannot copy existing schema versions: {err}") from err
             yield cls(engine, namespace, upgraded_from=layout, schema=schema)
         finally:
             await base_engine.dispose()
@@ -174,24 +177,26 @@ class DBManager:
             try:
                 latest = await self._find_latest_schema(session, self.namespace)
                 if latest and not latest.success:
-                    raise SchemaVersionSqlDbError(f"Failed previous version: {latest.version}")
+                    raise SchemaVersionSqlDbError(
+                        f"Version {latest.version} failed or was interrupted, see `esmigrate status`"
+                    )
                 if direction is Direction.UP:
                     if await session.get(SchemaState, (self.namespace, version.base, version.rank)):
-                        raise SchemaVersionSqlDbError(f"Version already installed: {version}")
+                        raise SchemaVersionSqlDbError(f"Version {version} is already applied")
                     installed_rank = (latest.installed_rank or 0) + 1 if latest else 1
                     state = migration_to_state(
                         migration=migration, namespace=self.namespace, installed_rank=installed_rank, user=user, now=now
                     )
                     session.add(state)
                 elif latest is None or latest.version != version:
-                    raise SchemaVersionSqlDbError(f"Version is not the latest applied: {version}")
+                    raise SchemaVersionSqlDbError(f"Version {version} is not the latest applied version")
                 else:
                     latest.success = None
                 session.add(history)
                 await session.commit()
             except SQLAlchemyError as err:
                 await session.rollback()
-                raise SchemaVersionSqlDbError(str(err)) from err
+                raise SchemaVersionSqlDbError(f"Cannot write to the schema database: {err}") from err
         return ScriptRun(direction, version, history.id)
 
     async def finish_run(self, run: ScriptRun, success: bool, duration: int, query_results: str) -> None:
@@ -267,7 +272,7 @@ class DBManager:
                 await session.commit()
             except SQLAlchemyError as err:
                 await session.rollback()
-                raise SchemaVersionSqlDbError(str(err)) from err
+                raise SchemaVersionSqlDbError(f"Cannot write to the schema database: {err}") from err
 
     async def _commit_run(self, *statements: Executable) -> None:
         async with self._sessionmaker() as session:
@@ -277,7 +282,7 @@ class DBManager:
                 await session.commit()
             except SQLAlchemyError as err:
                 await session.rollback()
-                raise SchemaVersionSqlDbError(str(err)) from err
+                raise SchemaVersionSqlDbError(f"Cannot write to the schema database: {err}") from err
 
     def _state_filter(self, version: MigVersion) -> tuple[ColumnElement[bool], ...]:
         return (
