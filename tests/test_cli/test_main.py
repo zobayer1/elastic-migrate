@@ -35,7 +35,7 @@ def test_cli_uses_default_profile_when_none_given(runner, context):
     """Test fails if commands without --profile do not load the `default` profile"""
     result = runner.invoke(cli.main, ["config"])
     assert result.exit_code == 0
-    assert "Loading profile: default..." in result.output
+    assert "Using profile default" in result.output
 
 
 def test_cli_help_shows_default_profile(runner):
@@ -48,14 +48,14 @@ def test_cli_writes_status_to_stderr_and_data_to_stdout(runner, context):
     result = invoke(runner, "config")
     assert result.exit_code == 0
     assert "Configurations:" in result.stdout
-    assert "Loading profile" not in result.stdout
-    assert "Loading profile: test..." in result.stderr
+    assert "Using profile" not in result.stdout
+    assert "Using profile test" in result.stderr
 
 
 def test_cli_does_not_duplicate_log_lines_across_invocations(runner, context):
     """Test fails if repeated invocations in one process print each status line more than once"""
     invoke(runner, "config")
-    assert invoke(runner, "config").stderr.count("Loading profile") == 1
+    assert invoke(runner, "config").stderr.count("Using profile") == 1
 
 
 def test_cli_rejects_verbose_with_quiet(runner, context):
@@ -78,7 +78,7 @@ def test_cli_verbose_logs_each_request(runner, context, schema_dir, respx_mock):
     write_schema(schema_dir, "V1_1__read_twitter.esm", "GET twitter")
     respx_mock.get(f"{ES_HOST}/twitter").respond(200)
     default = invoke(runner, "upgrade")
-    assert "Processing schema read_twitter.esm" in default.output
+    assert "Applying migration 1.1 (V1_1__read_twitter.esm)" in default.output
     assert "-> 200" not in default.output
 
 
@@ -88,8 +88,8 @@ def test_cli_quiet_shows_only_errors(runner, context, schema_dir, respx_mock):
     respx_mock.get(f"{ES_HOST}/twitter").mock(side_effect=httpx.ConnectError("refused"))
     result = runner.invoke(cli.main, ["--quiet", "--profile", "test", "upgrade"])
     assert result.exit_code == Errors.ERR_ES_CONNERROR
-    assert "Processing schema" not in result.output
-    assert "Loading profile" not in result.output
+    assert "Applying migration" not in result.output
+    assert "Using profile" not in result.output
     assert "ERROR: ElasticsearchConnError: ConnectError: refused" in result.output
 
 
@@ -102,9 +102,9 @@ def test_cli_log_file_records_audit_trail(runner, context, schema_dir, respx_moc
     assert result.exit_code == 0, result.output
     text = log_file.read_text()
     assert "upgrade: profile=test namespace=default" in text
-    assert "Schema 1.0 up: script=V1_0__create_twitter.esm checksum=" in text
+    assert "Migration 1.0 up: script=V1_0__create_twitter.esm checksum=" in text
     assert "GET /twitter (0 bytes) -> 200" in text
-    assert "Schema 1.0 up succeeded in" in text
+    assert "Migration 1.0 up succeeded in" in text
     assert "Finished upgrade with exit code 0" in text
 
 
@@ -122,7 +122,7 @@ def test_cli_does_not_leak_log_file_into_next_invocation(runner, context, tmp_pa
     """Test fails if a log file from one invocation keeps receiving records from the next"""
     runner.invoke(cli.main, ["--log-file", str(tmp_path / "first.log"), "--profile", "test", "config"])
     invoke(runner, "config")
-    assert (tmp_path / "first.log").read_text().count("Profile loaded") == 1
+    assert (tmp_path / "first.log").read_text().count("Using profile") == 1
 
 
 @pytest.mark.parametrize("source", ["flag", "profile"])
@@ -143,4 +143,4 @@ def test_cli_subcommand_help_works_without_profile(runner, command):
     result = runner.invoke(cli.main, ["--profile", "no-such-profile", command, "--help"])
     assert result.exit_code == 0, result.output
     assert f"Usage: main {command} [OPTIONS]" in result.output
-    assert "Loading profile" not in result.output
+    assert "Using profile" not in result.output

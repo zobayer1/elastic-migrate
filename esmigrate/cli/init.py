@@ -19,18 +19,20 @@ def init(cfg: ContextConfig, print_sql: bool = False) -> None:
 
 
 async def run_init(cfg: ContextConfig) -> int:
-    log.info("Initializing schema version database...")
     try:
         async with connect_db(cfg, upgrade=True) as db:
-            if db.upgraded_from is not Layout.CURRENT:
-                log.info(f"Copied {db.upgraded_from} schema versions, previous table kept as {LEGACY_TABLE}")
+            copied = db.upgraded_from is not Layout.CURRENT
+            if copied:
+                log.info(f"Copied the {db.upgraded_from} schema versions, {LEGACY_TABLE} is kept as the backup")
             latest = await db.find_latest_schema()
     except tuple(DB_ERRORS) as err:
         return fail(err, DB_ERRORS[type(err)])
-    if latest:
-        log.info(f"Schema version database already exists with latest version V{latest.version}")
+    if latest is None:
+        log.info("Schema database initialized")
+    elif copied:
+        log.info(f"Schema database initialized at version {latest.version}")
     else:
-        log.info("Schema version database initialized")
+        log.info(f"Schema database already initialized at version {latest.version}")
     return 0
 
 

@@ -18,7 +18,7 @@ def test_cli_init_cmd_succeeds_when_schema_table_is_empty(runner, context):
     """Test fails if `esmigrate init` does not create an empty schema table"""
     result = invoke(runner, "init")
     assert result.exit_code == 0
-    assert "Schema version database initialized" in result.output
+    assert "Schema database initialized" in result.output
 
 
 def test_cli_init_cmd_succeeds_when_schema_exists(runner, context):
@@ -26,7 +26,7 @@ def test_cli_init_cmd_succeeds_when_schema_exists(runner, context):
     seed(context, ("1.0", True))
     result = invoke(runner, "init")
     assert result.exit_code == 0
-    assert "already exists with latest version V1.0" in result.output
+    assert "Schema database already initialized at version 1.0" in result.output
 
 
 def test_cli_init_cmd_fails_with_db_error(runner, context):
@@ -45,8 +45,8 @@ def test_cli_init_cmd_copies_old_table(runner, context, create, layout):
         create(context, [("default", "1.0", 1, 1)])
     result = invoke(runner, "init")
     assert result.exit_code == 0, result.output
-    assert f"Copied {layout} schema versions, previous table kept as {LEGACY_TABLE}" in result.output
-    assert "latest version V1.0" in result.output
+    assert f"Copied the {layout} schema versions, {LEGACY_TABLE} is kept as the backup" in result.output
+    assert "Schema database initialized at version 1.0" in result.output
     assert versions(context) == ["1.0"]
     assert [(entry.operation, entry.success) for entry in history_rows(context)] == [("up", True)]
     assert raw_rows(context, f"SELECT version FROM {LEGACY_TABLE}") == [("1.0",)]
@@ -76,8 +76,8 @@ def test_cli_init_cmd_prints_sql_without_connecting(runner, context, tmp_path):
     assert result.stdout.startswith("CREATE TABLE esm_schema_state (")
     assert "CREATE TABLE esm_schema_history (" in result.stdout
     assert "CREATE INDEX ix_esm_schema_history_namespace_id ON esm_schema_history (namespace, id);" in result.stdout
-    assert "Loading profile: test..." in result.stderr
-    assert "Loading profile" not in result.stdout
+    assert "Using profile test" in result.stderr
+    assert "Using profile" not in result.stdout
     assert not (tmp_path / "esmigrate.db").exists()
 
 

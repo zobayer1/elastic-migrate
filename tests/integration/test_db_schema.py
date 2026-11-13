@@ -42,13 +42,13 @@ def test_schemas_on_one_database_keep_separate_histories(esmigrate, profile, db_
         profile(schema_dir=str(schema_dir), schema_db_schema=schema)
         result = esmigrate("upgrade")
         assert result.exit_code == 0, result.output
-        assert "Processing schema create.esm" in result.output
+        assert "Applying migration 1.0 (V1_0__create.esm)" in result.output
     assert doc_count(es, f"{es_index}-{first}") == 1
     assert doc_count(es, f"{es_index}-{second}") == 0
     profile(schema_db_schema=first)
-    assert "latest version V1.1" in esmigrate("init").output
+    assert "Schema database already initialized at version 1.1" in esmigrate("init").output
     profile(schema_db_schema=second)
-    assert "latest version V1.0" in esmigrate("init").output
+    assert "Schema database already initialized at version 1.0" in esmigrate("init").output
 
 
 @SERVER_BACKENDS
@@ -73,7 +73,7 @@ def test_v1_table_in_schema_is_copied(esmigrate, profile, db_url, db_schema, tab
     assert esmigrate("upgrade").exit_code == Errors.ERR_DB_LEGACY_TABLE
     result = esmigrate("init")
     assert result.exit_code == 0, result.output
-    assert "latest version V1.0" in result.output
+    assert "Schema database initialized at version 1.0" in result.output
     assert tables_in(db_schema) == ["esm_schema_history", "esm_schema_state", LEGACY_TABLE]
     assert tables_in("public") == []
 
@@ -91,5 +91,5 @@ def test_printed_sql_creates_tables_in_configured_schema(
     write_schemas(schema_dir, es_index, {"V1_0__create.esm": CREATE_INDEX})
     result = esmigrate("upgrade")
     assert result.exit_code == 0, result.output
-    assert "latest version V1.0" in esmigrate("init").output
+    assert "Schema database already initialized at version 1.0" in esmigrate("init").output
     assert tables_in(default_schema(db_url)) == []

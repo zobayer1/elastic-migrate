@@ -13,7 +13,7 @@ def test_init_creates_schema_table_on_each_backend(esmigrate):
     """Test fails if `esmigrate init` cannot create the schema table on SQLite, PostgreSQL or MySQL"""
     result = esmigrate("init")
     assert result.exit_code == 0, result.output
-    assert "Schema version database initialized" in result.output
+    assert "Schema database initialized" in result.output
     assert esmigrate("init").exit_code == 0
 
 

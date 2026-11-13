@@ -91,6 +91,8 @@ Every new or changed text follows these patterns (#285).
   - Versions are the subject: `Version 1.0 is already applied`, `Version 1.0 failed or was interrupted, see \`esmigrate status\``.
   - User-supplied strings use `!r` (`Profile 'x' not found in any configuration file`); versions, paths, numbers, profile field names and `SCHEMA_PATTERN` stay bare.
 - **Error lists** (`exceptions.error_list`): the title is `Invalid <things>:` for validation or `Cannot <verb> <object>:` for a failed operation, then one `<subject>: <Problem>` item per line, in sentence case like the exception messages embedded in them (`V1_0__a.esm: Does not match the configured pattern`, `1.0: Duplicate version (V1_0__a.esm, V1_0__b.esm)`).
+- **Console lines** (INFO and WARNING on stderr): one short sentence in sentence case, no trailing period or `...`; results in the past tense without "successfully" (`Schema database upgraded to 1.1`, `Schema database reset`); a migration is named by its version with the script in parentheses (`Applying migration 1.0 (V1_0__create.up.esm)`, `Applied migration 1.0 in 120 ms`); a no-op ends with `, nothing to do`.
+- **Audit lines** (DEBUG, mostly for the log file): `<event>: key=value …` (`Upgrade: target=latest`, `Migration 1.0 up: script=V1_0__create.up.esm checksum=…`, `Acquiring migration lock: namespace=default timeout=0s`); durations read `in N ms`.
 
 ## Testing conventions
 

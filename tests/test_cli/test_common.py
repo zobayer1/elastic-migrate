@@ -111,6 +111,6 @@ def test_cli_logs_lock_lifecycle(runner, context, tmp_path):
     context.lock_timeout = 2.5
     runner.invoke(cli.main, ["--log-file", str(tmp_path / "esmigrate.log"), "--profile", "test", "reset"])
     text = (tmp_path / "esmigrate.log").read_text()
-    assert "Acquiring migration lock for namespace default (timeout 2.5s)" in text
+    assert "Acquiring migration lock: namespace=default timeout=2.5s" in text
     assert "Migration lock acquired" in text
     assert "Migration lock released after" in text

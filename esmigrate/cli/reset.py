@@ -21,5 +21,5 @@ async def run_reset(cfg: ContextConfig) -> int:
             await db.delete_all_schema()
     except tuple(DB_ERRORS) as err:
         return fail(err, DB_ERRORS[type(err)])
-    log.info("Schema database successfully reset")
+    log.info("Schema database reset")
     return 0

@@ -54,7 +54,7 @@ def run(coro: Coroutine[Any, Any, int]) -> NoReturn:
 
 @asynccontextmanager
 async def hold_lock(cfg: ContextConfig, db: DBManager) -> AsyncGenerator[None, None]:
-    log.debug(f"Acquiring migration lock for namespace {cfg.schema_namespace} (timeout {cfg.lock_timeout}s)")
+    log.debug(f"Acquiring migration lock: namespace={cfg.schema_namespace} timeout={cfg.lock_timeout:g}s")
     async with db.lock(cfg.lock_timeout):
         acquired = time.perf_counter()
         log.debug("Migration lock acquired")
@@ -73,7 +73,6 @@ def connect_db(cfg: ContextConfig, upgrade: bool = False) -> AbstractAsyncContex
 def load_config(ctx: click.Context) -> ContextConfig:
     profile: str = ctx.meta[PROFILE_KEY]
     log_file: str | None = ctx.meta[LOG_FILE_KEY]
-    log.info(f"Loading profile: {profile}...")
     try:
         cfg = ContextConfig().load_for(profile)
     except UserProfileNotFoundError as err:
@@ -84,7 +83,7 @@ def load_config(ctx: click.Context) -> ContextConfig:
         configure_file(log_file or cfg.log_file, cfg.log_rotation, cfg.log_max_bytes, cfg.log_backup_count)
     except InvalidConfigurationError as err:
         sys.exit(fail(err, Errors.ERR_INVALID_CONFIGURATION))
-    log.info(f"Profile loaded: {profile}")
+    log.info(f"Using profile {profile}")
     log.debug(
         f"esmigrate {version} {ctx.info_name}: profile={profile} namespace={cfg.schema_namespace} "
         f"elastic_host={cfg.es_host} schema_db={mask_db_url(cfg.schema_db)} schema_db_schema={cfg.schema_db_schema} "

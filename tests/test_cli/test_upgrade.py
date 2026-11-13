@@ -61,7 +61,7 @@ def test_cli_upgrade_cmd_exits_for_empty_schema_directory(runner, context):
     """Test fails if `esmigrate upgrade` does not exit cleanly for an empty schema directory"""
     result = invoke(runner, "upgrade")
     assert result.exit_code == 0
-    assert "No schema file found" in result.output
+    assert "No migration scripts found, nothing to do" in result.output
 
 
 def test_cli_upgrade_cmd_succeeds_for_valid_schema_file(runner, context, schema_dir, respx_mock):
@@ -228,8 +228,8 @@ def test_cli_upgrade_cmd_applies_double_digit_sequence_after_single_digit(runner
     respx_mock.get(f"{ES_HOST}/twitter").respond(200)
     result = invoke(runner, "upgrade")
     assert result.exit_code == 0
-    assert "Processing schema step_1_9.esm" not in result.output
-    assert "Processing schema step_1_10.esm" in result.output
+    assert "Applying migration 1.9 (V1_9__step_1_9.esm)" not in result.output
+    assert "Applying migration 1.10 (V1_10__step_1_10.esm)" in result.output
     assert "Schema database upgraded to 1.10" in result.output
 
 
@@ -240,9 +240,9 @@ def test_cli_upgrade_cmd_stops_at_double_digit_requested_version(runner, context
     respx_mock.get(f"{ES_HOST}/twitter").respond(200)
     result = invoke(runner, "upgrade", "--schema-version", "1.10")
     assert result.exit_code == 0
-    assert "Processing schema step_1_9.esm" in result.output
-    assert "Processing schema step_1_10.esm" in result.output
-    assert "Processing schema step_1_11.esm" not in result.output
+    assert "Applying migration 1.9 (V1_9__step_1_9.esm)" in result.output
+    assert "Applying migration 1.10 (V1_10__step_1_10.esm)" in result.output
+    assert "Applying migration 1.11 (V1_11__step_1_11.esm)" not in result.output
     assert "Schema database upgraded to 1.10" in result.output
 
 
@@ -251,7 +251,7 @@ def test_cli_upgrade_cmd_treats_zero_version_as_explicit_target(runner, context,
     write_schema(schema_dir, "V1_0__create_twitter.esm")
     result = invoke(runner, "upgrade", "--schema-version", "0")
     assert result.exit_code == 0
-    assert "Processing schema" not in result.output
+    assert "Applying migration" not in result.output
     assert "No migrations to apply up to version 0.0 (database at 0.0), nothing to do" in result.output
 
 
@@ -263,7 +263,7 @@ def test_cli_upgrade_cmd_uses_profile_namespace(runner, context, schema_dir, res
     respx_mock.get(f"{ES_HOST}/twitter").respond(200)
     result = invoke(runner, "upgrade")
     assert result.exit_code == 0
-    assert "Processing schema create_twitter.esm" in result.output
+    assert "Applying migration 1.0 (V1_0__create_twitter.esm)" in result.output
     assert [str(row.version) for row in stored_rows(context, namespace="billing")] == ["1.0"]
     assert [str(row.version) for row in stored_rows(context)] == ["1.0"]
 
@@ -293,7 +293,7 @@ def test_cli_upgrade_cmd_records_down_only_migration_without_requests(runner, co
     write_schema(schema_dir, "V1_0__drop_old_index.down.esm", "DELETE old_index")
     result = invoke(runner, "upgrade")
     assert result.exit_code == 0
-    assert "Schema 1.0 has no up script, recording it without requests" in result.output
+    assert "Recording migration 1.0 without requests, it has no up script" in result.output
     assert len(respx_mock.calls) == 0
     rows = stored_rows(context)
     assert [(str(row.version), row.version_base, row.version_rank, row.description, row.success) for row in rows] == [
@@ -310,7 +310,7 @@ def test_cli_upgrade_cmd_does_not_repeat_down_only_migration(runner, context, sc
     assert invoke(runner, "upgrade").exit_code == 0
     result = invoke(runner, "upgrade")
     assert result.exit_code == 0
-    assert "Processing schema" not in result.output
+    assert "Applying migration" not in result.output
     assert len(stored_rows(context)) == 1
 
 

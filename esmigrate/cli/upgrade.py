@@ -29,7 +29,7 @@ def upgrade(cfg: ContextConfig, schema_version: str = "latest") -> None:
 
 
 async def run_upgrade(cfg: ContextConfig, schema_version: str) -> int:
-    log.debug(f"Upgrade target: {schema_version}")
+    log.debug(f"Upgrade: target={schema_version}")
     try:
         requested = None if schema_version == "latest" else MigVersion.parse(schema_version)
     except ValueError as err:
@@ -59,7 +59,7 @@ async def upgrade_schema(cfg: ContextConfig, db: DBManager, requested: MigVersio
     except (InvalidSchemaPatternError, InvalidSchemaFileError) as err:
         return fail(err, Errors.ERR_INVALID_SCHEMA_FILE)
     if not schema_entries:
-        log.info("No schema file found, nothing to do")
+        log.info("No migration scripts found, nothing to do")
         return 0
     applied = await db.find_applied_versions()
     skipped = [entry for entry in schema_entries if entry.version < latest_db_version and entry.version not in applied]

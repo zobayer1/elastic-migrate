@@ -136,8 +136,8 @@ def test_v1_installation_is_copied_by_init_and_continues(esmigrate, db_url, sche
 
     result = esmigrate("init")
     assert result.exit_code == 0, result.output
-    assert f"Copied V1 schema versions, previous table kept as {LEGACY_TABLE}" in result.output
-    assert "latest version V1.1" in result.output
+    assert f"Copied the V1 schema versions, {LEGACY_TABLE} is kept as the backup" in result.output
+    assert "Schema database initialized at version 1.1" in result.output
 
     rows = stored_rows()
     assert [(row.namespace, str(row.version), row.installed_rank, row.success) for row in rows] == [
@@ -154,7 +154,7 @@ def test_v1_installation_is_copied_by_init_and_continues(esmigrate, db_url, sche
 
     result = esmigrate("upgrade")
     assert result.exit_code == 0, result.output
-    assert "Processing schema create_index.esm" not in result.output
+    assert "Applying migration 1.0 (" not in result.output
     assert "Schema database upgraded to 1.2" in result.output
     assert [str(row.version) for row in stored_rows()] == ["1.0", "1.1", "1.2"]
     assert doc_count(es, es_index) == 3
@@ -184,7 +184,7 @@ def test_v2_installation_is_copied_by_init_and_continues(esmigrate, db_url, sche
 
     result = esmigrate("init")
     assert result.exit_code == 0, result.output
-    assert f"Copied V2 schema versions, previous table kept as {LEGACY_TABLE}" in result.output
+    assert f"Copied the V2 schema versions, {LEGACY_TABLE} is kept as the backup" in result.output
 
     rows = stored_rows()
     assert [(str(row.version), row.installed_rank, row.success, row.execution_time) for row in rows] == [

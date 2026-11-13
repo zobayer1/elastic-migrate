@@ -69,12 +69,12 @@ def parse_scripts(direction: Direction, migrations: list[Migration]) -> list[tup
 async def apply_schema(
     db: DBManager, http_handler: HTTPHandler, direction: Direction, entry: Migration, commands: list[Command]
 ) -> int:
-    log.info(f"Processing schema {entry.description}")
     script = entry.script_for(direction)
     if script:
-        log.debug(f"Schema {entry.version} {direction}: script={script.path} checksum={script.checksum.hex()}")
+        log.info(f"Applying migration {entry.version} ({script.path})")
+        log.debug(f"Migration {entry.version} {direction}: script={script.path} checksum={script.checksum.hex()}")
     else:
-        log.info(f"Schema {entry.version} has no {direction} script, recording it without requests")
+        log.info(f"Recording migration {entry.version} without requests, it has no {direction} script")
     run = await db.start_run(direction, entry)
     tic = time.perf_counter()
     error_code = 0
@@ -99,7 +99,7 @@ async def apply_schema(
         await db.undo_run(run, duration, results)
     else:
         await db.finish_run(run, error_code == 0, duration, results)
-    log.debug(f"Schema {entry.version} {direction} {'succeeded' if error_code == 0 else 'failed'} in {duration} ms")
+    log.debug(f"Migration {entry.version} {direction} {'succeeded' if error_code == 0 else 'failed'} in {duration} ms")
     if error_code == 0:
-        log.info(f"Schema {entry.description} executed successfully")
+        log.info(f"Applied migration {entry.version} in {duration} ms")
     return error_code
