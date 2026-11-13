@@ -152,6 +152,6 @@ def test_oversized_versions_are_rejected_before_running(esmigrate, schema_dir, e
     write_schemas(schema_dir, es_index, {"V1_0__create_index.esm": CREATE_INDEX, name: INDEX_DOCUMENT})
     result = esmigrate("upgrade")
     assert result.exit_code == Errors.ERR_INVALID_SCHEMA_FILE, result.output
-    assert f"{name}: invalid version" in result.output
+    assert f"{name}: Invalid version" in result.output
     assert es.head(f"/{es_index}").status_code == 404
     assert stored_rows() == []
