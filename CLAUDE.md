@@ -94,6 +94,7 @@ Every new or changed text follows these patterns (#285).
 - **Console lines** (INFO and WARNING on stderr): one short sentence in sentence case, no trailing period or `...`; results in the past tense without "successfully" (`Schema database upgraded to 1.1`, `Schema database reset`); a migration is named by its version with the script in parentheses (`Applying migration 1.0 (V1_0__create.up.esm)`, `Applied migration 1.0 in 120 ms`); a no-op ends with `, nothing to do`.
 - **Audit lines** (DEBUG, mostly for the log file): `<event>: key=value …` (`Upgrade: target=latest`, `Migration 1.0 up: script=V1_0__create.up.esm checksum=…`, `Acquiring migration lock: namespace=default timeout=0s`); durations read `in N ms`.
 - **stdout** is for data that is read or copied: `esmigrate config` prints `Profile <name>:` and then one `  <key>: <JSON value>` line per field, keyed as in `config.json` (`SCHEMA_PATTERN` for the environment variable), with secrets as `"****"`.
+- **Help texts:** a command's help is its one-line docstring (click shows it when `help=` is absent) and an option's help is its `help=`, both imperative without a trailing period (`Apply pending migrations up to the latest or given version`, `Show debug output, including every request`); every command uses the shared `help_option` from `cli/common.py` (`Show this help and exit`).
 
 ## Testing conventions
 

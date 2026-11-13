@@ -2,16 +2,17 @@ import logging
 
 import click
 
-from esmigrate.cli.common import DB_ERRORS, connect_db, fail, hold_lock, pass_config, run
+from esmigrate.cli.common import DB_ERRORS, connect_db, fail, help_option, hold_lock, pass_config, run
 from esmigrate.contexts import ContextConfig
 
 log = logging.getLogger(__name__)
 
 
-@click.command(help="Revert to last successful schema version")
-@click.help_option(help="Show help index and exit")
+@click.command()
+@help_option
 @pass_config
 def rollback(cfg: ContextConfig) -> None:
+    """Revert to last successful schema version"""
     run(run_rollback(cfg))
 
 

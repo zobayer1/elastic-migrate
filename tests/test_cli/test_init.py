@@ -105,5 +105,5 @@ def test_cli_init_cmd_help_documents_print_sql(runner):
     """Test fails if `esmigrate init --help` does not describe the copy and the --print-sql option"""
     result = runner.invoke(cli.main, ["init", "--help"])
     assert result.exit_code == 0
-    assert "copying rows from v1 and v2 tables" in result.stdout
+    assert "copying v1 and v2 rows if present" in result.stdout
     assert "--print-sql" in result.stdout

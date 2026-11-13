@@ -2,7 +2,7 @@ import logging
 
 import click
 
-from esmigrate.cli.common import DB_ERRORS, connect_db, fail, hold_lock, pass_config, run
+from esmigrate.cli.common import DB_ERRORS, connect_db, fail, help_option, hold_lock, pass_config, run
 from esmigrate.cli.execution import apply_schema, parse_scripts
 from esmigrate.commons import Direction, MigVersion
 from esmigrate.contexts import ContextConfig
@@ -20,11 +20,14 @@ from esmigrate.internals import DBManager, GlobLoader, HTTPHandler
 log = logging.getLogger(__name__)
 
 
-@click.command(help="Upgrade to latest or specified schema version")
-@click.help_option(help="Show help index and exit")
-@click.option("-s", "--schema-version", default="latest", help="Target schema version, e.g. '1.2' or 'latest'")
+@click.command()
+@help_option
+@click.option(
+    "-s", "--schema-version", default="latest", help="Apply migrations up to this version, e.g. '1.2' or 'latest'"
+)
 @pass_config
 def upgrade(cfg: ContextConfig, schema_version: str = "latest") -> None:
+    """Apply pending migrations up to the latest or given version"""
     run(run_upgrade(cfg, schema_version))
 
 

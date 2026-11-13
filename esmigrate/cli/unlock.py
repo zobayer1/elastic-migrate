@@ -3,17 +3,18 @@ import sys
 
 import click
 
-from esmigrate.cli.common import DB_ERRORS, connect_db, fail, pass_config, run
+from esmigrate.cli.common import DB_ERRORS, connect_db, fail, help_option, pass_config, run
 from esmigrate.contexts import ContextConfig
 
 log = logging.getLogger(__name__)
 
 
-@click.command(help="Remove a stuck SQLite migration lock left by a crashed run")
-@click.help_option(help="Show help index and exit")
+@click.command()
+@help_option
 @click.option("-y", "--yes", is_flag=True, help="Do not ask for confirmation")
 @pass_config
 def unlock(cfg: ContextConfig, yes: bool = False) -> None:
+    """Remove a stuck SQLite migration lock left by a crashed run"""
     if not yes and not click.confirm(f"Remove the migration lock for namespace {cfg.schema_namespace}?"):
         log.info("Unlock cancelled")
         sys.exit(0)

@@ -2,7 +2,7 @@ import logging
 
 import click
 
-from esmigrate.cli.common import DB_ERRORS, connect_db, fail, pass_config, run
+from esmigrate.cli.common import DB_ERRORS, connect_db, fail, help_option, pass_config, run
 from esmigrate.contexts import ContextConfig
 from esmigrate.exceptions import Errors, InvalidDBConnectionError
 from esmigrate.internals import LEGACY_TABLE, Layout, create_tables_sql
@@ -10,11 +10,12 @@ from esmigrate.internals import LEGACY_TABLE, Layout, create_tables_sql
 log = logging.getLogger(__name__)
 
 
-@click.command(help="Create the schema tables, copying rows from v1 and v2 tables if present")
-@click.help_option(help="Show help index and exit")
+@click.command()
+@help_option
 @click.option("--print-sql", is_flag=True, help="Print the SQL that creates the schema tables, without connecting")
 @pass_config
 def init(cfg: ContextConfig, print_sql: bool = False) -> None:
+    """Create the schema tables, copying v1 and v2 rows if present"""
     run(print_tables_sql(cfg) if print_sql else run_init(cfg))
 
 

@@ -27,6 +27,8 @@ from esmigrate.internals import DBManager
 
 log = logging.getLogger(__name__)
 
+help_option = click.help_option(help="Show this help and exit")
+
 P = ParamSpec("P")
 R = TypeVar("R")
 PROFILE_KEY = "esmigrate.profile"

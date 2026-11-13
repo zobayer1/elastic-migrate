@@ -7,6 +7,7 @@ from esmigrate.cli.common import (
     LOG_FILE_KEY,
     PROFILE_KEY,
     fail,
+    help_option,
 )
 from esmigrate.cli.config import config
 from esmigrate.cli.init import init
@@ -38,9 +39,9 @@ title = f"""
 
 
 @click.group(invoke_without_command=True)
-@click.help_option(help="Show help index and exit")
+@help_option
 @click.version_option(message="v%(version)s", package_name=appname, help="Show the version and exit")
-@click.option("-p", "--profile", default=DEFAULT_PROFILE, show_default=True, help="Set configuration profile")
+@click.option("-p", "--profile", default=DEFAULT_PROFILE, show_default=True, help="Use this configuration profile")
 @click.option("-v", "--verbose", is_flag=True, help="Show debug output, including every request")
 @click.option("-q", "--quiet", is_flag=True, help="Show warnings and errors only")
 @click.option(
@@ -54,6 +55,7 @@ def main(
     quiet: bool = False,
     log_file: str | None = None,
 ) -> None:
+    """Run versioned schema migrations against Elasticsearch"""
     if verbose and quiet:
         raise click.UsageError("--verbose and --quiet cannot be used together")
     configure_console(logging.DEBUG if verbose else logging.WARNING if quiet else logging.INFO)
