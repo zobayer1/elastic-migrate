@@ -268,29 +268,30 @@ class ContextConfig:
         def secret(value: str | None) -> str | None:
             return MASK if value else None
 
+        fields: list[tuple[str, object]] = [
+            ("elastic_host", self.es_host),
+            ("elastic_headers", self.masked_headers()),
+            ("elastic_timeout", self.es_timeout),
+            ("elastic_username", self.es_username),
+            ("elastic_password", secret(self.es_password)),
+            ("elastic_api_key", secret(self.es_api_key)),
+            ("elastic_ca_certs", self.es_ca_certs),
+            ("elastic_verify_certs", self.es_verify_certs),
+            ("elastic_client_cert", self.es_client_cert),
+            ("elastic_client_key", self.es_client_key),
+            ("elastic_client_key_password", secret(self.es_client_key_password)),
+            ("schema_db", mask_db_url(self.schema_db)),
+            ("schema_db_schema", self.schema_db_schema),
+            ("lock_timeout", self.lock_timeout),
+            ("schema_dir", self.schema_dir),
+            ("schema_ext", self.schema_ext),
+            ("schema_namespace", self.schema_namespace),
+            ("log_file", self.log_file),
+            ("log_rotation", self.log_rotation),
+            ("log_max_bytes", self.log_max_bytes),
+            ("log_backup_count", self.log_backup_count),
+            ("SCHEMA_PATTERN", self.schema_pattern),
+        ]
         return (
-            "Configurations:\n"
-            + f"profile: {self.profile}\n"
-            + f"elastic_host: {self.es_host}\n"
-            + f"elastic_headers: {json.dumps(self.masked_headers())}\n"
-            + f"elastic_timeout: {self.es_timeout}\n"
-            + f"elastic_username: {self.es_username}\n"
-            + f"elastic_password: {secret(self.es_password)}\n"
-            + f"elastic_api_key: {secret(self.es_api_key)}\n"
-            + f"elastic_ca_certs: {self.es_ca_certs}\n"
-            + f"elastic_verify_certs: {self.es_verify_certs}\n"
-            + f"elastic_client_cert: {self.es_client_cert}\n"
-            + f"elastic_client_key: {self.es_client_key}\n"
-            + f"elastic_client_key_password: {secret(self.es_client_key_password)}\n"
-            + f"schema_version_db: {mask_db_url(self.schema_db)}\n"
-            + f"schema_version_db_schema: {self.schema_db_schema}\n"
-            + f"lock_timeout: {self.lock_timeout}\n"
-            + f"schema_file_directory: {self.schema_dir}\n"
-            + f"schema_file_extension: {self.schema_ext}\n"
-            + f"schema_namespace: {self.schema_namespace}\n"
-            + f"schema_filename_pattern: {self.schema_pattern}\n"
-            + f"log_file: {self.log_file}\n"
-            + f"log_rotation: {self.log_rotation}\n"
-            + f"log_max_bytes: {self.log_max_bytes}\n"
-            + f"log_backup_count: {self.log_backup_count}\n"
+            "\n".join([f"Profile {self.profile}:", *(f"  {key}: {json.dumps(value)}" for key, value in fields)]) + "\n"
         )

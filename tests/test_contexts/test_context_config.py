@@ -110,7 +110,7 @@ def test_context_defaults_schema_namespace():
     """Test fails if a new context does not use the default schema namespace"""
     context = ContextConfig()
     assert context.schema_namespace == "default"
-    assert "schema_namespace: default" in repr(context)
+    assert 'schema_namespace: "default"' in repr(context)
 
 
 def test_context_loads_schema_namespace(fs):
@@ -312,11 +312,11 @@ def test_context_masks_secrets(fs):
     texts = repr(ContextConfig().load_for("test")) + repr(ContextConfig().load_for("headers"))
     for secret in ("api-key-value", "key-password-value", "dXNlcjpwYXNz"):
         assert secret not in texts
-    assert "elastic_api_key: ****" in texts
-    assert "elastic_client_key_password: ****" in texts
+    assert 'elastic_api_key: "****"' in texts
+    assert 'elastic_client_key_password: "****"' in texts
     assert '"Authorization": "****"' in texts
     assert '"X-Tenant": "gov"' in texts
-    assert "elastic_password: None" in texts
+    assert "elastic_password: null" in texts
 
 
 @pytest.mark.parametrize("auth", [{"elastic_api_key": "k"}, {"elastic_username": "u", "elastic_password": "p"}])
@@ -401,7 +401,7 @@ def test_context_repr_masks_database_password(fs):
     write_profile(fs, schema_dir="s", schema_db="postgresql://migrator:s3cr3t@db/esmigrate")
     text = repr(ContextConfig().load_for("test"))
     assert "s3cr3t" not in text
-    assert "schema_version_db: postgresql://migrator:***@db/esmigrate" in text
+    assert 'schema_db: "postgresql://migrator:***@db/esmigrate"' in text
 
 
 def test_context_loads_schema_db_schema(fs, monkeypatch):
@@ -410,7 +410,7 @@ def test_context_loads_schema_db_schema(fs, monkeypatch):
     write_profile(fs, schema_dir="s", schema_db="postgresql://u@db/app", schema_db_schema="${TENANT_SCHEMA}")
     context = ContextConfig().load_for("test")
     assert context.schema_db_schema == "billing"
-    assert "schema_version_db_schema: billing" in repr(context)
+    assert 'schema_db_schema: "billing"' in repr(context)
 
 
 @pytest.mark.parametrize(
@@ -467,4 +467,4 @@ def test_context_defaults_schema_extension_to_esm():
     """Test fails if the default schema file extension is not .esm"""
     context = ContextConfig()
     assert context.schema_ext == ".esm"
-    assert "schema_file_extension: .esm" in repr(context)
+    assert 'schema_ext: ".esm"' in repr(context)

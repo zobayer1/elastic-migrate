@@ -47,7 +47,7 @@ def test_cli_writes_status_to_stderr_and_data_to_stdout(runner, context):
     """Test fails if status messages pollute stdout or the config output leaves stdout"""
     result = invoke(runner, "config")
     assert result.exit_code == 0
-    assert "Configurations:" in result.stdout
+    assert "Profile test:" in result.stdout
     assert "Using profile" not in result.stdout
     assert "Using profile test" in result.stderr
 
