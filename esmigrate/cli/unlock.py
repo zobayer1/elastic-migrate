@@ -22,6 +22,7 @@ def unlock(cfg: ContextConfig, yes: bool = False) -> None:
 
 
 async def run_unlock(cfg: ContextConfig) -> int:
+    """Remove the SQLite migration lock of the namespace"""
     try:
         async with connect_db(cfg) as db:
             removed = await db.force_unlock()

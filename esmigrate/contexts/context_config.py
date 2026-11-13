@@ -35,6 +35,7 @@ user_config_file_path = os.path.join(user_config_dir(appname=appname), "config.j
 
 
 def interpolate(value: Any, field: str) -> Any:
+    """Replace ${VAR} references in strings, also inside nested objects and lists"""
     if isinstance(value, str):
 
         def resolve(match: re.Match[str]) -> str:
@@ -52,6 +53,7 @@ def interpolate(value: Any, field: str) -> Any:
 
 
 def parse_timeout(value: object) -> float | None:
+    """Validate elastic_timeout as positive seconds, or None for no timeout"""
     if value is None:
         return None
     if isinstance(value, bool) or not isinstance(value, int | float) or value <= 0:
@@ -60,12 +62,14 @@ def parse_timeout(value: object) -> float | None:
 
 
 def parse_lock_timeout(value: object) -> float:
+    """Validate lock_timeout as non-negative seconds"""
     if isinstance(value, bool) or not isinstance(value, int | float) or value < 0:
         raise InvalidConfigurationError(f"lock_timeout must be a non-negative number of seconds, got {value!r}")
     return float(value)
 
 
 def parse_host(value: object) -> str:
+    """Validate elastic_host as an http or https URL with a host and no credentials"""
     if not isinstance(value, str):
         raise InvalidConfigurationError(f"elastic_host must be a string, got {value!r}")
     try:
@@ -87,6 +91,7 @@ def parse_host(value: object) -> str:
 
 
 def optional_str(data: dict[str, Any], field: str) -> str | None:
+    """Return a string field of the profile, or None when it is missing or empty"""
     value = data.get(field)
     if value is not None and not isinstance(value, str):
         raise InvalidConfigurationError(f"{field} must be a string, got {value!r}")
@@ -94,6 +99,7 @@ def optional_str(data: dict[str, Any], field: str) -> str | None:
 
 
 def optional_file(data: dict[str, Any], field: str) -> str | None:
+    """Return a file path field of the profile, checking that the file exists"""
     path = optional_str(data, field)
     if path is not None and not os.path.isfile(path):
         raise InvalidConfigurationError(f"{field} file does not exist: {path}")
@@ -101,6 +107,7 @@ def optional_file(data: dict[str, Any], field: str) -> str | None:
 
 
 def parse_int(data: dict[str, Any], field: str, default: int, minimum: int) -> int:
+    """Return an integer field of the profile, with a default and a minimum"""
     value = data.get(field, default)
     if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
         raise InvalidConfigurationError(f"{field} must be an integer of at least {minimum}, got {value!r}")
@@ -108,6 +115,7 @@ def parse_int(data: dict[str, Any], field: str, default: int, minimum: int) -> i
 
 
 def mask_db_url(db_url: str) -> str:
+    """Hide the password in a database URL, leaving an invalid URL unchanged"""
     try:
         return make_url(db_url).render_as_string(hide_password=True)
     except ArgumentError:
@@ -115,6 +123,7 @@ def mask_db_url(db_url: str) -> str:
 
 
 def parse_headers(value: object) -> dict[str, str]:
+    """Validate elastic_headers as an object of string values"""
     if not isinstance(value, dict):
         raise InvalidConfigurationError("elastic_headers must be an object of string values")
     headers = cast(dict[object, object], value)
@@ -124,6 +133,8 @@ def parse_headers(value: object) -> dict[str, str]:
 
 
 class ContextConfig:
+    """Settings of one profile, merged from every configuration file"""
+
     def __init__(self) -> None:
         self.es_host = "http://localhost:9200"
         self.es_timeout: float | None = 60.0
@@ -158,6 +169,7 @@ class ContextConfig:
             raise InvalidConfigurationError(f"SCHEMA_PATTERN is missing the named groups {', '.join(missing_groups)}")
 
     def load_for(self, profile: str = DEFAULT_PROFILE) -> Self:
+        """Load and validate the given profile from every configuration file"""
         profile = str(profile).strip()
         merged: dict[str, Any] = {}
         env_config_path = os.getenv("ESMIGRATE_CONFIG")
@@ -186,6 +198,7 @@ class ContextConfig:
         return self
 
     def _apply(self, data: dict[str, Any]) -> None:
+        """Validate the merged profile fields and store them"""
         if "elastic_host" in data:
             self.es_host = parse_host(data["elastic_host"])
         if "elastic_headers" in data:
@@ -203,6 +216,7 @@ class ContextConfig:
         self._apply_logging(data)
 
     def _validate_schema_db(self) -> None:
+        """Reject a schema on SQLite and the PostgreSQL options parameter in schema_db"""
         try:
             url = make_url(self.schema_db)
         except ArgumentError:
@@ -216,6 +230,7 @@ class ContextConfig:
             )
 
     def _apply_logging(self, data: dict[str, Any]) -> None:
+        """Validate and store the log file settings"""
         self.log_file = optional_str(data, "log_file")
         rotation = data.get("log_rotation", "size")
         if rotation not in LOG_ROTATIONS:
@@ -225,6 +240,7 @@ class ContextConfig:
         self.log_backup_count = parse_int(data, "log_backup_count", DEFAULT_LOG_BACKUP_COUNT, 0)
 
     def _apply_security(self, data: dict[str, Any]) -> None:
+        """Validate and store the authentication and TLS settings, rejecting conflicting ones"""
         self.es_username = optional_str(data, "elastic_username")
         self.es_password = optional_str(data, "elastic_password")
         self.es_api_key = optional_str(data, "elastic_api_key")
@@ -257,11 +273,13 @@ class ContextConfig:
 
     @property
     def schema_path(self) -> str:
+        """Configured schema directory, required once a profile is loaded"""
         if not self.schema_dir:
             raise InvalidConfigurationError("schema_dir is required")
         return self.schema_dir
 
     def masked_headers(self) -> dict[str, str]:
+        """Return the headers with any Authorization value masked"""
         return {key: MASK if key.lower() == "authorization" else value for key, value in self.headers.items()}
 
     def __repr__(self) -> str:

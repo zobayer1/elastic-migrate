@@ -41,6 +41,8 @@ from esmigrate.models import Base, SchemaHistory, SchemaState
 
 @dataclass(frozen=True)
 class ScriptRun:
+    """Started run of one script, used to record its result"""
+
     direction: Direction
     version: MigVersion
     history_id: int
@@ -49,6 +51,7 @@ class ScriptRun:
 def migration_to_state(
     migration: Migration, namespace: str, installed_rank: int, user: str, now: datetime
 ) -> SchemaState:
+    """Build the state row that starts an up run"""
     up = migration.up
     return SchemaState(
         namespace=namespace,
@@ -67,6 +70,7 @@ def migration_to_state(
 def migration_to_history(
     direction: Direction, migration: Migration, namespace: str, user: str, now: datetime
 ) -> SchemaHistory:
+    """Build the history row of a run"""
     script = migration.script_for(direction)
     return SchemaHistory(
         namespace=namespace,
@@ -82,6 +86,8 @@ def migration_to_history(
 
 
 class DBManager:
+    """Schema database access for one namespace"""
+
     def __init__(
         self,
         engine: AsyncEngine,
@@ -105,6 +111,7 @@ class DBManager:
         echo: bool = False,
         schema: str | None = None,
     ) -> AsyncGenerator[Self, None]:
+        """Connect, refuse or copy old layouts, create missing tables, and dispose the engine on exit"""
         base_engine = create_engine(db_url, echo)
         engine = base_engine.execution_options(schema_translate_map={None: schema}) if schema else base_engine
         try:
@@ -140,6 +147,7 @@ class DBManager:
 
     @asynccontextmanager
     async def lock(self, timeout: float = 0) -> AsyncGenerator[None, None]:
+        """Hold the migration lock of the namespace for the duration of the block"""
         dialect = self._engine.dialect.name
         if dialect == "sqlite":
             await acquire_sqlite_lock(self._engine, self.namespace, timeout)
@@ -169,6 +177,7 @@ class DBManager:
                     await release_mysql_lock(conn, name)
 
     async def start_run(self, direction: Direction, migration: Migration) -> ScriptRun:
+        """Commit the start of a run before its first request"""
         user = getpass.getuser()
         now = datetime.now(UTC)
         version = migration.version
@@ -200,6 +209,7 @@ class DBManager:
         return ScriptRun(direction, version, history.id)
 
     async def finish_run(self, run: ScriptRun, success: bool, duration: int, query_results: str) -> None:
+        """Commit the result of a run"""
         state = self._state_filter(run.version)
         change: Executable
         if run.direction is Direction.UP:
@@ -215,6 +225,7 @@ class DBManager:
         await self._commit_run(change, self._history_result(run, success, duration, query_results))
 
     async def undo_run(self, run: ScriptRun, duration: int, query_results: str) -> None:
+        """Revert the start of a run that never reached Elasticsearch, keeping a failed history row"""
         state = self._state_filter(run.version)
         change: Executable
         if run.direction is Direction.UP:
@@ -224,6 +235,7 @@ class DBManager:
         await self._commit_run(change, self._history_result(run, False, duration, query_results))
 
     async def _lock_identity(self, conn: AsyncConnection) -> str:
+        """Identify the lock by database, schema and namespace"""
         database = self._engine.url.database or ""
         schema = self.schema
         if schema is None and conn.dialect.name == "postgresql":
@@ -231,41 +243,50 @@ class DBManager:
         return f"{database}:{schema or database}:{self.namespace}"
 
     async def force_unlock(self) -> bool | None:
+        """Remove a stuck SQLite lock, or return None where the database releases locks itself"""
         if self._engine.dialect.name != "sqlite":
             return None
         return await force_release_sqlite_lock(self._engine, self.namespace)
 
     async def find_schema_by_version(self, version: MigVersion) -> SchemaState | None:
+        """Return the state row of a version, if recorded"""
         async with self._sessionmaker() as session:
             return await session.get(SchemaState, (self.namespace, version.base, version.rank))
 
     async def find_latest_schema(self) -> SchemaState | None:
+        """Return the most recently installed state row, if any"""
         async with self._sessionmaker() as session:
             return await self._find_latest_schema(session, self.namespace)
 
     async def find_all_schema(self) -> Sequence[SchemaState]:
+        """Return every state row in installation order"""
         async with self._sessionmaker() as session:
             query = select(SchemaState).where(SchemaState.namespace == self.namespace)
             return (await session.scalars(query.order_by(SchemaState.installed_rank))).all()
 
     async def find_applied_versions(self) -> set[MigVersion]:
+        """Return the versions that have a state row"""
         query = select(SchemaState.version_base, SchemaState.version_rank)
         async with self._sessionmaker() as session:
             rows = await session.execute(query.where(SchemaState.namespace == self.namespace))
             return {MigVersion(base, rank) for base, rank in rows}
 
     async def delete_all_failed_schema(self) -> None:
+        """Delete the failed state rows"""
         await self._delete(SchemaState.success.is_(False))
 
     async def delete_all_schema(self, cutoff_rank: int = 0) -> None:
+        """Delete the state rows from the given installed rank on"""
         await self._delete(SchemaState.installed_rank >= cutoff_rank)
 
     async def find_history(self) -> Sequence[SchemaHistory]:
+        """Return every history row in event order"""
         async with self._sessionmaker() as session:
             query = select(SchemaHistory).where(SchemaHistory.namespace == self.namespace)
             return (await session.scalars(query.order_by(SchemaHistory.id))).all()
 
     async def _delete(self, condition: ColumnElement[bool]) -> None:
+        """Delete the state rows that match a condition"""
         async with self._sessionmaker() as session:
             try:
                 await session.execute(delete(SchemaState).where(SchemaState.namespace == self.namespace, condition))
@@ -275,6 +296,7 @@ class DBManager:
                 raise SchemaVersionSqlDbError(f"Cannot write to the schema database: {err}") from err
 
     async def _commit_run(self, *statements: Executable) -> None:
+        """Execute the statements of a run in one transaction"""
         async with self._sessionmaker() as session:
             try:
                 for statement in statements:
@@ -285,6 +307,7 @@ class DBManager:
                 raise SchemaVersionSqlDbError(f"Cannot write to the schema database: {err}") from err
 
     def _state_filter(self, version: MigVersion) -> tuple[ColumnElement[bool], ...]:
+        """Return the conditions that select the state row of a version"""
         return (
             SchemaState.namespace == self.namespace,
             SchemaState.version_base == version.base,
@@ -293,12 +316,14 @@ class DBManager:
 
     @staticmethod
     async def _find_latest_schema(session: AsyncSession, namespace: str) -> SchemaState | None:
+        """Return the most recently installed state row of a namespace"""
         query = select(SchemaState).where(SchemaState.namespace == namespace)
         query = query.order_by(SchemaState.installed_rank.desc())
         return (await session.scalars(query)).first()
 
     @staticmethod
     def _history_result(run: ScriptRun, success: bool, duration: int, query_results: str) -> Update:
+        """Return the update that stores the result of a run in its history row"""
         return (
             update(SchemaHistory)
             .where(SchemaHistory.id == run.history_id)

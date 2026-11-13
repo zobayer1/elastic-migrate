@@ -8,7 +8,7 @@ ElasticMigrate (`esmigrate` CLI, package name `elastic-migrate`) is a Flyway-sty
 
 ## Working rules
 
-- **Minimal comments in source code.** The code is simple; tests do the explaining. Add a comment only when something is genuinely non-obvious. Explanations, design notes and user guides belong in `docs/`.
+- **Minimal comments in source code.** The code is simple; tests do the explaining. Every class, function and method has a one-line intent docstring (see Message style); add a comment only when something is genuinely non-obvious. Explanations, design notes and user guides belong in `docs/`.
 - **Maximum test coverage.** This module is used in enterprise, government-level applications. Every change ships with tests covering all new/changed branches, including error paths and exit codes; never lower coverage.
 - **Plan before large changes.** For anything beyond a small fix, first write a plan and create/update the GitHub issue(s); implement only after that.
 - **Small commits.** Split an issue's tasks into several small commits in a sensible order, each with its own tests, instead of one large implementation commit followed by the tests. The branch must be green before its PR.
@@ -70,14 +70,14 @@ Key behaviors:
 
 ## Coding style
 
-- Python 3.11+ idioms, enforced by ruff (`E W F I UP B SIM C4 PT RUF ANN2 TID252`, line length 120): no encoding headers, no `(object)` bases, `X | None`, builtin generics, `typing.Self`, `collections.abc` types, `raise ... from err` inside `except`.
+- Python 3.11+ idioms, enforced by ruff (`E W F I UP B SIM C4 PT RUF ANN2 TID252` plus the docstring rules `D101 D102 D103 D200 D401` outside `tests/` and `docs/`, line length 120): no encoding headers, no `(object)` bases, `X | None`, builtin generics, `typing.Self`, `collections.abc` types, `raise ... from err` inside `except`.
 - Return type hints are required on all functions in `esmigrate/` (`ANN2`); tests are exempt.
 - pyright must report 0 errors: **strict** mode for `esmigrate/` (no unknown types — annotate empty collections, use `dict[str, str]`/`tuple[...]` not bare generics, `cast` JSON values after `isinstance`), standard mode for `tests/`. Narrow optionals with `assert x is not None` / `isinstance` in tests; use `STATE_TABLE` / `HISTORY_TABLE` (typed `Table`) instead of `SchemaState.__table__` / `SchemaHistory.__table__`. Use `-> AsyncGenerator[T, None]` (not `AsyncIterator`) for `@asynccontextmanager`.
 - Private attributes use a leading underscore (`self._ctx`); short-lived locals and loop vars are often underscore-prefixed (`_path`, `_ver`, `_file`). f-strings throughout.
 - Imports are always absolute and fully qualified (`from esmigrate.commons.command import Command`), never relative (`from .command import ...`); ruff `TID252` enforces this.
 - Subpackages re-export their public API through `__init__.py` with an explicit `__all__`. Other packages import from the package (`from esmigrate.internals import ScriptParser`), not the submodule; modules inside a package import their siblings by submodule path (`from esmigrate.commons.mig_version import MigVersion`), because importing from their own package's `__init__` is circular.
 - Custom exceptions live in `esmigrate/exceptions/__init__.py`: subclass `RuntimeError`, one-line docstring `"""Raised when ..."""` plus `pass` (or a small `__init__` when they carry data, like `ElasticsearchHTTPError.response`), kept alphabetical and listed in `__all__`.
-- Comments are sparse (see Working rules).
+- Comments are sparse and docstrings are one line (see Working rules and Message style).
 
 ## Message style
 
@@ -95,6 +95,7 @@ Every new or changed text follows these patterns (#285).
 - **Audit lines** (DEBUG, mostly for the log file): `<event>: key=value …` (`Upgrade: target=latest`, `Migration 1.0 up: script=V1_0__create.up.esm checksum=…`, `Acquiring migration lock: namespace=default timeout=0s`); durations read `in N ms`.
 - **stdout** is for data that is read or copied: `esmigrate config` prints `Profile <name>:` and then one `  <key>: <JSON value>` line per field, keyed as in `config.json` (`SCHEMA_PATTERN` for the environment variable), with secrets as `"****"`.
 - **Help texts:** a command's help is its one-line docstring (click shows it when `help=` is absent) and an option's help is its `help=`, both imperative without a trailing period (`Apply pending migrations up to the latest or given version`, `Show debug output, including every request`); every command uses the shared `help_option` from `cli/common.py` (`Show this help and exit`).
+- **Docstrings:** every class, function and method in `esmigrate/`, except dunder methods and nested functions, has a one-line docstring without a trailing period that states its intent: an imperative phrase for functions and methods (`Map a bare database URL to its async driver`), a noun phrase for classes and properties (`Schema database access for one namespace`), `Raised when …` for exceptions, and the help text for click commands. Ruff checks public names (`D101 D102 D103 D200 D401`); private ones follow the same rule. Tests use `Test fails if …` and fixtures `pytest fixture for …`.
 
 ## Testing conventions
 

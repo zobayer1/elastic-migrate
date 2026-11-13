@@ -44,11 +44,13 @@ DB_ERRORS: dict[type[Exception], Errors] = {
 
 
 def fail(err: Exception, code: int) -> int:
+    """Log an error as <ExceptionName>: <message> and return its exit code"""
     log.error(f"{type(err).__name__}: {err}")
     return code
 
 
 def run(coro: Coroutine[Any, Any, int]) -> NoReturn:
+    """Run a command coroutine and exit with the code it returns"""
     code = asyncio.run(coro)
     log.debug(f"Finished {click.get_current_context().info_name} with exit code {code}")
     sys.exit(code)
@@ -56,6 +58,7 @@ def run(coro: Coroutine[Any, Any, int]) -> NoReturn:
 
 @asynccontextmanager
 async def hold_lock(cfg: ContextConfig, db: DBManager) -> AsyncGenerator[None, None]:
+    """Hold the migration lock of the namespace, logging its timing"""
     log.debug(f"Acquiring migration lock: namespace={cfg.schema_namespace} timeout={cfg.lock_timeout:g}s")
     async with db.lock(cfg.lock_timeout):
         acquired = time.perf_counter()
@@ -67,12 +70,14 @@ async def hold_lock(cfg: ContextConfig, db: DBManager) -> AsyncGenerator[None, N
 
 
 def connect_db(cfg: ContextConfig, upgrade: bool = False) -> AbstractAsyncContextManager[DBManager]:
+    """Connect to the schema database of the profile, in its namespace and schema"""
     return DBManager.connect(
         cfg.schema_db, namespace=cfg.schema_namespace, upgrade=upgrade, schema=cfg.schema_db_schema
     )
 
 
 def load_config(ctx: click.Context) -> ContextConfig:
+    """Load the profile chosen on the command line and set up its log file"""
     profile: str = ctx.meta[PROFILE_KEY]
     log_file: str | None = ctx.meta[LOG_FILE_KEY]
     try:
@@ -101,6 +106,8 @@ def load_config(ctx: click.Context) -> ContextConfig:
 
 
 def pass_config(command: Callable[Concatenate[ContextConfig, P], R]) -> Callable[P, R]:
+    """Load the profile only when the command runs, so --help needs none"""
+
     @functools.wraps(command)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         return command(load_config(click.get_current_context()), *args, **kwargs)

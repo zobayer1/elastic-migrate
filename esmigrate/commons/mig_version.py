@@ -7,6 +7,7 @@ MAX_VERSION_PART = 2147483647
 
 
 def parse_version(text: str) -> tuple[int, int]:
+    """Split a version such as 1.10 into its integer base and rank"""
     m = re.fullmatch(r"(\d+)(?:\.(\d+))?", text.strip())
     if m is None:
         raise ValueError(f"Invalid version {text!r}")
@@ -15,6 +16,8 @@ def parse_version(text: str) -> tuple[int, int]:
 
 @dataclass(frozen=True, order=True)
 class MigVersion:
+    """Migration version ordered by its integer base and rank"""
+
     base: int
     rank: int
 
@@ -34,5 +37,6 @@ class MigVersion:
 
     @classmethod
     def parse(cls, text: str) -> Self:
+        """Parse a version such as 1 or 1.10, where a missing rank is 0"""
         base, rank = parse_version(text)
         return cls(base, rank)

@@ -9,6 +9,8 @@ from esmigrate.models.types import UTCDateTime
 
 
 class SchemaHistory(Base):
+    """Append-only history row, one per script run, force or reset"""
+
     __tablename__ = "esm_schema_history"
     __table_args__ = (Index("ix_esm_schema_history_namespace_id", "namespace", "id"),)
 

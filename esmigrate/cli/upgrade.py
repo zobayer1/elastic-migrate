@@ -32,6 +32,7 @@ def upgrade(cfg: ContextConfig, schema_version: str = "latest") -> None:
 
 
 async def run_upgrade(cfg: ContextConfig, schema_version: str) -> int:
+    """Upgrade the schema database while holding the migration lock"""
     log.debug(f"Upgrade: target={schema_version}")
     try:
         requested = None if schema_version == "latest" else MigVersion.parse(schema_version)
@@ -47,6 +48,7 @@ async def run_upgrade(cfg: ContextConfig, schema_version: str) -> int:
 
 
 async def upgrade_schema(cfg: ContextConfig, db: DBManager, requested: MigVersion | None) -> int:
+    """Apply the pending migrations up to the requested version"""
     latest_db_entry = await db.find_latest_schema()
     if latest_db_entry and not latest_db_entry.success:
         state = "failed" if latest_db_entry.success is False else "was interrupted"

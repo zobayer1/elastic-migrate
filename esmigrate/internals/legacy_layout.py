@@ -14,12 +14,15 @@ LEGACY_TABLE = "esm_schema_version"
 
 
 class Layout(StrEnum):
+    """Table layout found in the schema database"""
+
     CURRENT = "CURRENT"
     V1 = "V1"
     V2 = "V2"
 
 
 def old_timestamp_to_utc(value: datetime | str | None, force_utc: bool = False) -> datetime | None:
+    """Convert a v1 local or v2 UTC timestamp into an aware UTC datetime"""
     if value is None:
         return None
     stamp = datetime.fromisoformat(value) if isinstance(value, str) else value
@@ -29,12 +32,14 @@ def old_timestamp_to_utc(value: datetime | str | None, force_utc: bool = False) 
 
 
 def qualified_name(conn: Connection, table: str, schema: str | None) -> str:
+    """Quote a table name, prefixed with its schema when one is set"""
     preparer = conn.dialect.identifier_preparer
     name = preparer.quote(table)
     return f"{preparer.quote_schema(schema)}.{name}" if schema else name
 
 
 def table_has_rows(conn: Connection, table_name: str, schema: str | None = None) -> bool:
+    """Tell whether a table exists and has at least one row"""
     if not inspect(conn).has_table(table_name, schema=schema):
         return False
     stmt = select(literal(1)).select_from(table(table_name, schema=schema)).limit(1)
@@ -42,6 +47,7 @@ def table_has_rows(conn: Connection, table_name: str, schema: str | None = None)
 
 
 def detect_layout(conn: Connection, schema: str | None = None) -> Layout:
+    """Detect whether the database still holds v1 or v2 rows to copy"""
     if table_has_rows(conn, HISTORY_TABLE.name, schema=schema) or not table_has_rows(conn, LEGACY_TABLE, schema):
         return Layout.CURRENT
     columns = {col["name"] for col in inspect(conn).get_columns(LEGACY_TABLE, schema=schema)}
@@ -49,6 +55,7 @@ def detect_layout(conn: Connection, schema: str | None = None) -> Layout:
 
 
 def old_row_to_state(row: Mapping[Any, Any], namespace: str, version: MigVersion, layout: Layout) -> dict[str, Any]:
+    """Convert a v1 or v2 row into a state row"""
     script = row["script"]
     if script and layout is Layout.V1:
         script = re.split(r"[\\/]", script)[-1]
@@ -72,6 +79,7 @@ def old_row_to_state(row: Mapping[Any, Any], namespace: str, version: MigVersion
 
 
 def state_to_history(state: Mapping[str, Any]) -> dict[str, Any]:
+    """Build the history row recorded for a copied state row"""
     return {
         "namespace": state["namespace"],
         "version_base": state["version_base"],
@@ -89,6 +97,7 @@ def state_to_history(state: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def copy_old_rows(conn: Connection, layout: Layout, schema: str | None = None) -> None:
+    """Copy every v1 or v2 row into the new tables, refusing unusable or colliding versions"""
     source = qualified_name(conn, LEGACY_TABLE, schema)
     rows = conn.execute(text(f"SELECT * FROM {source}")).mappings().all()
 

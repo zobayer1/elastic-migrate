@@ -2,6 +2,8 @@ from esmigrate.commons.script_data import Direction, ScriptData
 
 
 class Migration:
+    """One version's up and down scripts, either of which may be missing"""
+
     def __init__(self, up: ScriptData | None = None, down: ScriptData | None = None) -> None:
         self.up = up
         self.down = down
@@ -16,4 +18,5 @@ class Migration:
             raise ValueError("Migration needs an up or a down script")
 
     def script_for(self, direction: Direction) -> ScriptData | None:
+        """Return the script that runs in the given direction, if any"""
         return self.up if direction is Direction.UP else self.down

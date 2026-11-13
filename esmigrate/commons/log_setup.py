@@ -15,18 +15,23 @@ LOG_ROTATIONS = ("size", "external")
 
 
 class ConsoleFormatter(logging.Formatter):
+    """Console formatter that prefixes warnings and errors with their level"""
+
     def format(self, record: logging.LogRecord) -> str:
+        """Prefix warnings and errors with their level name"""
         message = super().format(record)
         return message if record.levelno < logging.WARNING else f"{record.levelname}: {message}"
 
 
 def remove_handlers(logger: logging.Logger, name: str) -> None:
+    """Remove and close the handlers with the given name"""
     for handler in [h for h in logger.handlers if h.get_name() == name]:
         logger.removeHandler(handler)
         handler.close()
 
 
 def configure_console(level: int) -> logging.Logger:
+    """Log to stderr at the given level, replacing any earlier console handler"""
     logger = logging.getLogger(LOGGER_NAME)
     logger.setLevel(logging.DEBUG)
     logger.propagate = False
@@ -45,6 +50,7 @@ def configure_file(
     max_bytes: int = DEFAULT_LOG_MAX_BYTES,
     backup_count: int = DEFAULT_LOG_BACKUP_COUNT,
 ) -> None:
+    """Log everything to a file with UTC timestamps, or stop file logging when path is None"""
     logger = logging.getLogger(LOGGER_NAME)
     remove_handlers(logger, FILE_HANDLER)
     if path is None:

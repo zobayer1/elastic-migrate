@@ -20,6 +20,7 @@ def init(cfg: ContextConfig, print_sql: bool = False) -> None:
 
 
 async def run_init(cfg: ContextConfig) -> int:
+    """Create the schema tables, copying v1 and v2 rows if present"""
     try:
         async with connect_db(cfg, upgrade=True) as db:
             copied = db.upgraded_from is not Layout.CURRENT
@@ -38,6 +39,7 @@ async def run_init(cfg: ContextConfig) -> int:
 
 
 async def print_tables_sql(cfg: ContextConfig) -> int:
+    """Print the SQL that creates the schema tables"""
     try:
         sql = create_tables_sql(cfg.schema_db, cfg.schema_db_schema)
     except InvalidDBConnectionError as err:

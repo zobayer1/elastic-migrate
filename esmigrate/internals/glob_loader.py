@@ -11,6 +11,7 @@ ZERO_VERSION = MigVersion(0, 0)
 
 
 def pair_scripts(scripts: Iterable[ScriptData]) -> list[Migration]:
+    """Group scripts into one migration per version, listing every invalid set"""
     by_version: defaultdict[MigVersion, list[ScriptData]] = defaultdict(list)
     for script in scripts:
         by_version[script.version].append(script)
@@ -41,10 +42,13 @@ def pair_scripts(scripts: Iterable[ScriptData]) -> list[Migration]:
 
 
 class GlobLoader:
+    """Loader of the migration scripts in the schema directory"""
+
     def __init__(self, ctx: ContextConfig) -> None:
         self._ctx = ctx
 
     def scan_dir(self, schema_dir: str) -> list[ScriptData]:
+        """Read every script in a directory, listing every invalid file name before reading any"""
         if not schema_dir or not os.path.isdir(schema_dir):
             raise NotADirectoryError(f"schema_dir is not a directory: {schema_dir}")
 
@@ -96,4 +100,5 @@ class GlobLoader:
         return sorted(file_items, key=lambda k: (k.version, k.path))
 
     def load_migrations(self, schema_dir: str) -> list[Migration]:
+        """Read the scripts in a directory and pair them into migrations"""
         return pair_scripts(self.scan_dir(schema_dir))

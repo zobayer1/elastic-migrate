@@ -17,6 +17,7 @@ def reset(cfg: ContextConfig) -> None:
 
 
 async def run_reset(cfg: ContextConfig) -> int:
+    """Delete every state row of the namespace"""
     try:
         async with connect_db(cfg) as db, hold_lock(cfg, db):
             await db.delete_all_schema()

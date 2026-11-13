@@ -4,6 +4,8 @@ from httpx import Response
 
 
 class Errors(IntEnum):
+    """Exit codes of the CLI, grouped by tens per failure category"""
+
     # Profile errors
     ERR_PROFILE_NOT_FOUND = 10
     ERR_INVALID_CONFIGURATION = 11
@@ -129,6 +131,7 @@ class ElasticsearchHTTPError(RuntimeError):
 
 
 def error_list(title: str, errors: list[str]) -> str:
+    """Join a title and its errors into one message, one indented error per line"""
     return "\n".join([title, *(f"  {error}" for error in errors)])
 
 

@@ -26,18 +26,22 @@ LOCK_TABLE = Table(
 
 
 def lock_digest(identity: str) -> bytes:
+    """Hash a lock identity"""
     return hashlib.sha256(f"esmigrate:{identity}".encode()).digest()
 
 
 def postgresql_lock_key(identity: str) -> int:
+    """Derive the signed 64-bit PostgreSQL advisory lock key"""
     return int.from_bytes(lock_digest(identity)[:8], "big", signed=True)
 
 
 def mysql_lock_name(identity: str) -> str:
+    """Derive a MySQL lock name within its 64-character limit"""
     return f"esmigrate:{lock_digest(identity).hex()[:54]}"
 
 
 def process_exists(pid: int) -> bool:
+    """Tell whether a process is running, assuming it is on Windows"""
     if os.name == "nt":
         return True
     try:
@@ -50,6 +54,7 @@ def process_exists(pid: int) -> bool:
 
 
 async def poll(attempt: Callable[[], Awaitable[bool]], timeout: float) -> bool:
+    """Retry an attempt until it succeeds or the timeout passes"""
     loop = asyncio.get_running_loop()
     deadline = loop.time() + timeout
     while True:
@@ -62,6 +67,8 @@ async def poll(attempt: Callable[[], Awaitable[bool]], timeout: float) -> bool:
 
 
 async def acquire_postgresql_lock(conn: AsyncConnection, key: int, timeout: float) -> None:
+    """Take the PostgreSQL advisory lock, naming the holder on timeout"""
+
     async def attempt() -> bool:
         return bool((await conn.execute(text("SELECT pg_try_advisory_lock(:key)"), {"key": key})).scalar())
 
@@ -80,10 +87,12 @@ async def acquire_postgresql_lock(conn: AsyncConnection, key: int, timeout: floa
 
 
 async def release_postgresql_lock(conn: AsyncConnection, key: int) -> None:
+    """Release the PostgreSQL advisory lock"""
     await conn.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": key})
 
 
 async def acquire_mysql_lock(conn: AsyncConnection, name: str, timeout: float) -> None:
+    """Take the MySQL named lock, naming the holder on timeout"""
     acquired = (
         await conn.execute(text("SELECT GET_LOCK(:name, :timeout)"), {"name": name, "timeout": math.ceil(timeout)})
     ).scalar()
@@ -94,10 +103,12 @@ async def acquire_mysql_lock(conn: AsyncConnection, name: str, timeout: float) -
 
 
 async def release_mysql_lock(conn: AsyncConnection, name: str) -> None:
+    """Release the MySQL named lock"""
     await conn.execute(text("SELECT RELEASE_LOCK(:name)"), {"name": name})
 
 
 async def try_insert_sqlite_lock(engine: AsyncEngine, namespace: str, host: str, pid: int) -> bool:
+    """Try to insert the SQLite lock row, returning False when it is held"""
     try:
         async with engine.begin() as conn:
             await conn.execute(
@@ -111,6 +122,7 @@ async def try_insert_sqlite_lock(engine: AsyncEngine, namespace: str, host: str,
 
 
 async def acquire_sqlite_lock(engine: AsyncEngine, namespace: str, timeout: float) -> None:
+    """Take the SQLite lock row, taking over stale rows of dead processes on this host"""
     host, pid = socket.gethostname(), os.getpid()
     async with engine.begin() as conn:
         await conn.run_sync(LOCK_METADATA.create_all)
@@ -141,6 +153,7 @@ async def acquire_sqlite_lock(engine: AsyncEngine, namespace: str, timeout: floa
 
 
 async def release_sqlite_lock(engine: AsyncEngine, namespace: str) -> None:
+    """Delete the SQLite lock row of this process"""
     async with engine.begin() as conn:
         await conn.execute(
             delete(LOCK_TABLE).where(
@@ -152,6 +165,7 @@ async def release_sqlite_lock(engine: AsyncEngine, namespace: str) -> None:
 
 
 async def force_release_sqlite_lock(engine: AsyncEngine, namespace: str) -> bool:
+    """Delete the SQLite lock row of the namespace, whoever holds it"""
     async with engine.begin() as conn:
         await conn.run_sync(LOCK_METADATA.create_all)
         result = await conn.execute(delete(LOCK_TABLE).where(LOCK_TABLE.c.namespace == namespace))

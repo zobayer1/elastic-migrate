@@ -29,6 +29,7 @@ SCRIPT_ERRORS = (
 
 
 def query_results_string(command: Command, response: Response) -> str:
+    """Record a request and its response as one JSON string"""
     return json.dumps(
         {
             "query": f"{command.verb} {command.path} {command.body}",
@@ -39,6 +40,7 @@ def query_results_string(command: Command, response: Response) -> str:
 
 
 def query_error_string(command: Command, err: Exception) -> str:
+    """Record a request that got no response as one JSON string"""
     return json.dumps(
         {
             "query": f"{command.verb} {command.path} {command.body}",
@@ -49,6 +51,7 @@ def query_error_string(command: Command, err: Exception) -> str:
 
 
 def parse_scripts(direction: Direction, migrations: list[Migration]) -> list[tuple[Migration, list[Command]]]:
+    """Parse the scripts of a direction, listing every invalid one before any request"""
     parser = ScriptParser()
     parsed: list[tuple[Migration, list[Command]]] = []
     errors: list[str] = []
@@ -69,6 +72,7 @@ def parse_scripts(direction: Direction, migrations: list[Migration]) -> list[tup
 async def apply_schema(
     db: DBManager, http_handler: HTTPHandler, direction: Direction, entry: Migration, commands: list[Command]
 ) -> int:
+    """Run one migration in a direction and record its start and result"""
     script = entry.script_for(direction)
     if script:
         log.info(f"Applying migration {entry.version} ({script.path})")

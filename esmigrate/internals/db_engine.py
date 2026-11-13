@@ -21,6 +21,7 @@ DRIVER_EXTRAS = {
 
 
 def to_async_url(db_url: str) -> URL:
+    """Map a bare database URL to its async driver"""
     try:
         url = make_url(db_url)
     except ArgumentError as err:
@@ -33,6 +34,7 @@ def to_async_url(db_url: str) -> URL:
 
 
 def create_engine(db_url: str, echo: bool = False) -> AsyncEngine:
+    """Create an async engine, explaining missing or unsupported drivers"""
     url = to_async_url(db_url)
     try:
         return create_async_engine(url, echo=echo, hide_parameters=True)
@@ -45,6 +47,7 @@ def create_engine(db_url: str, echo: bool = False) -> AsyncEngine:
 
 
 def create_tables_sql(db_url: str, schema: str | None = None) -> str:
+    """Render the SQL that creates the schema tables, without connecting"""
     dialect = create_engine(db_url).dialect
     statements: list[str] = []
     for source in (STATE_TABLE, HISTORY_TABLE):
@@ -56,11 +59,13 @@ def create_tables_sql(db_url: str, schema: str | None = None) -> str:
 
 
 def check_schema_exists(conn: Connection, schema: str | None) -> None:
+    """Fail when the configured database schema does not exist"""
     if schema is not None and schema not in inspect(conn).get_schema_names():
         raise InvalidDBConnectionError(f"Database schema {schema!r} does not exist")
 
 
 def verify_schema_columns(conn: Connection, schema: str | None = None) -> None:
+    """Fail when either schema table lacks a column that esmigrate needs"""
     inspector = inspect(conn)
     errors: list[str] = []
     for expected in (STATE_TABLE, HISTORY_TABLE):

@@ -20,6 +20,7 @@ log = logging.getLogger(__name__)
 
 
 def build_ssl_context(ctx: ContextConfig) -> ssl.SSLContext:
+    """Build the TLS context from the certificates of the profile"""
     try:
         context = ssl.create_default_context(cafile=ctx.es_ca_certs)
         if not ctx.es_verify_certs:
@@ -33,12 +34,14 @@ def build_ssl_context(ctx: ContextConfig) -> ssl.SSLContext:
 
 
 def request_never_reached(err: Exception, tls_error: ssl.SSLError | None) -> bool:
+    """Tell whether a failed request cannot have reached Elasticsearch"""
     if isinstance(err, (httpx.ConnectError, httpx.ConnectTimeout)):
         return True
     return tls_error is not None and "ALERT" in str(tls_error) and "CERTIFICATE" in str(tls_error)
 
 
 def find_tls_error(err: BaseException) -> ssl.SSLError | None:
+    """Find a TLS error among the causes of an exception"""
     seen: set[int] = set()
     current: BaseException | None = err
     while current is not None and id(current) not in seen:
@@ -50,6 +53,8 @@ def find_tls_error(err: BaseException) -> ssl.SSLError | None:
 
 
 class HTTPHandler:
+    """HTTP client that sends script requests to Elasticsearch"""
+
     def __init__(self, ctx: ContextConfig) -> None:
         self._ctx = ctx
         self._client: httpx.AsyncClient | None = None
@@ -81,6 +86,7 @@ class HTTPHandler:
             self._client = None
 
     async def make_requests(self, command: Command) -> httpx.Response:
+        """Send one request and return its response, raising on HTTP and transport errors"""
         if self._client is None:
             raise ContextObjectNotSetError("HTTP client is not open, use `async with HTTPHandler(ctx)`")
 

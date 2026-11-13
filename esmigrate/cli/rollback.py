@@ -17,6 +17,7 @@ def rollback(cfg: ContextConfig) -> None:
 
 
 async def run_rollback(cfg: ContextConfig) -> int:
+    """Delete the failed state rows of the namespace"""
     try:
         async with connect_db(cfg) as db, hold_lock(cfg, db):
             latest = await db.find_latest_schema()

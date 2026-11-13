@@ -10,6 +10,8 @@ from esmigrate.models.types import UTCDateTime
 
 
 class SchemaState(Base):
+    """State row of one applied, running or failed version in a namespace"""
+
     __tablename__ = "esm_schema_state"
     __table_args__ = (UniqueConstraint("namespace", "installed_rank"),)
 
@@ -29,6 +31,7 @@ class SchemaState(Base):
 
     @property
     def version(self) -> MigVersion:
+        """Version of the row, from its integer columns"""
         return MigVersion(base=self.version_base, rank=self.version_rank)
 
 

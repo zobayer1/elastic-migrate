@@ -19,6 +19,7 @@ from esmigrate.exceptions import (
 
 
 def is_valid_json(content: str) -> bool:
+    """Tell whether text is one JSON document"""
     try:
         json.loads(content.strip())
         return True
@@ -27,14 +28,18 @@ def is_valid_json(content: str) -> bool:
 
 
 def is_valid_ndjson(content: str) -> bool:
+    """Tell whether every line of text is a JSON document"""
     return all(is_valid_json(line) for line in content.strip().split("\n"))
 
 
 class ScriptParser:
+    """Parser of Kibana-console-style migration scripts"""
+
     def __init__(self) -> None:
         self._pattern = re.compile(rf"^({'|'.join(http_verbs)})\s+(.*)$", re.M | re.I)
 
     def get_commands(self, script_text: str) -> Iterator[Command]:
+        """Yield the requests of a script, each with its body and content type"""
         stripped_lines = [line.strip() for line in script_text.split("\n") if len(line.strip()) > 0]
         if not stripped_lines:
             raise InvalidCommandScriptError("Script has no requests")

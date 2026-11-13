@@ -8,6 +8,8 @@ http_verbs_text = f"{', '.join(http_verbs[:-1])} or {http_verbs[-1]}"
 
 @dataclass
 class Command:
+    """One Elasticsearch request parsed from a migration script"""
+
     verb: str
     path: str
     body: str | None = None
