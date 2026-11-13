@@ -153,7 +153,7 @@ class ContextConfig:
             self.schema_regex = re.compile(self.schema_pattern)
         except re.error as err:
             raise InvalidConfigurationError(f"Invalid SCHEMA_PATTERN: {err}") from err
-        missing_groups = DEFAULT_SCHEMA_PATTERN_GROUPS - self.schema_regex.groupindex.keys()
+        missing_groups = [group for group in DEFAULT_SCHEMA_PATTERN_GROUPS if group not in self.schema_regex.groupindex]
         if missing_groups:
             raise InvalidConfigurationError(
                 f"missing required named groups: {', '.join(missing_groups)} in SCHEMA_PATTERN"

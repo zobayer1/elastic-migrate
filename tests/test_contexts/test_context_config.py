@@ -29,21 +29,20 @@ def test_context_fails_with_invalid_schema_pattern_regex(monkeypatch, pattern):
 @pytest.mark.parametrize(
     ("pattern", "missing"),
     [
-        (r"V\d+_(?P<sequence>\d+)__(?P<name>\w+)\.(?P<extension>\w+)", {"version"}),
-        (r"V(?P<version>\d+)_\d+__(?P<name>\w+)\.(?P<extension>\w+)", {"sequence"}),
-        (r"V(?P<version>\d+)_(?P<sequence>\d+)__\w+\.(?P<extension>\w+)", {"name"}),
-        (r"V(?P<version>\d+)_(?P<sequence>\d+)__(?P<name>\w+)\.\w+", {"extension"}),
-        ("some illegal pattern", {"version", "sequence", "name", "extension"}),
-        (r"(?x)V(?P<version>\d+) # (?P<sequence>) (?P<name>) (?P<extension>)", {"sequence", "name", "extension"}),
+        (r"V\d+_(?P<sequence>\d+)__(?P<name>\w+)\.(?P<extension>\w+)", "version"),
+        (r"V(?P<version>\d+)_\d+__(?P<name>\w+)\.(?P<extension>\w+)", "sequence"),
+        (r"V(?P<version>\d+)_(?P<sequence>\d+)__\w+\.(?P<extension>\w+)", "name"),
+        (r"V(?P<version>\d+)_(?P<sequence>\d+)__(?P<name>\w+)\.\w+", "extension"),
+        ("some illegal pattern", "version, sequence, name, extension"),
+        (r"(?x)V(?P<version>\d+) # (?P<sequence>) (?P<name>) (?P<extension>)", "sequence, name, extension"),
     ],
 )
 def test_context_fails_when_schema_pattern_misses_required_groups(monkeypatch, pattern, missing):
-    """Test fails if a pattern without a required named group is accepted or any missing group goes unnamed"""
+    """Test fails if a pattern missing a required named group is accepted or the groups are not listed in order"""
     monkeypatch.setenv("SCHEMA_PATTERN", pattern)
     with pytest.raises(InvalidConfigurationError) as err:
         ContextConfig()
-    reported = str(err.value).removeprefix("missing required named groups: ").removesuffix(" in SCHEMA_PATTERN")
-    assert set(reported.split(", ")) == missing
+    assert str(err.value) == f"missing required named groups: {missing} in SCHEMA_PATTERN"
 
 
 @pytest.mark.parametrize(
