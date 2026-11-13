@@ -119,7 +119,7 @@ def test_script_parser_emits_host_relative_paths(script_parser, parameter, expec
     indirect=["parameter"],
 )
 def test_script_parser_terminates_bodies_with_newline(script_parser, parameter):
-    """Test fails if request bodies are not newline-terminated as required by the elasticsearch bulk API"""
+    """Test fails if request bodies are not newline-terminated as required by the Elasticsearch bulk API"""
     body = next(script_parser.get_commands(parameter)).body
     assert body is not None
     assert body.endswith("}\n")

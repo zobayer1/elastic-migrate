@@ -98,6 +98,6 @@ def test_error_list_returns_only_the_title_without_errors():
 
 
 def test_connection_error_assumes_the_request_may_have_been_processed():
-    """Test fails if a connection error is marked as never reaching elasticsearch unless the handler says so"""
+    """Test fails if a connection error is marked as never reaching Elasticsearch unless the handler says so"""
     assert ElasticsearchConnError("ReadTimeout: slow").never_reached is False
     assert ElasticsearchConnError("ConnectError: refused", never_reached=True).never_reached is True

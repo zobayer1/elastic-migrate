@@ -5,7 +5,7 @@ from esmigrate.exceptions import Errors
 
 
 def test_elasticsearch_8_is_running(es_url):
-    """Test fails if the compose elasticsearch service is not an 8.x cluster"""
+    """Test fails if the compose Elasticsearch service is not an 8.x cluster"""
     assert httpx.get(es_url, timeout=5).json()["version"]["number"].startswith("8.")
 
 

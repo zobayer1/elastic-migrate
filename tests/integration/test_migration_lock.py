@@ -36,7 +36,7 @@ def isolated_env(tmp_path):
 
 @pytest.fixture
 def lock_holder(db_url, isolated_env):
-    """pytest fixture starting a separate process that holds the migration lock until released"""
+    """pytest fixture for a separate process that holds the migration lock until released"""
     processes = []
 
     def start():

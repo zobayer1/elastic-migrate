@@ -51,7 +51,7 @@ def doc_count(es, index):
 
 
 def test_full_migration_flow(esmigrate, schema_dir, es, es_index, stored_rows, es_url):
-    """Test fails if init and upgrade do not apply every script to elasticsearch and record them correctly"""
+    """Test fails if init and upgrade do not apply every script to Elasticsearch and record them correctly"""
     write_schemas(schema_dir, es_index, FULL_FLOW)
     assert esmigrate("init").exit_code == 0
     result = esmigrate("upgrade")
@@ -148,7 +148,7 @@ def test_namespaces_share_one_database(esmigrate, profile, tmp_path, es, es_inde
 
 @pytest.mark.parametrize("name", ["V2147483648_0__too_big.esm", "V1_99999999999__too_big.esm"])
 def test_oversized_versions_are_rejected_before_running(esmigrate, schema_dir, es, es_index, stored_rows, name):
-    """Test fails if a version that cannot be stored runs against elasticsearch before being rejected"""
+    """Test fails if a version that cannot be stored runs against Elasticsearch before being rejected"""
     write_schemas(schema_dir, es_index, {"V1_0__create_index.esm": CREATE_INDEX, name: INDEX_DOCUMENT})
     result = esmigrate("upgrade")
     assert result.exit_code == Errors.ERR_INVALID_SCHEMA_FILE, result.output

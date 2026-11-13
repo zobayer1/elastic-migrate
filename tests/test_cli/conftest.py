@@ -7,13 +7,13 @@ from tests.test_cli.helpers import ES_HOST
 
 @pytest.fixture
 def runner():
-    """Pytest fixture for testing command line interfaces"""
+    """pytest fixture for testing command line interfaces"""
     return CliRunner()
 
 
 @pytest.fixture
 def schema_dir(tmp_path):
-    """Pytest fixture for providing an empty schema directory"""
+    """pytest fixture for providing an empty schema directory"""
     path = tmp_path / "schema_dir"
     path.mkdir()
     return path
@@ -21,7 +21,7 @@ def schema_dir(tmp_path):
 
 @pytest.fixture
 def context(tmp_path, schema_dir, mocker):
-    """Pytest fixture for a loaded test profile backed by a temporary SQLite database and fake elasticsearch"""
+    """pytest fixture for a loaded test profile backed by a temporary SQLite database and a fake Elasticsearch"""
     ctx = ContextConfig()
     ctx.profile = "test"
     ctx.es_host = ES_HOST

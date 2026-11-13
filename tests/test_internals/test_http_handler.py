@@ -23,7 +23,7 @@ ES_HOST = "http://es.example.com:9200"
 
 @pytest.fixture
 def context():
-    """pytest fixture for providing a context pointing to a fake elasticsearch host"""
+    """pytest fixture for providing a context pointing to a fake Elasticsearch host"""
     ctx = ContextConfig()
     ctx.es_host = ES_HOST
     ctx.headers = {"X-Profile": "test"}
@@ -134,7 +134,7 @@ def ca():
 
 @pytest.fixture
 def certs(tmp_path, ca):
-    """pytest fixture writing CA, client chain, separate cert/key and an encrypted key to files"""
+    """pytest fixture for writing a CA, a client chain, a separate cert/key pair and an encrypted key to files"""
     client = ca.issue_cert("migrator.example.com")
     paths = {name: tmp_path / name for name in ("ca.pem", "chain.pem", "cert.pem", "key.pem", "encrypted.pem")}
     ca.cert_pem.write_to_path(str(paths["ca.pem"]))

@@ -120,7 +120,7 @@ def test_context_loads_schema_namespace(fs):
 
 
 def test_context_defaults_elastic_timeout():
-    """Test fails if the default elasticsearch timeout is not 60 seconds"""
+    """Test fails if the default Elasticsearch timeout is not 60 seconds"""
     context = ContextConfig()
     assert context.es_timeout == 60.0
     assert "elastic_timeout: 60.0" in repr(context)

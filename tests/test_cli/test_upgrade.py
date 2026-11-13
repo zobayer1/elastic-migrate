@@ -131,7 +131,7 @@ def test_cli_upgrade_cmd_fails_with_invalid_command_error(runner, context, schem
 
 
 def test_cli_upgrade_cmd_fails_with_elasticsearch_http_error(runner, context, schema_dir, respx_mock):
-    """Test fails if `esmigrate upgrade` does not stop and record a failed row on an elasticsearch error response"""
+    """Test fails if `esmigrate upgrade` does not stop and record a failed row on an Elasticsearch error response"""
     write_schema(schema_dir, "V1_0__create_twitter.esm", "PUT twitter\nPUT twitter/_doc/1")
     write_schema(schema_dir, "V1_1__never_runs.esm")
     respx_mock.put(f"{ES_HOST}/twitter").respond(400, json={"error": "resource_already_exists_exception"})
@@ -157,7 +157,7 @@ def test_cli_upgrade_cmd_fails_with_elasticsearch_http_error(runner, context, sc
 def test_cli_upgrade_cmd_undoes_a_script_that_never_reached_elasticsearch(
     runner, context, schema_dir, respx_mock, error
 ):
-    """Test fails if a first request that never reached elasticsearch leaves a state row or loses its history"""
+    """Test fails if a first request that never reached Elasticsearch leaves a state row or loses its history"""
     write_schema(schema_dir, "V1_0__create_twitter.esm")
     respx_mock.get(f"{ES_HOST}/twitter").mock(side_effect=error)
     result = invoke(runner, "upgrade")
@@ -490,7 +490,7 @@ def test_cli_upgrade_cmd_stores_execution_time_in_milliseconds(runner, context, 
 def test_cli_upgrade_cmd_marks_failed_when_elasticsearch_may_have_applied_the_request(
     runner, context, schema_dir, respx_mock, error
 ):
-    """Test fails if a failure after the request may have reached elasticsearch is not recorded as failed"""
+    """Test fails if a failure after the request may have reached Elasticsearch is not recorded as failed"""
     write_schema(schema_dir, "V1_0__create_twitter.esm")
     respx_mock.get(f"{ES_HOST}/twitter").mock(side_effect=error)
     result = invoke(runner, "upgrade")

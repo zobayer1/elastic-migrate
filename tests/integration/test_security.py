@@ -19,7 +19,7 @@ def index(secure_es):
 
 @pytest.fixture
 def migration(schema_dir, index):
-    """pytest fixture writing a two-step migration against the test index"""
+    """pytest fixture for a two-step migration against the test index"""
     write_schemas(schema_dir, index, {"V1_0__create.esm": CREATE_INDEX, "V1_1__document.esm": INDEX_DOCUMENT})
     return index
 
@@ -62,7 +62,7 @@ def test_api_key(esmigrate, profile, certs, migration, secure_es):
 
 
 def test_wrong_password_is_an_http_error(esmigrate, profile, certs, migration):
-    """Test fails if rejected credentials are not reported with the elasticsearch HTTP error code"""
+    """Test fails if rejected credentials are not reported with the Elasticsearch HTTP error code"""
     profile(**password_auth(certs, elastic_password="wrong"))
     result = esmigrate("upgrade")
     assert result.exit_code == Errors.ERR_ES_HTTPERROR, result.output

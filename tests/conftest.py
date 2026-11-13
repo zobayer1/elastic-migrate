@@ -8,7 +8,7 @@ from esmigrate.commons.log_setup import CONSOLE_HANDLER, FILE_HANDLER, LOGGER_NA
 
 @pytest.fixture(autouse=True)
 def reset_esmigrate_logging():
-    """pytest fixture closing esmigrate log handlers after each test so no file stays open"""
+    """pytest fixture for closing esmigrate log handlers after each test so no file stays open"""
     yield
     logger = logging.getLogger(LOGGER_NAME)
     remove_handlers(logger, CONSOLE_HANDLER)

@@ -47,7 +47,7 @@ async def drop_tables(db_url):
 
 @pytest.fixture(scope="session")
 def es_url():
-    """pytest fixture for the elasticsearch URL, failing fast when the compose service is not running"""
+    """pytest fixture for the Elasticsearch URL, failing fast when the compose service is not running"""
     try:
         httpx.get(ES_URL, timeout=5).raise_for_status()
     except httpx.HTTPError as err:
@@ -69,7 +69,7 @@ def db_url(request, tmp_path):
 
 @pytest.fixture
 def es_index(es_url):
-    """pytest fixture for a unique elasticsearch index name, deleted after the test"""
+    """pytest fixture for a unique Elasticsearch index name, deleted after the test"""
     name = f"esmigrate-it-{uuid.uuid4().hex[:12]}"
     yield name
     httpx.delete(f"{es_url}/{name}*", params={"ignore_unavailable": "true"}, timeout=30)
@@ -85,7 +85,7 @@ def schema_dir(tmp_path):
 
 @pytest.fixture
 def profile(tmp_path, monkeypatch, es_url, db_url, schema_dir):
-    """pytest fixture writing a real config.json profile and isolating other config locations"""
+    """pytest fixture for writing a real config.json profile and isolating other config locations"""
     data = {"elastic_host": es_url, "schema_db": db_url, "schema_dir": str(schema_dir)}
 
     def write(**overrides):
@@ -101,14 +101,14 @@ def profile(tmp_path, monkeypatch, es_url, db_url, schema_dir):
 
 @pytest.fixture
 def es(es_url):
-    """pytest fixture for a synchronous HTTP client against the integration elasticsearch"""
+    """pytest fixture for a synchronous HTTP client against the integration Elasticsearch"""
     with httpx.Client(base_url=es_url, timeout=30) as client:
         yield client
 
 
 @pytest.fixture
 def stored_rows(db_url):
-    """pytest fixture returning the recorded schema versions for a namespace"""
+    """pytest fixture for reading the recorded schema versions of a namespace"""
 
     def fetch(namespace=DEFAULT_NAMESPACE):
         async def query():
@@ -122,7 +122,7 @@ def stored_rows(db_url):
 
 @pytest.fixture
 def esmigrate(profile):
-    """pytest fixture running the real CLI against the integration profile"""
+    """pytest fixture for running the real CLI against the integration profile"""
     runner = CliRunner()
 
     def run(*args):
@@ -193,7 +193,7 @@ def drop_schema(db_url, name):
 
 @pytest.fixture
 def db_schemas(db_url):
-    """pytest fixture creating unique PostgreSQL schemas or MySQL databases on demand, dropped after the test"""
+    """pytest fixture for creating unique PostgreSQL schemas or MySQL databases on demand, dropped after the test"""
     created = []
 
     def create():
@@ -215,7 +215,7 @@ def db_schema(db_schemas):
 
 @pytest.fixture
 def tables_in(db_url):
-    """pytest fixture listing esm_ tables per schema on the server"""
+    """pytest fixture for listing the esm_ tables per schema on the server"""
 
     def query(schema):
         (rows,) = asyncio.run(
